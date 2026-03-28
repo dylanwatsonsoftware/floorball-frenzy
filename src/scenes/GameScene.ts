@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import type { Ball, GameMode, InputState } from "../types/game";
 import type { PlayerExtended } from "../physics/playerPhysics";
 import { createPlayer, stepPlayer } from "../physics/playerPhysics";
-import { stepBall, resetBall } from "../physics/ballPhysics";
+import { stepBall, resetBall, applyPossessionAssist } from "../physics/ballPhysics";
 import { resolvePlayerBallCollision, resolveStickTipCollision } from "../physics/collision";
 import {
   createShootState,
@@ -295,11 +295,17 @@ export class GameScene extends Phaser.Scene {
     this._hostSlapWasDown = hostInput.slap;
     this._clientSlapWasDown = clientInput.slap;
 
-    // Player–ball collision (body and stick tip)
+    // Player–ball collision (body and stick tip — tip is perpendicular to movement)
+    const hostStick = this._stickDir(this.host, this._hostAim);
+    const clientStick = this._stickDir(this.client, this._clientAim);
     resolvePlayerBallCollision(this.host, this.ball);
     resolvePlayerBallCollision(this.client, this.ball);
-    resolveStickTipCollision(this.host, this.ball, this._hostAim.x, this._hostAim.y);
-    resolveStickTipCollision(this.client, this.ball, this._clientAim.x, this._clientAim.y);
+    resolveStickTipCollision(this.host,   this.ball, hostStick.x,   hostStick.y);
+    resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
+
+    // Possession assist — ball gently follows player when touching stick tip
+    this._applyStickPossession(this.host,   hostStick);
+    this._applyStickPossession(this.client, clientStick);
 
     // Track who last touched the ball (for one-touch bonus)
     this._updateLastTouch();
@@ -327,11 +333,51 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  /** Returns true if the ball is within stick reach of the player. */
+  /** Returns true if ball is near the stick tip or player body. */
   private _ballInRange(who: "host" | "client"): boolean {
     const player = who === "host" ? this.host : this.client;
-    const dist = Math.hypot(this.ball.x - player.x, this.ball.y - player.y);
-    return dist <= STICK_REACH + BALL_RADIUS + 10; // +10px tolerance
+    const aim    = who === "host" ? this._hostAim : this._clientAim;
+    const sDir   = this._stickDir(player, aim);
+    const tipX   = player.x + sDir.x * STICK_REACH;
+    const tipY   = player.y + sDir.y * STICK_REACH;
+    const distToTip  = Math.hypot(this.ball.x - tipX, this.ball.y - tipY);
+    const distToBody = Math.hypot(this.ball.x - player.x, this.ball.y - player.y);
+    return distToTip < BALL_RADIUS + 18 || distToBody < PLAYER_RADIUS + BALL_RADIUS + 5;
+  }
+
+  /**
+   * Returns the perpendicular-to-aim unit vector pointing toward the ball.
+   * This is the direction the stick extends — beside the player, not in front.
+   */
+  protected _stickDir(
+    player: { x: number; y: number },
+    aim: { x: number; y: number }
+  ): { x: number; y: number } {
+    const len = Math.hypot(aim.x, aim.y);
+    if (len === 0) return { x: 0, y: 1 }; // default: down
+    const nx = aim.x / len;
+    const ny = aim.y / len;
+    // Two perpendiculars: CCW (-ny, nx) and CW (ny, -nx)
+    const p1x = -ny, p1y = nx;
+    const p2x =  ny, p2y = -nx;
+    // Pick the side toward the ball
+    const bx = this.ball.x - player.x;
+    const by = this.ball.y - player.y;
+    return (p1x * bx + p1y * by) >= 0
+      ? { x: p1x, y: p1y }
+      : { x: p2x, y: p2y };
+  }
+
+  /** Gently pulls ball along with player when stick tip is touching it. */
+  private _applyStickPossession(
+    player: PlayerExtended,
+    stickDir: { x: number; y: number }
+  ): void {
+    const tipX = player.x + stickDir.x * STICK_REACH;
+    const tipY = player.y + stickDir.y * STICK_REACH;
+    if (Math.hypot(this.ball.x - tipX, this.ball.y - tipY) < BALL_RADIUS + 6) {
+      applyPossessionAssist(this.ball, player.vx, player.vy);
+    }
   }
 
   protected _doWristShot(who: "host" | "client"): void {
@@ -468,25 +514,31 @@ export class GameScene extends Phaser.Scene {
       animMs: number,
       maxAnimMs: number
     ): void => {
-      const len = Math.hypot(aim.x, aim.y);
-      if (len === 0) return;
-      const nx = aim.x / len;
-      const ny = aim.y / len;
+      const aimLen = Math.hypot(aim.x, aim.y);
+      if (aimLen === 0) return;
+      const aNx = aim.x / aimLen;
+      const aNy = aim.y / aimLen;
 
-      // Shot animation: stick pokes forward then retracts (sin curve)
-      const t = animMs > 0 ? 1 - animMs / maxAnimMs : 0; // 0=just fired, 1=done
-      const extra = Math.sin(t * Math.PI) * STICK_LENGTH * 0.9;
-      const reach = PLAYER_RADIUS + STICK_LENGTH + extra;
+      // Perpendicular direction (toward ball side)
+      const stickDir = this._stickDir(player, aim);
+
+      // Swing fraction: 1 = just fired (stick snaps forward), 0 = idle (perpendicular)
+      const swingFrac = animMs > 0 ? Math.sin((animMs / maxAnimMs) * (Math.PI / 2)) : 0;
+
+      // Blend stick direction from perpendicular → forward aim as swingFrac → 1
+      const dirX = stickDir.x * (1 - swingFrac) + aNx * swingFrac;
+      const dirY = stickDir.y * (1 - swingFrac) + aNy * swingFrac;
+      const dLen = Math.hypot(dirX, dirY) || 1;
+      const nx = dirX / dLen;
+      const ny = dirY / dLen;
 
       const baseX = player.x + nx * PLAYER_RADIUS;
       const baseY = player.y + ny * PLAYER_RADIUS;
-      const tipX = player.x + nx * reach;
-      const tipY = player.y + ny * reach;
+      const tipX  = player.x + nx * (PLAYER_RADIUS + STICK_LENGTH);
+      const tipY  = player.y + ny * (PLAYER_RADIUS + STICK_LENGTH);
 
-      // Stick shaft
       g.lineStyle(4, color, 0.9);
       g.lineBetween(baseX, baseY, tipX, tipY);
-      // Stick tip dot
       g.fillStyle(color, 1);
       g.fillCircle(tipX, tipY, 4);
     };
