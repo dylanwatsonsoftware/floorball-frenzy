@@ -10,8 +10,11 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 720,
   backgroundColor: "#1a1a2e",
   scale: {
-    mode: Phaser.Scale.ENVELOP,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    // FIT: scales to fit within the viewport without cropping.
+    // In landscape this fills the screen; in portrait the game renders
+    // at the top at full width with empty space below — no forced rotation.
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
   },
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
 };

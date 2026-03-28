@@ -15,27 +15,6 @@
         background: #000;
       }
 
-      /* Portrait overlay — asks user to rotate; hides game */
-      #rotate-msg {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: #000;
-        color: #fff;
-        font-family: sans-serif;
-        font-size: 22px;
-        text-align: center;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 999;
-        gap: 16px;
-      }
-      #rotate-msg span { font-size: 56px; }
-      @media (orientation: portrait) {
-        #rotate-msg { display: flex; }
-      }
-
       /* Fullscreen toggle — always in real viewport corner, above canvas */
       #fs-btn {
         position: fixed;
@@ -58,11 +37,6 @@
     </style>
   </head>
   <body>
-    <div id="rotate-msg">
-      <span>&#8635;</span>
-      Please rotate your device to landscape
-    </div>
-
     <button id="fs-btn" title="Toggle fullscreen">&#x26F6;</button>
 
     <script>
@@ -71,25 +45,9 @@
         document.body.classList.add("no-fullscreen");
       }
 
-      // Portrait overlay — JS supplement to the CSS media query
-      var rotateMsg = document.getElementById("rotate-msg");
-      function updateOrientation() {
-        var portrait = window.innerWidth < window.innerHeight;
-        rotateMsg.style.display = portrait ? "flex" : "none";
-      }
-      window.addEventListener("resize", updateOrientation);
-      window.addEventListener("orientationchange", function () {
-        setTimeout(updateOrientation, 100);
-      });
-      updateOrientation();
-
       document.getElementById("fs-btn").addEventListener("click", function () {
         if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().then(function () {
-            if (screen.orientation && screen.orientation.lock) {
-              screen.orientation.lock("landscape").catch(function () {});
-            }
-          }).catch(function () {});
+          document.documentElement.requestFullscreen().catch(function () {});
         } else {
           document.exitFullscreen();
         }
