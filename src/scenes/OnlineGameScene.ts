@@ -43,7 +43,6 @@ export class OnlineGameScene extends GameScene {
     this._inputSeq = 0;
     this._onlineClientSlapWasDown = false;
     this._clientWristWasDown = false;
-    this._clientInputOverride = null;
 
     this._peer = new PeerConnection(data.role, data.roomId);
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
@@ -127,19 +126,15 @@ export class OnlineGameScene extends GameScene {
     this._elapsedMs += elapsedMs;
 
     if (this._isHost) {
-      // Detect client wrist-shot rising edge before physics step
+      // Detect client wrist rising edge and fire before physics (event-driven)
       const clientWristFired = this.client.input.wrist && !this._clientWristWasDown;
       this._clientWristWasDown = this.client.input.wrist;
       if (clientWristFired) this._doWristShot("client");
 
-      // Set the override field so GameScene._readClientInput() returns network input
-      // instead of reading local keyboard (the defensive alternative to method override)
-      this._clientInputOverride = this.client.input;
-
-      this._elapsedMs -= elapsedMs; // undo our increment; super will add it back
-      super._fixedUpdate(dt);
-
-      this._clientInputOverride = null; // clear after use
+      // Call physics directly with explicit inputs — no override tricks, no super call.
+      // this.client.input is updated from network messages in _onNetMessage.
+      const hostInput = this._readHostInput();
+      this._runPhysics(hostInput, this.client.input, dt, elapsedMs);
 
       this._snapshotTimer += elapsedMs;
       if (this._snapshotTimer >= SNAPSHOT_INTERVAL_MS) {

@@ -68,8 +68,8 @@ export class GameScene extends Phaser.Scene {
   protected _elapsedMs = 0; // total game time in ms
 
   // Was slap held last frame? (to detect release)
-  private _hostSlapWasDown = false;
-  private _clientSlapWasDown = false;
+  protected _hostSlapWasDown = false;
+  protected _clientSlapWasDown = false;
 
   // Touch UI (present on mobile; keyboard still works on desktop)
   protected _hostJoy!: VirtualJoystick;
@@ -97,11 +97,6 @@ export class GameScene extends Phaser.Scene {
   protected _hostShotAnimMs = 0;
   protected _clientShotAnimMs = 0;
 
-  /**
-   * When non-null, _readClientInput() returns this instead of reading keyboard.
-   * Set by OnlineGameScene on the host so network input drives client physics.
-   */
-  protected _clientInputOverride: import("../types/game").InputState | null = null;
 
   // Keys
   protected _wasd!: {
@@ -273,11 +268,20 @@ export class GameScene extends Phaser.Scene {
   protected _fixedUpdate(dt: number): void {
     const elapsedMs = dt * 1000;
     this._elapsedMs += elapsedMs;
+    this._runPhysics(this._readHostInput(), this._readClientInput(), dt, elapsedMs);
+  }
 
-    const hostInput = this._readHostInput();
-    const clientInput = this._readClientInput();
-
-    // Update aim direction from movement input
+  /**
+   * Core physics step with explicit inputs.
+   * Called by _fixedUpdate (local) and directly by OnlineGameScene (host)
+   * with network-received client input so there is no indirection.
+   */
+  protected _runPhysics(
+    hostInput: InputState,
+    clientInput: InputState,
+    dt: number,
+    elapsedMs: number
+  ): void {
     if (hostInput.moveX !== 0 || hostInput.moveY !== 0) {
       this._hostAim = { x: hostInput.moveX, y: hostInput.moveY };
     }
@@ -288,10 +292,9 @@ export class GameScene extends Phaser.Scene {
     stepPlayer(this.host, hostInput, dt, elapsedMs);
     stepPlayer(this.client, clientInput, dt, elapsedMs);
 
-    // Slap shot: check release BEFORE updating charge so chargeMs is still populated
     if (this._hostSlapWasDown && !hostInput.slap) {
       if (this._hostShoot.chargeMs > 0) this._doSlapShot("host");
-      this._hostShoot.chargeMs = 0;   // always reset on release
+      this._hostShoot.chargeMs = 0;
       this._hostShoot.charging = false;
     }
     if (this._clientSlapWasDown && !clientInput.slap) {
@@ -304,28 +307,22 @@ export class GameScene extends Phaser.Scene {
     updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
     updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
 
-    // Player–ball collision (body and stick tip — tip is perpendicular to movement)
-    const hostStick = this._stickDir(this.host, this._hostAim);
+    const hostStick   = this._stickDir(this.host,   this._hostAim);
     const clientStick = this._stickDir(this.client, this._clientAim);
-    resolvePlayerBallCollision(this.host, this.ball);
+    resolvePlayerBallCollision(this.host,   this.ball);
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host,   this.ball, hostStick.x,   hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
-
-    // Possession assist — ball gently follows player when touching stick tip
     this._applyStickPossession(this.host,   hostStick);
     this._applyStickPossession(this.client, clientStick);
 
-    // Track who last touched the ball (for one-touch bonus)
     this._updateLastTouch();
 
     const goal = stepBall(this.ball, dt);
-    if (goal) {
-      this._onGoal(goal);
-    }
+    if (goal) this._onGoal(goal);
   }
 
-  private _updateLastTouch(): void {
+  protected _updateLastTouch(): void {
     const CONTACT = 32; // slightly larger than PLAYER_RADIUS+BALL_RADIUS
     if (Math.hypot(this.host.x - this.ball.x, this.host.y - this.ball.y) < CONTACT) {
       this._lastTouch = { playerId: "host", timeMs: this._elapsedMs };
@@ -378,7 +375,7 @@ export class GameScene extends Phaser.Scene {
    *  - speed gate: if ball arrives too fast (incoming pass/shot), skip possession
    *    so the collision system handles the deflection instead
    */
-  private _applyStickPossession(
+  protected _applyStickPossession(
     player: PlayerExtended,
     stickDir: { x: number; y: number }
   ): void {
@@ -457,7 +454,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   protected _readClientInput(): InputState {
-    if (this._clientInputOverride !== null) return this._clientInputOverride;
     const k = this._arrows;
     let mx = 0;
     let my = 0;
@@ -468,7 +464,7 @@ export class GameScene extends Phaser.Scene {
     return { moveX: mx, moveY: my, wrist: k.wrist.isDown, slap: k.slap.isDown, dash: k.dash.isDown };
   }
 
-  private _onGoal(scorer: "host" | "client"): void {
+  protected _onGoal(scorer: "host" | "client"): void {
     this.score[scorer]++;
     const label = scorer === "host" ? "Blue scores!" : "Red scores!";
     if (this.score[scorer] >= WINNING_SCORE) {
