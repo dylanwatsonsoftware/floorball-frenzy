@@ -22,7 +22,7 @@ export class OnlineGameScene extends GameScene {
 
   private _statusText!: Phaser.GameObjects.Text;
   private _pingText!: Phaser.GameObjects.Text;
-  private _sharePanel!: Phaser.GameObjects.Container;
+  private _sharePanelObjects: Phaser.GameObjects.GameObject[] = [];
   private _debugInputText!: Phaser.GameObjects.Text;
 
   private _onlineClientSlapWasDown = false;
@@ -49,7 +49,7 @@ export class OnlineGameScene extends GameScene {
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
     this._peer.onChannelOpen = () => {
       this._connected = true;
-      this._sharePanel?.setVisible(false);
+      this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
       this._statusText?.setText("");
       if (this._isHost) this._peer.send({ type: "start" });
     };
@@ -92,7 +92,7 @@ export class OnlineGameScene extends GameScene {
       .text(10, 50, "", { fontSize: "12px", color: "#ffff00" })
       .setDepth(20);
 
-    this._sharePanel = this._buildSharePanel();
+    this._buildSharePanel();
   }
 
   update(time: number, delta: number): void {
@@ -251,7 +251,7 @@ export class OnlineGameScene extends GameScene {
       }
       case "start": {
         this._connected = true;
-        this._sharePanel?.setVisible(false);
+        this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
         this._statusText?.setText("");
         break;
       }
@@ -267,55 +267,49 @@ export class OnlineGameScene extends GameScene {
   }
 
   /** Big centered panel shown on host while waiting for opponent. */
-  private _buildSharePanel(): Phaser.GameObjects.Container {
+  private _buildSharePanel(): void {
+    if (!this._isHost) return;
+
     const shareUrl = `${window.location.origin}${window.location.pathname}#${this._roomId}`;
     const cx = 640, cy = 360;
 
-    const overlay = this.add.rectangle(cx, cy, 560, 320, 0x000000, 0.75).setDepth(18);
+    const overlay = this.add.rectangle(cx, cy, 560, 340, 0x000000, 0.8).setDepth(18);
 
-    const title = this.add.text(cx, cy - 110, "Waiting for opponent…", {
-      fontSize: "26px", color: "#ffffff", fontStyle: "bold",
+    const title = this.add.text(cx, cy - 120, "Waiting for opponent…", {
+      fontSize: "28px", color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
 
-    const roomLabel = this.add.text(cx, cy - 65, `Room code: ${this._roomId}`, {
-      fontSize: "20px", color: "#aaaaff",
+    const roomLabel = this.add.text(cx, cy - 72, `Room code: ${this._roomId}`, {
+      fontSize: "22px", color: "#aaaaff",
     }).setOrigin(0.5).setDepth(19);
 
-    // Share / copy button
-    const btnBg = this.add.rectangle(cx, cy, 420, 70, 0x2255cc, 1)
-      .setStrokeStyle(2, 0x6699ff)
+    // Large share button — direct children on scene (no Container) so input works first tap
+    const btnBg = this.add.rectangle(cx, cy, 440, 80, 0x1a44bb, 1)
+      .setStrokeStyle(2, 0x6699ff, 1)
       .setInteractive({ useHandCursor: true })
       .setDepth(19);
 
-    const btnLabel = this.add.text(cx, cy, "Tap to share link with friend", {
-      fontSize: "20px", color: "#ffffff",
-    }).setOrigin(0.5).setDepth(20);
+    const btnLabel = this.add.text(cx, cy, "📤  Share link with friend", {
+      fontSize: "22px", color: "#ffffff",
+    }).setOrigin(0.5).setDepth(19);
 
-    btnBg.on("pointerover", () => btnBg.setFillStyle(0x3366ee));
-    btnBg.on("pointerout",  () => btnBg.setFillStyle(0x2255cc));
-    btnBg.on("pointerdown", () => {
+    // Use pointerup (not pointerdown) — avoids first-tap-is-hover on mobile
+    btnBg.on("pointerup", () => {
       if (navigator.share) {
-        void navigator.share({ title: "Floorball Frenzy — join my game!", url: shareUrl });
-        btnLabel.setText("✓  Sharing…");
+        void navigator.share({ title: "Floorball Frenzy — join my game!", url: shareUrl })
+          .then(() => btnLabel.setText("✓  Shared!"))
+          .catch(() => { /* user cancelled */ });
       } else {
-        void navigator.clipboard.writeText(shareUrl).then(() => {
-          btnLabel.setText("✓  Link copied to clipboard!");
-          this.time.delayedCall(3000, () => btnLabel.setText("Tap to share link with friend"));
-        }).catch(() => {
-          btnLabel.setText(shareUrl);
-        });
+        // Prompt is the most reliable cross-browser fallback; user can copy from dialog
+        window.prompt("Copy this link and send to your friend:", shareUrl);
       }
     });
 
-    const hint = this.add.text(cx, cy + 70, "Or share the URL — room code is in the address bar", {
-      fontSize: "14px", color: "#666688",
+    const hint = this.add.text(cx, cy + 70, "Or copy the URL from your address bar", {
+      fontSize: "15px", color: "#556688",
     }).setOrigin(0.5).setDepth(19);
 
-    // Only show on host
-    const panel = this.add.container(0, 0, [overlay, title, roomLabel, btnBg, btnLabel, hint]);
-    panel.setDepth(18);
-    panel.setVisible(this._isHost);
-    return panel;
+    this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint];
   }
 
   shutdown(): void {
