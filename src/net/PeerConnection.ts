@@ -6,9 +6,22 @@ export type Role = "host" | "client";
 type OnMessageCb = (msg: GameMessage) => void;
 type OnStateCb = (state: RTCPeerConnectionState) => void;
 
+// STUN: used when a direct P2P path exists (same network, or open NAT)
+// TURN: relay fallback for symmetric/carrier-grade NAT (LTE, most mobile networks)
+// Open Relay Project provides free public TURN — no SLA, fine for development.
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
+  {
+    urls: [
+      "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:80?transport=tcp",
+      "turn:openrelay.metered.ca:443",
+      "turns:openrelay.metered.ca:443",    // TURN over TLS — works through strict firewalls
+    ],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
 ];
 
 const SIGNAL_POLL_MS = 500;
