@@ -1,0 +1,25 @@
+{
+  "name": "floorball-frenzy",
+  "version": "1.0.0",
+  "description": "A fast-paced, arcade-style 1v1 floorball game built for the web. Designed for mobile-first play, quick matches, and easy multiplayer via shareable links.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@vitest/coverage-v8": "2.1.9",
+    "typescript": "6.0.2",
+    "vite": "5.4.21",
+    "vitest": "2.1.9"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  }
+}
