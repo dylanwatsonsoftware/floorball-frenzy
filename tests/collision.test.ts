@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { resolvePlayerBallCollision } from "../src/physics/collision";
-import { PLAYER_RADIUS, BALL_RADIUS } from "../src/physics/constants";
+import { resolvePlayerBallCollision, resolveStickTipCollision } from "../src/physics/collision";
+import { PLAYER_RADIUS, BALL_RADIUS, STICK_LENGTH } from "../src/physics/constants";
 import type { Ball } from "../src/types/game";
 import type { PlayerExtended } from "../src/physics/playerPhysics";
 
@@ -89,5 +89,55 @@ describe("resolvePlayerBallCollision — airborne ball", () => {
     resolvePlayerBallCollision(p, ball);
     const dist = Math.hypot(ball.x - p.x, ball.y - p.y);
     expect(dist).toBeGreaterThanOrEqual(CONTACT_DIST - 0.001);
+  });
+});
+
+const TIP_DIST = PLAYER_RADIUS + STICK_LENGTH; // 48
+
+describe("resolveStickTipCollision", () => {
+  it("does nothing when ball is far from stick tip", () => {
+    const p = makePlayer({ x: 0, y: 0 });
+    const ball = makeBall({ x: TIP_DIST + BALL_RADIUS + 10, y: 0 }); // beyond tip
+    resolveStickTipCollision(p, ball, 1, 0);
+    expect(ball.vx).toBe(0);
+    expect(ball.x).toBeCloseTo(TIP_DIST + BALL_RADIUS + 10, 1);
+  });
+
+  it("does nothing when aim is zero vector", () => {
+    const p = makePlayer({ x: 0, y: 0 });
+    const ball = makeBall({ x: TIP_DIST, y: 0 });
+    resolveStickTipCollision(p, ball, 0, 0);
+    expect(ball.x).toBe(TIP_DIST); // unchanged
+  });
+
+  it("pushes ball away from tip on contact", () => {
+    const p = makePlayer({ x: 0, y: 0 });
+    // Ball just beyond tip (tip at TIP_DIST, ball at TIP_DIST + 8 — inside BALL_RADIUS)
+    const ball = makeBall({ x: TIP_DIST + 8, y: 0 });
+    resolveStickTipCollision(p, ball, 1, 0);
+    // Ball should be pushed further right (away from tip)
+    expect(ball.x).toBeGreaterThan(TIP_DIST + 8);
+  });
+
+  it("transfers player velocity to ball on stick-tip contact", () => {
+    const p = makePlayer({ x: 0, y: 0, vx: 300, vy: 0 });
+    // Ball just beyond tip — player moving right into it
+    const ball = makeBall({ x: TIP_DIST + 8, y: 0 });
+    resolveStickTipCollision(p, ball, 1, 0);
+    expect(ball.vx).toBeGreaterThan(0);
+  });
+
+  it("normalises non-unit aim vectors correctly", () => {
+    const p = makePlayer({ x: 0, y: 0, vx: 0, vy: 200 });
+    // Aim diagonally (non-unit)
+    const aimX = 3, aimY = 4; // magnitude 5
+    const len = Math.hypot(aimX, aimY);
+    const nax = aimX / len, nay = aimY / len;
+    const tipX = nax * TIP_DIST, tipY = nay * TIP_DIST;
+    const ball = makeBall({ x: tipX, y: tipY - 2 }); // near tip
+    resolveStickTipCollision(p, ball, aimX, aimY);
+    // Ball should have moved (overlap resolved)
+    const distToTip = Math.hypot(ball.x - tipX, ball.y - tipY);
+    expect(distToTip).toBeGreaterThanOrEqual(BALL_RADIUS - 0.1);
   });
 });

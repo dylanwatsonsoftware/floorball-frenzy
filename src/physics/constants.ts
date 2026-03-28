@@ -50,6 +50,12 @@ export const BALL_BOUNCE    = 0.8;
 export const GRAVITY        = 900;
 export const BALL_BOUNCE_Z  = 0.5;
 
+// ─── Stick ────────────────────────────────────────────────────────────────────
+// Stick extends beyond player body; tip is where ball contact happens.
+export const STICK_LENGTH = 28; // px beyond player radius (~1 m)
+// Max distance (player centre → ball centre) for a shot to connect
+export const STICK_REACH  = PLAYER_RADIUS + STICK_LENGTH; // 48 px
+
 // ─── Possession ───────────────────────────────────────────────────────────────
 export const CONTROL_RADIUS = 40;
 

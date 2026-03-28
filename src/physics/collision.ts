@@ -1,6 +1,6 @@
 import type { Ball } from "../types/game";
 import type { PlayerExtended } from "./playerPhysics";
-import { PLAYER_RADIUS, BALL_RADIUS } from "./constants";
+import { PLAYER_RADIUS, BALL_RADIUS, STICK_LENGTH } from "./constants";
 
 const CONTACT_DIST = PLAYER_RADIUS + BALL_RADIUS;
 
@@ -38,6 +38,51 @@ export function resolvePlayerBallCollision(
   const dot = relVx * nx + relVy * ny;
 
   // Only transfer if player is moving toward ball (dot > 0)
+  if (dot > 0) {
+    ball.vx += nx * dot * TRANSFER;
+    ball.vy += ny * dot * TRANSFER;
+  }
+}
+
+/**
+ * Resolve a collision between the stick tip and the ball.
+ * The stick tip is STICK_LENGTH beyond the player's edge, in the aim direction.
+ * Only fires when the ball overlaps the tip circle (radius = BALL_RADIUS).
+ */
+export function resolveStickTipCollision(
+  player: PlayerExtended,
+  ball: Ball,
+  aimX: number,
+  aimY: number
+): void {
+  const aimLen = Math.hypot(aimX, aimY);
+  if (aimLen === 0) return;
+
+  const nax = aimX / aimLen;
+  const nay = aimY / aimLen;
+
+  // Stick tip position
+  const tipX = player.x + nax * (PLAYER_RADIUS + STICK_LENGTH);
+  const tipY = player.y + nay * (PLAYER_RADIUS + STICK_LENGTH);
+
+  const dx = ball.x - tipX;
+  const dy = ball.y - tipY;
+  const dist = Math.hypot(dx, dy);
+
+  if (dist >= BALL_RADIUS) return; // no contact
+
+  const nx = dist > 0 ? dx / dist : nax;
+  const ny = dist > 0 ? dy / dist : nay;
+
+  // Separate ball from stick tip
+  const overlap = BALL_RADIUS - dist;
+  ball.x += nx * overlap;
+  ball.y += ny * overlap;
+
+  // Transfer player velocity along normal (same rule as body collision)
+  const relVx = player.vx - ball.vx;
+  const relVy = player.vy - ball.vy;
+  const dot = relVx * nx + relVy * ny;
   if (dot > 0) {
     ball.vx += nx * dot * TRANSFER;
     ball.vy += ny * dot * TRANSFER;

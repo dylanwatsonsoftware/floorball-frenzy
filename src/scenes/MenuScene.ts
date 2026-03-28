@@ -10,6 +10,13 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Enter native fullscreen on first touch (mobile)
+    this.input.once("pointerdown", () => {
+      if (!this.scale.isFullscreen) {
+        this.scale.startFullscreen();
+      }
+    });
+
     // Auto-join if a room code is in the URL hash (e.g. #ABC123)
     const hashCode = window.location.hash.slice(1).toUpperCase();
     if (hashCode.length > 0) {
