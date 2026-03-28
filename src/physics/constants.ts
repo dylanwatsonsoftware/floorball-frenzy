@@ -39,8 +39,8 @@ export const DZONE_BOTTOM = DZONE_TOP + DZONE_HEIGHT;
 
 // ─── Player ───────────────────────────────────────────────────────────────────
 export const PLAYER_RADIUS    = 20;
-export const PLAYER_MAX_SPEED = 500;  // was 300 — faster arcade feel
-export const PLAYER_ACCEL     = 2000; // was 1200
+export const PLAYER_MAX_SPEED = 700;
+export const PLAYER_ACCEL     = 2800;
 export const PLAYER_FRICTION  = 0.85;
 
 // ─── Ball ─────────────────────────────────────────────────────────────────────

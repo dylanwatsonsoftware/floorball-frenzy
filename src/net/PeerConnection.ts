@@ -6,9 +6,6 @@ export type Role = "host" | "client";
 type OnMessageCb = (msg: GameMessage) => void;
 type OnStateCb = (state: RTCPeerConnectionState) => void;
 
-// STUN: used when a direct P2P path exists (same network, or open NAT)
-// TURN: relay fallback for symmetric/carrier-grade NAT (LTE, most mobile networks)
-// Open Relay Project provides free public TURN — no SLA, fine for development.
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
@@ -17,7 +14,7 @@ const ICE_SERVERS: RTCIceServer[] = [
       "turn:openrelay.metered.ca:80",
       "turn:openrelay.metered.ca:80?transport=tcp",
       "turn:openrelay.metered.ca:443",
-      "turns:openrelay.metered.ca:443",    // TURN over TLS — works through strict firewalls
+      "turns:openrelay.metered.ca:443",
     ],
     username: "openrelayproject",
     credential: "openrelayproject",
@@ -26,59 +23,32 @@ const ICE_SERVERS: RTCIceServer[] = [
 
 const SIGNAL_POLL_MS = 500;
 const ICE_GATHER_TIMEOUT_MS = 5000;
+// Delay before reconnecting after "disconnected" (transient drops often self-heal)
+const RECONNECT_DELAY_MS = 3000;
+const MAX_RECONNECT_ATTEMPTS = 6;
 
 const log = (role: string, ...args: unknown[]): void =>
   console.log(`[PeerConnection:${role}]`, ...args);
 
 export class PeerConnection {
-  private _pc: RTCPeerConnection;
+  private _pc!: RTCPeerConnection;
   private _channel: RTCDataChannel | null = null;
   private _role: Role;
   private _roomId: string;
   private _pollTimer: ReturnType<typeof setInterval> | null = null;
+  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private _reconnectAttempts = 0;
 
   onMessage: OnMessageCb = () => undefined;
   onStateChange: OnStateCb = () => undefined;
   onChannelOpen: () => void = () => undefined;
+  onReconnecting: () => void = () => undefined;
 
   constructor(role: Role, roomId: string) {
     this._role = role;
     this._roomId = roomId;
-
     log(role, "creating RTCPeerConnection, room:", roomId);
-    this._pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-
-    this._pc.onconnectionstatechange = () => {
-      log(role, "connectionState →", this._pc.connectionState);
-      this.onStateChange(this._pc.connectionState);
-    };
-
-    this._pc.oniceconnectionstatechange = () => {
-      log(role, "iceConnectionState →", this._pc.iceConnectionState);
-    };
-
-    this._pc.onicegatheringstatechange = () => {
-      log(role, "iceGatheringState →", this._pc.iceGatheringState);
-    };
-
-    this._pc.onsignalingstatechange = () => {
-      log(role, "signalingState →", this._pc.signalingState);
-    };
-
-    if (role === "host") {
-      this._channel = this._pc.createDataChannel("game", {
-        ordered: false,
-        maxRetransmits: 0,
-      });
-      log(role, "created dataChannel");
-      this._setupChannel(this._channel);
-    } else {
-      this._pc.ondatachannel = (ev) => {
-        log(role, "received dataChannel");
-        this._channel = ev.channel;
-        this._setupChannel(this._channel);
-      };
-    }
+    this._initPC();
   }
 
   async startAsHost(): Promise<void> {
@@ -106,10 +76,7 @@ export class PeerConnection {
   }
 
   close(): void {
-    if (this._pollTimer !== null) {
-      clearInterval(this._pollTimer);
-      this._pollTimer = null;
-    }
+    this._clearTimers();
     this._channel?.close();
     this._pc.close();
   }
@@ -119,6 +86,99 @@ export class PeerConnection {
   }
 
   // ─── Private ────────────────────────────────────────────────────────────────
+
+  private _initPC(): void {
+    this._pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+    this._pc.onconnectionstatechange = () => {
+      const state = this._pc.connectionState;
+      log(this._role, "connectionState →", state);
+      this.onStateChange(state);
+
+      if (state === "connected") {
+        // Clear any pending reconnect timer — we're back
+        if (this._reconnectTimer !== null) {
+          clearTimeout(this._reconnectTimer);
+          this._reconnectTimer = null;
+        }
+        this._reconnectAttempts = 0;
+      } else if (state === "failed") {
+        this._scheduleReconnect(0);
+      } else if (state === "disconnected") {
+        // Wait a moment — transient network hiccup may self-heal
+        this._scheduleReconnect(RECONNECT_DELAY_MS);
+      }
+    };
+
+    this._pc.oniceconnectionstatechange = () =>
+      log(this._role, "iceConnectionState →", this._pc.iceConnectionState);
+    this._pc.onicegatheringstatechange = () =>
+      log(this._role, "iceGatheringState →", this._pc.iceGatheringState);
+    this._pc.onsignalingstatechange = () =>
+      log(this._role, "signalingState →", this._pc.signalingState);
+
+    if (this._role === "host") {
+      this._channel = this._pc.createDataChannel("game", {
+        ordered: false,
+        maxRetransmits: 0,
+      });
+      log(this._role, "created dataChannel");
+      this._setupChannel(this._channel);
+    } else {
+      this._pc.ondatachannel = (ev) => {
+        log(this._role, "received dataChannel");
+        this._channel = ev.channel;
+        this._setupChannel(this._channel);
+      };
+    }
+  }
+
+  private _scheduleReconnect(delayMs: number): void {
+    // Don't stack multiple reconnect attempts
+    if (this._reconnectTimer !== null) return;
+    if (this._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      log(this._role, "max reconnect attempts reached — giving up");
+      return;
+    }
+    log(this._role, `scheduling reconnect in ${delayMs}ms (attempt ${this._reconnectAttempts + 1})`);
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      this._doReconnect();
+    }, delayMs);
+  }
+
+  private _doReconnect(): void {
+    this._reconnectAttempts++;
+    log(this._role, `reconnecting… attempt ${this._reconnectAttempts}`);
+
+    // Tear down old connection
+    this._clearTimers();
+    this._channel?.close();
+    this._pc.close();
+    this._channel = null;
+
+    // Fire callback so the scene can show "Reconnecting…" and pause game
+    this.onReconnecting();
+
+    // Build fresh PC and re-run signaling
+    this._initPC();
+    if (this._role === "host") {
+      void this.startAsHost();
+    } else {
+      void this.startAsClient();
+    }
+  }
+
+  private _clearTimers(): void {
+    if (this._pollTimer !== null) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
+    }
+    if (this._reconnectTimer !== null) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+  }
 
   private _setupChannel(ch: RTCDataChannel): void {
     ch.onopen = () => {

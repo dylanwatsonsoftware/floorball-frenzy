@@ -52,10 +52,14 @@ export class OnlineGameScene extends GameScene {
       this._statusText?.setText("");
       if (this._isHost) this._peer.send({ type: "start" });
     };
+    this._peer.onReconnecting = () => {
+      this._connected = false;
+      this._statusText?.setText("Reconnecting…");
+    };
     this._peer.onStateChange = (state) => {
       console.log("[OnlineGame] connectionState →", state);
-      if (state === "failed" || state === "disconnected" || state === "closed") {
-        this._statusText?.setText(`Connection ${state} — press ESC`);
+      if (state === "closed") {
+        this._statusText?.setText(`Connection closed — press ESC`);
       }
     };
 
@@ -157,11 +161,12 @@ export class OnlineGameScene extends GameScene {
       this._onlineClientSlapWasDown = input.slap;
       updateShootCharge(this._clientShoot, input.slap, elapsedMs);
 
-      // Local prediction: stick tip collision (visual only — host is authoritative)
+      // Local prediction: stick tip collision + possession (host is authoritative)
       const clientStick = this._stickDir(this.client, this._clientAim);
       resolvePlayerBallCollision(this.host, this.ball);
       resolvePlayerBallCollision(this.client, this.ball);
       resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
+      this._applyStickPossession(this.client, clientStick);
       stepBall(this.ball, dt);
 
       this._peer.send({ type: "input", seq: ++this._inputSeq, input });
@@ -223,7 +228,7 @@ export class OnlineGameScene extends GameScene {
             players: { host: this.host, client: this.client },
             score: this.score,
           };
-          lerpState(current, msg.snapshot, 0.25);
+          lerpState(current, msg.snapshot, 0.15);
         }
         break;
       }

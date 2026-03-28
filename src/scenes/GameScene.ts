@@ -233,8 +233,8 @@ export class GameScene extends Phaser.Scene {
       this.scene.start("MenuScene");
     });
 
-    // Touch UI — joystick anywhere in the left third, buttons on the far right
-    this._hostJoy = new VirtualJoystick(this, 0, 0, 380, 720);
+    // Touch UI — joystick anywhere in the left 60%, buttons on the far right
+    this._hostJoy = new VirtualJoystick(this, 0, 0, 768, 720);
     this._hostButtons = new ActionButtons(this, 1210, 360, 0x4488ff);
 
     // Enable multi-touch
