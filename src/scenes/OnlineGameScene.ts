@@ -175,6 +175,13 @@ export class OnlineGameScene extends GameScene {
     }
   }
 
+  protected override _onGoal(scorer: "host" | "client"): void {
+    super._onGoal(scorer);
+    if (this._isHost) {
+      this._peer.send({ type: "goal", scorer });
+    }
+  }
+
   private _readOnlineClientInput() {
     const w = this._wasd;
     const a = this._arrows;
@@ -243,11 +250,7 @@ export class OnlineGameScene extends GameScene {
       }
       case "goal": {
         if (!this._isHost) {
-          this.score[msg.scorer]++;
-          this._messageText.setText(
-            `${msg.scorer === "host" ? "Blue" : "Red"} scores!  ${this.score.host} — ${this.score.client}`
-          );
-          this._frozenMs = 1500;
+          this._onGoal(msg.scorer);
         }
         break;
       }
