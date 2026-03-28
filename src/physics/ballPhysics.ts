@@ -12,6 +12,9 @@ import {
   GOAL_TOP,
   GOAL_BOTTOM,
   GOAL_Z_THRESHOLD,
+  GOAL_LINE_LEFT,
+  GOAL_LINE_RIGHT,
+  CORNER_RADIUS,
 } from "./constants";
 
 export type GoalEvent = "host" | "client" | null;
@@ -27,7 +30,6 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
   if (ball.z <= 0) {
     ball.z = 0;
     ball.vz *= -BALL_BOUNCE_Z;
-    // Dampen tiny bounces to rest
     if (Math.abs(ball.vz) < 10) ball.vz = 0;
   }
 
@@ -41,42 +43,87 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
 
-  // Check goal before wall collisions
+  // Goal detection (at goal line, not end wall — space behind goals is live)
   const goal = checkGoal(ball);
   if (goal) return goal;
 
-  // Wall collisions — top/bottom
+  // Straight wall collisions — top/bottom
   if (ball.y - BALL_RADIUS < FIELD_TOP) {
     ball.y = FIELD_TOP + BALL_RADIUS;
-    ball.vy *= -BALL_BOUNCE;
+    ball.vy = Math.abs(ball.vy) * BALL_BOUNCE;
   } else if (ball.y + BALL_RADIUS > FIELD_BOTTOM) {
     ball.y = FIELD_BOTTOM - BALL_RADIUS;
-    ball.vy *= -BALL_BOUNCE;
+    ball.vy = -Math.abs(ball.vy) * BALL_BOUNCE;
   }
 
-  // Wall collisions — left/right (only outside goal mouth)
-  const inGoalMouth = ball.y >= GOAL_TOP && ball.y <= GOAL_BOTTOM;
-  if (!inGoalMouth) {
-    if (ball.x - BALL_RADIUS < FIELD_LEFT) {
-      ball.x = FIELD_LEFT + BALL_RADIUS;
-      ball.vx *= -BALL_BOUNCE;
-    } else if (ball.x + BALL_RADIUS > FIELD_RIGHT) {
-      ball.x = FIELD_RIGHT - BALL_RADIUS;
-      ball.vx *= -BALL_BOUNCE;
-    }
+  // Straight wall collisions — end walls (always bounce; goal mouth is open
+  // in physics but score was already detected above)
+  if (ball.x - BALL_RADIUS < FIELD_LEFT) {
+    ball.x = FIELD_LEFT + BALL_RADIUS;
+    ball.vx = Math.abs(ball.vx) * BALL_BOUNCE;
+  } else if (ball.x + BALL_RADIUS > FIELD_RIGHT) {
+    ball.x = FIELD_RIGHT - BALL_RADIUS;
+    ball.vx = -Math.abs(ball.vx) * BALL_BOUNCE;
   }
+
+  // Rounded corner collision — prevents ball sticking in corners
+  resolveCorners(ball);
 
   return null;
 }
 
 function checkGoal(ball: Ball): GoalEvent {
-  const inGoalMouth = ball.y >= GOAL_TOP && ball.y <= GOAL_BOTTOM;
-  if (!inGoalMouth) return null;
-  if (ball.z >= GOAL_Z_THRESHOLD) return null;
+  const inMouth = ball.y >= GOAL_TOP && ball.y <= GOAL_BOTTOM;
+  if (!inMouth || ball.z >= GOAL_Z_THRESHOLD) return null;
 
-  if (ball.x - BALL_RADIUS < FIELD_LEFT) return "host"; // client scored on host's goal
-  if (ball.x + BALL_RADIUS > FIELD_RIGHT) return "client"; // host scored on client's goal
+  // Left goal: ball crosses goal line travelling left (vx < 0)
+  if (ball.x - BALL_RADIUS < GOAL_LINE_LEFT && ball.vx < 0) return "host";
+  // Right goal: ball crosses goal line travelling right (vx > 0)
+  if (ball.x + BALL_RADIUS > GOAL_LINE_RIGHT && ball.vx > 0) return "client";
   return null;
+}
+
+/**
+ * Push the ball away from rounded corners.
+ * Corner arcs have radius CORNER_RADIUS centred at the four inset corners.
+ * Ball centre must stay within CORNER_RADIUS - BALL_RADIUS from each arc centre.
+ */
+function resolveCorners(ball: Ball): void {
+  const R = CORNER_RADIUS;
+  const minDist = R - BALL_RADIUS;
+
+  const arcCentres = [
+    { cx: FIELD_LEFT  + R, cy: FIELD_TOP    + R }, // top-left
+    { cx: FIELD_RIGHT - R, cy: FIELD_TOP    + R }, // top-right
+    { cx: FIELD_LEFT  + R, cy: FIELD_BOTTOM - R }, // bottom-left
+    { cx: FIELD_RIGHT - R, cy: FIELD_BOTTOM - R }, // bottom-right
+  ];
+
+  for (const { cx, cy } of arcCentres) {
+    // Only check when ball is in the corner zone
+    const inZoneX = Math.abs(ball.x - cx) < R;
+    const inZoneY = Math.abs(ball.y - cy) < R;
+    if (!inZoneX || !inZoneY) continue;
+
+    const dx = ball.x - cx;
+    const dy = ball.y - cy;
+    const dist = Math.hypot(dx, dy);
+    if (dist === 0 || dist <= minDist) continue;
+
+    // Ball has crossed the corner arc — push it inward
+    const nx = dx / dist; // outward normal
+    const ny = dy / dist;
+
+    ball.x = cx + nx * minDist;
+    ball.y = cy + ny * minDist;
+
+    // Reflect the outward velocity component with restitution
+    const outwardVel = ball.vx * nx + ball.vy * ny;
+    if (outwardVel > 0) {
+      ball.vx -= (1 + BALL_BOUNCE) * outwardVel * nx;
+      ball.vy -= (1 + BALL_BOUNCE) * outwardVel * ny;
+    }
+  }
 }
 
 /**
@@ -92,7 +139,7 @@ export function applyPossessionAssist(
 }
 
 /**
- * Reset ball to center of field.
+ * Reset ball to centre of field.
  */
 export function resetBall(ball: Ball): void {
   ball.x = (FIELD_LEFT + FIELD_RIGHT) / 2;

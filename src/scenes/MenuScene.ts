@@ -10,6 +10,18 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Auto-join if a room code is in the URL hash (e.g. #ABC123)
+    const hashCode = window.location.hash.slice(1).toUpperCase();
+    if (hashCode.length > 0) {
+      window.location.hash = "";
+      this.scene.start("OnlineGameScene", {
+        mode: "online",
+        roomId: hashCode,
+        role: "client",
+      });
+      return;
+    }
+
     this.add
       .text(640, 120, "Floorball Frenzy", { fontSize: "56px", color: "#ffffff", fontStyle: "bold" })
       .setOrigin(0.5);
@@ -30,6 +42,7 @@ export class MenuScene extends Phaser.Scene {
     // ── Online: host ─────────────────────────────────────────────────────────
     this._makeButton(640, 440, "🌐  Host Online Game", 0xaaaaff, () => {
       const roomId = randomRoomId();
+      window.location.hash = roomId;
       this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
     });
 
@@ -37,15 +50,17 @@ export class MenuScene extends Phaser.Scene {
     this._makeButton(640, 530, "🔗  Join Game  (enter room code)", 0xffaaaa, () => {
       const code = window.prompt("Enter room code:");
       if (!code) return;
+      const roomId = code.trim().toUpperCase();
+      window.location.hash = roomId;
       this.scene.start("OnlineGameScene", {
         mode: "online",
-        roomId: code.trim().toUpperCase(),
+        roomId,
         role: "client",
       });
     });
 
     this.add
-      .text(640, 590, "Share the room code with your opponent", {
+      .text(640, 590, "Share the URL with your opponent — room code is in the address bar", {
         fontSize: "15px", color: "#666666",
       })
       .setOrigin(0.5);

@@ -20,7 +20,8 @@ import {
   FIELD_BOTTOM,
   GOAL_TOP,
   GOAL_BOTTOM,
-  GOAL_DEPTH,
+  GOAL_LINE_LEFT,
+  GOAL_LINE_RIGHT,
   PLAYER_RADIUS,
   BALL_RADIUS,
   FIXED_DT,
@@ -221,10 +222,9 @@ export class GameScene extends Phaser.Scene {
       this.scene.start("MenuScene");
     });
 
-    // Touch UI — joystick on left third, action buttons on right side
-    // Zone covers the full canvas height so the player can drag anywhere on their side
-    this._hostJoy = new VirtualJoystick(this, 0, 0, 430, 720);
-    this._hostButtons = new ActionButtons(this, 60, 360, 0x4488ff);
+    // Touch UI — joystick anywhere in the left third, buttons on the far right
+    this._hostJoy = new VirtualJoystick(this, 0, 0, 380, 720);
+    this._hostButtons = new ActionButtons(this, 1210, 360, 0x4488ff);
 
     // Enable multi-touch
     this.input.addPointer(3);
@@ -431,58 +431,84 @@ export class GameScene extends Phaser.Scene {
 
     const W = FIELD_RIGHT - FIELD_LEFT;
     const H = FIELD_BOTTOM - FIELD_TOP;
+    const midX = (FIELD_LEFT + FIELD_RIGHT) / 2;
     const midY = (FIELD_TOP + FIELD_BOTTOM) / 2;
     const r = CORNER_RADIUS;
+    const goalH = GOAL_BOTTOM - GOAL_TOP;
 
-    // Field background — rounded rect
-    g.fillStyle(0x2d7a3a, 1);
+    // ── Field surface (Gerflor sports green) ─────────────────────────────────
+    g.fillStyle(0x3a9e5f, 1);
     g.fillRoundedRect(FIELD_LEFT, FIELD_TOP, W, H, r);
 
-    // D-zones (crease areas)
-    g.fillStyle(0x265e30, 0.8);
-    g.fillRect(FIELD_LEFT, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);      // left
-    g.fillRect(FIELD_RIGHT - DZONE_DEPTH, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP); // right
-    g.lineStyle(2, 0xffffff, 0.6);
-    g.strokeRect(FIELD_LEFT, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
-    g.strokeRect(FIELD_RIGHT - DZONE_DEPTH, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
+    // ── Behind-goal zones (slightly darker — accessible space) ───────────────
+    g.fillStyle(0x2e804d, 1);
+    // Left behind-goal
+    g.fillRect(FIELD_LEFT, GOAL_TOP, GOAL_LINE_LEFT - FIELD_LEFT, goalH);
+    // Right behind-goal
+    g.fillRect(GOAL_LINE_RIGHT, GOAL_TOP, FIELD_RIGHT - GOAL_LINE_RIGHT, goalH);
 
-    // Field border (rounded)
-    g.lineStyle(3, 0xffffff, 0.9);
+    // ── D-zones (crease) — start from goal line, 4m deep into field ──────────
+    g.fillStyle(0x338f55, 0.9);
+    g.fillRect(GOAL_LINE_LEFT, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
+    g.fillRect(GOAL_LINE_RIGHT - DZONE_DEPTH, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
+
+    // ── Rink border ───────────────────────────────────────────────────────────
+    g.lineStyle(3, 0xffffff, 0.95);
     g.strokeRoundedRect(FIELD_LEFT, FIELD_TOP, W, H, r);
 
-    // Centre line
-    g.lineStyle(2, 0xffffff, 0.6);
-    g.lineBetween(640, FIELD_TOP, 640, FIELD_BOTTOM);
+    // ── D-zone boundary lines ─────────────────────────────────────────────────
+    g.lineStyle(2, 0xffffff, 0.55);
+    g.strokeRect(GOAL_LINE_LEFT, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
+    g.strokeRect(GOAL_LINE_RIGHT - DZONE_DEPTH, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
 
-    // Centre circle (r=2.85m → 80px)
-    g.strokeCircle(640, midY, Math.round(2.85 * PX_PER_M));
+    // ── Goal lines (where goals sit) ──────────────────────────────────────────
+    g.lineStyle(2, 0xffffff, 0.8);
+    g.lineBetween(GOAL_LINE_LEFT,  FIELD_TOP, GOAL_LINE_LEFT,  FIELD_BOTTOM);
+    g.lineBetween(GOAL_LINE_RIGHT, FIELD_TOP, GOAL_LINE_RIGHT, FIELD_BOTTOM);
 
-    // Centre dot
+    // ── Centre line ───────────────────────────────────────────────────────────
+    g.lineStyle(2, 0xffffff, 0.7);
+    g.lineBetween(midX, FIELD_TOP, midX, FIELD_BOTTOM);
+
+    // ── Centre circle (2.85 m) ────────────────────────────────────────────────
+    g.strokeCircle(midX, midY, Math.round(2.85 * PX_PER_M));
     g.fillStyle(0xffffff, 0.8);
-    g.fillCircle(640, midY, 5);
+    g.fillCircle(midX, midY, 5);
 
-    // Corner faceoff crosses — 3.5m from corners, 1.5m inset
-    const crossSize = 10;
-    const cx1 = FIELD_LEFT + Math.round(3.5 * PX_PER_M);
-    const cx2 = FIELD_RIGHT - Math.round(3.5 * PX_PER_M);
-    const cy1 = FIELD_TOP + Math.round(1.5 * PX_PER_M);
-    const cy2 = FIELD_BOTTOM - Math.round(1.5 * PX_PER_M);
+    // ── Corner faceoff crosses ────────────────────────────────────────────────
+    const cs = 10;
+    const fcx1 = FIELD_LEFT  + Math.round(3.5 * PX_PER_M);
+    const fcx2 = FIELD_RIGHT - Math.round(3.5 * PX_PER_M);
+    const fcy1 = FIELD_TOP    + Math.round(1.5 * PX_PER_M);
+    const fcy2 = FIELD_BOTTOM - Math.round(1.5 * PX_PER_M);
     g.lineStyle(2, 0xffffff, 0.5);
-    for (const [cx, cy] of [[cx1, cy1], [cx1, cy2], [cx2, cy1], [cx2, cy2]]) {
-      g.lineBetween(cx - crossSize, cy, cx + crossSize, cy);
-      g.lineBetween(cx, cy - crossSize, cx, cy + crossSize);
+    for (const [cx, cy] of [[fcx1, fcy1], [fcx1, fcy2], [fcx2, fcy1], [fcx2, fcy2]]) {
+      g.lineBetween(cx - cs, cy, cx + cs, cy);
+      g.lineBetween(cx, cy - cs, cx, cy + cs);
     }
 
-    // Goals (left — host defends) — net recesses behind end wall
-    g.fillStyle(0x6699cc, 0.7);
-    g.fillRect(FIELD_LEFT - GOAL_DEPTH, GOAL_TOP, GOAL_DEPTH, GOAL_BOTTOM - GOAL_TOP);
-    g.lineStyle(3, 0x4488ff, 1);
-    g.strokeRect(FIELD_LEFT - GOAL_DEPTH, GOAL_TOP, GOAL_DEPTH, GOAL_BOTTOM - GOAL_TOP);
+    // ── Goals (inset on the goal line, with space behind) ─────────────────────
+    // Left goal — host defends
+    g.fillStyle(0x4466aa, 0.85);
+    g.fillRect(FIELD_LEFT, GOAL_TOP, GOAL_LINE_LEFT - FIELD_LEFT, goalH);
+    g.lineStyle(3, 0x6699ff, 1);
+    // Back (end wall side)
+    g.lineBetween(FIELD_LEFT, GOAL_TOP, FIELD_LEFT, GOAL_BOTTOM);
+    // Side rails
+    g.lineBetween(FIELD_LEFT, GOAL_TOP,    GOAL_LINE_LEFT, GOAL_TOP);
+    g.lineBetween(FIELD_LEFT, GOAL_BOTTOM, GOAL_LINE_LEFT, GOAL_BOTTOM);
+    // Goal mouth (posts)
+    g.lineStyle(4, 0xaabbff, 1);
+    g.lineBetween(GOAL_LINE_LEFT, GOAL_TOP,    GOAL_LINE_LEFT, GOAL_BOTTOM);
 
-    // Goals (right — client defends)
-    g.fillStyle(0xcc6666, 0.7);
-    g.fillRect(FIELD_RIGHT, GOAL_TOP, GOAL_DEPTH, GOAL_BOTTOM - GOAL_TOP);
-    g.lineStyle(3, 0xff4444, 1);
-    g.strokeRect(FIELD_RIGHT, GOAL_TOP, GOAL_DEPTH, GOAL_BOTTOM - GOAL_TOP);
+    // Right goal — client defends
+    g.fillStyle(0xaa4444, 0.85);
+    g.fillRect(GOAL_LINE_RIGHT, GOAL_TOP, FIELD_RIGHT - GOAL_LINE_RIGHT, goalH);
+    g.lineStyle(3, 0xff6666, 1);
+    g.lineBetween(FIELD_RIGHT, GOAL_TOP, FIELD_RIGHT, GOAL_BOTTOM);
+    g.lineBetween(FIELD_RIGHT, GOAL_TOP,    GOAL_LINE_RIGHT, GOAL_TOP);
+    g.lineBetween(FIELD_RIGHT, GOAL_BOTTOM, GOAL_LINE_RIGHT, GOAL_BOTTOM);
+    g.lineStyle(4, 0xffaaaa, 1);
+    g.lineBetween(GOAL_LINE_RIGHT, GOAL_TOP, GOAL_LINE_RIGHT, GOAL_BOTTOM);
   }
 }

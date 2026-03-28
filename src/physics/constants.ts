@@ -15,51 +15,57 @@ export const FIELD_HEIGHT = FIELD_BOTTOM - FIELD_TOP;  // 560
 export const CORNER_RADIUS = Math.round(1.5 * PX_PER_M); // 42
 
 // ─── Goals ────────────────────────────────────────────────────────────────────
-// IFF goal mouth: 1.6 m wide (our y-span), ~0.65 m deep net (our x-span)
-// Scaled up slightly to 2 m wide for arcade playability
-export const GOAL_MOUTH_M = 2.0; // metres (real = 1.6 m)
+// IFF goal mouth: 1.6 m wide (our y-span). Scaled to 2 m for arcade playability.
+export const GOAL_MOUTH_M = 2.0;
 export const GOAL_HEIGHT_PX = Math.round(GOAL_MOUTH_M * PX_PER_M); // 56 px
-export const GOAL_DEPTH = Math.round(0.65 * PX_PER_M); // 18 px net depth
+
+// Goal is inset 2 m from the end wall (space behind the goal per IFF layout)
+export const GOAL_LINE_INSET = Math.round(2 * PX_PER_M); // 56 px
+export const GOAL_LINE_LEFT  = FIELD_LEFT  + GOAL_LINE_INSET; // 136
+export const GOAL_LINE_RIGHT = FIELD_RIGHT - GOAL_LINE_INSET; // 1144
+
+// Visual net depth: drawn from end wall to goal line
+export const GOAL_DEPTH = GOAL_LINE_INSET; // 56 px (same as inset)
 export const GOAL_Z_THRESHOLD = 120; // ball.z must be below this to score (px)
-export const GOAL_TOP = (FIELD_TOP + FIELD_BOTTOM) / 2 - GOAL_HEIGHT_PX / 2;
+export const GOAL_TOP    = (FIELD_TOP + FIELD_BOTTOM) / 2 - GOAL_HEIGHT_PX / 2;
 export const GOAL_BOTTOM = GOAL_TOP + GOAL_HEIGHT_PX;
 
 // ─── D-zone (crease) ──────────────────────────────────────────────────────────
-// 4 m deep from end wall × 5 m tall, centred on goal
-export const DZONE_DEPTH = Math.round(4 * PX_PER_M);  // 112 px
+// 4 m deep from goal line × 5 m tall, centred on goal
+export const DZONE_DEPTH  = Math.round(4 * PX_PER_M); // 112 px
 export const DZONE_HEIGHT = Math.round(5 * PX_PER_M); // 140 px
-export const DZONE_TOP = (FIELD_TOP + FIELD_BOTTOM) / 2 - DZONE_HEIGHT / 2;
+export const DZONE_TOP    = (FIELD_TOP + FIELD_BOTTOM) / 2 - DZONE_HEIGHT / 2;
 export const DZONE_BOTTOM = DZONE_TOP + DZONE_HEIGHT;
 
-// Player
-export const PLAYER_RADIUS = 20;
-export const PLAYER_MAX_SPEED = 300;
-export const PLAYER_ACCEL = 1200;
-export const PLAYER_FRICTION = 0.85; // applied per frame to damp velocity
+// ─── Player ───────────────────────────────────────────────────────────────────
+export const PLAYER_RADIUS    = 20;
+export const PLAYER_MAX_SPEED = 500;  // was 300 — faster arcade feel
+export const PLAYER_ACCEL     = 2000; // was 1200
+export const PLAYER_FRICTION  = 0.85;
 
-// Ball
-export const BALL_RADIUS = 10;
-export const BALL_FRICTION = 0.92; // per-frame horizontal friction multiplier
-export const BALL_BOUNCE = 0.8; // wall bounce restitution (xy)
-export const GRAVITY = 900;
-export const BALL_BOUNCE_Z = 0.5; // vertical bounce restitution
+// ─── Ball ─────────────────────────────────────────────────────────────────────
+export const BALL_RADIUS    = 10;
+export const BALL_FRICTION  = 0.92;
+export const BALL_BOUNCE    = 0.8;
+export const GRAVITY        = 900;
+export const BALL_BOUNCE_Z  = 0.5;
 
-// Possession
+// ─── Possession ───────────────────────────────────────────────────────────────
 export const CONTROL_RADIUS = 40;
 
-// Dash
-export const DASH_FORCE = 400;
-export const DASH_COOLDOWN = 1000; // ms
+// ─── Dash ─────────────────────────────────────────────────────────────────────
+export const DASH_FORCE    = 600;  // was 400 — scaled with player speed
+export const DASH_COOLDOWN = 1000;
 
-// Shooting
-export const SHOOT_BASE_POWER = 400;
-export const SHOOT_POWER_SCALE = 600;
-export const SHOOT_LIFT_SCALE = 300;
+// ─── Shooting ─────────────────────────────────────────────────────────────────
+export const SHOOT_BASE_POWER    = 500;  // was 400
+export const SHOOT_POWER_SCALE   = 700;  // was 600
+export const SHOOT_LIFT_SCALE    = 300;
 export const SHOOT_MAX_CHARGE_MS = 800;
 
-// One-touch bonus
-export const ONE_TOUCH_WINDOW = 300; // ms
-export const ONE_TOUCH_MULTIPLIER = 1.25;
+// ─── One-touch bonus ──────────────────────────────────────────────────────────
+export const ONE_TOUCH_WINDOW      = 300;
+export const ONE_TOUCH_MULTIPLIER  = 1.25;
 
-// Fixed timestep
+// ─── Fixed timestep ───────────────────────────────────────────────────────────
 export const FIXED_DT = 1 / 60;

@@ -28,8 +28,8 @@ export class ActionButtons {
     centerY: number,
     tint = 0xffffff
   ) {
-    const BTN_R = 34;
-    const GAP = 90;
+    const BTN_R = 55;
+    const GAP = 130;
 
     const labels = ["W", "S", "D"]; // Wrist, Slap, Dash
     const ys = [centerY - GAP, centerY, centerY + GAP];
@@ -43,7 +43,7 @@ export class ActionButtons {
         .setDepth(20);
 
       scene.add
-        .text(centerX, ys[i], label, { fontSize: "18px", color: "#ffffff" })
+        .text(centerX, ys[i], label, { fontSize: "26px", color: "#ffffff" })
         .setOrigin(0.5)
         .setDepth(21);
 
