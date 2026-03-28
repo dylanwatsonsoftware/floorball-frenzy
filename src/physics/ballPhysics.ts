@@ -43,9 +43,25 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
   ball.x += ball.vx * dt;
   ball.y += ball.vy * dt;
 
-  // Goal detection (at goal line, not end wall — space behind goals is live)
+  // Goal detection (at goal line — only scores if entering through the mouth)
   const goal = checkGoal(ball);
   if (goal) return goal;
+
+  // Goal post side walls — goal line is solid in the flat sections above/below
+  // the goal mouth. The rounded corner areas are left to resolveCorners().
+  const inGoalMouth = ball.y + BALL_RADIUS > GOAL_TOP && ball.y - BALL_RADIUS < GOAL_BOTTOM;
+  const inFlatSideWall =
+    (ball.y < GOAL_TOP   && ball.y > FIELD_TOP    + CORNER_RADIUS) ||
+    (ball.y > GOAL_BOTTOM && ball.y < FIELD_BOTTOM - CORNER_RADIUS);
+  if (!inGoalMouth && inFlatSideWall) {
+    if (ball.x - BALL_RADIUS < GOAL_LINE_LEFT) {
+      ball.x = GOAL_LINE_LEFT + BALL_RADIUS;
+      ball.vx = Math.abs(ball.vx) * BALL_BOUNCE;
+    } else if (ball.x + BALL_RADIUS > GOAL_LINE_RIGHT) {
+      ball.x = GOAL_LINE_RIGHT - BALL_RADIUS;
+      ball.vx = -Math.abs(ball.vx) * BALL_BOUNCE;
+    }
+  }
 
   // Straight wall collisions — top/bottom
   if (ball.y - BALL_RADIUS < FIELD_TOP) {

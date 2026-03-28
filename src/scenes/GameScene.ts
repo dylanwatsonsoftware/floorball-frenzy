@@ -608,80 +608,66 @@ export class GameScene extends Phaser.Scene {
     const midY = (FIELD_TOP + FIELD_BOTTOM) / 2;
     const r = CORNER_RADIUS;
     const goalH = GOAL_BOTTOM - GOAL_TOP;
+    // Crease box extends from end wall to goal line + D-zone depth
+    const creaseW = (GOAL_LINE_LEFT - FIELD_LEFT) + DZONE_DEPTH;
 
-    // ── Field surface (Gerflor sports green) ─────────────────────────────────
-    g.fillStyle(0x3a9e5f, 1);
+    // ── Field surface — bright teal matching real floorball courts ────────────
+    g.fillStyle(0x2cc0b0, 1);
     g.fillRoundedRect(FIELD_LEFT, FIELD_TOP, W, H, r);
 
-    // ── Behind-goal zones (slightly darker — accessible space) ───────────────
-    g.fillStyle(0x2e804d, 1);
-    // Left behind-goal
-    g.fillRect(FIELD_LEFT, GOAL_TOP, GOAL_LINE_LEFT - FIELD_LEFT, goalH);
-    // Right behind-goal
-    g.fillRect(GOAL_LINE_RIGHT, GOAL_TOP, FIELD_RIGHT - GOAL_LINE_RIGHT, goalH);
+    // ── All white markings ────────────────────────────────────────────────────
+    g.lineStyle(2, 0xffffff, 0.9);
 
-    // ── D-zones (crease) — start from goal line, 4m deep into field ──────────
-    g.fillStyle(0x338f55, 0.9);
-    g.fillRect(GOAL_LINE_LEFT, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
-    g.fillRect(GOAL_LINE_RIGHT - DZONE_DEPTH, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
-
-    // ── Rink border ───────────────────────────────────────────────────────────
-    g.lineStyle(3, 0xffffff, 0.95);
-    g.strokeRoundedRect(FIELD_LEFT, FIELD_TOP, W, H, r);
-
-    // ── D-zone boundary lines ─────────────────────────────────────────────────
-    g.lineStyle(2, 0xffffff, 0.55);
-    g.strokeRect(GOAL_LINE_LEFT, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
-    g.strokeRect(GOAL_LINE_RIGHT - DZONE_DEPTH, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
-
-    // ── Goal lines (where goals sit) ──────────────────────────────────────────
-    g.lineStyle(2, 0xffffff, 0.8);
-    g.lineBetween(GOAL_LINE_LEFT,  FIELD_TOP, GOAL_LINE_LEFT,  FIELD_BOTTOM);
-    g.lineBetween(GOAL_LINE_RIGHT, FIELD_TOP, GOAL_LINE_RIGHT, FIELD_BOTTOM);
-
-    // ── Centre line ───────────────────────────────────────────────────────────
-    g.lineStyle(2, 0xffffff, 0.7);
+    // Centre line
     g.lineBetween(midX, FIELD_TOP, midX, FIELD_BOTTOM);
+    // Centre tick marks on top/bottom border
+    g.lineBetween(midX - 6, FIELD_TOP,    midX + 6, FIELD_TOP);
+    g.lineBetween(midX - 6, FIELD_BOTTOM, midX + 6, FIELD_BOTTOM);
 
-    // ── Centre circle (2.85 m) ────────────────────────────────────────────────
+    // Centre circle
     g.strokeCircle(midX, midY, Math.round(2.85 * PX_PER_M));
-    g.fillStyle(0xffffff, 0.8);
-    g.fillCircle(midX, midY, 5);
+    g.fillStyle(0xffffff, 0.85);
+    g.fillCircle(midX, midY, 4);
 
-    // ── Corner faceoff crosses ────────────────────────────────────────────────
+    // Corner faceoff crosses
+    g.lineStyle(2, 0xffffff, 0.8);
     const cs = 10;
     const fcx1 = FIELD_LEFT  + Math.round(3.5 * PX_PER_M);
     const fcx2 = FIELD_RIGHT - Math.round(3.5 * PX_PER_M);
     const fcy1 = FIELD_TOP    + Math.round(1.5 * PX_PER_M);
     const fcy2 = FIELD_BOTTOM - Math.round(1.5 * PX_PER_M);
-    g.lineStyle(2, 0xffffff, 0.5);
     for (const [cx, cy] of [[fcx1, fcy1], [fcx1, fcy2], [fcx2, fcy1], [fcx2, fcy2]]) {
       g.lineBetween(cx - cs, cy, cx + cs, cy);
       g.lineBetween(cx, cy - cs, cx, cy + cs);
     }
 
-    // ── Goals (inset on the goal line, with space behind) ─────────────────────
-    // Left goal — host defends
-    g.fillStyle(0x4466aa, 0.85);
-    g.fillRect(FIELD_LEFT, GOAL_TOP, GOAL_LINE_LEFT - FIELD_LEFT, goalH);
-    g.lineStyle(3, 0x6699ff, 1);
-    // Back (end wall side)
-    g.lineBetween(FIELD_LEFT, GOAL_TOP, FIELD_LEFT, GOAL_BOTTOM);
-    // Side rails
-    g.lineBetween(FIELD_LEFT, GOAL_TOP,    GOAL_LINE_LEFT, GOAL_TOP);
-    g.lineBetween(FIELD_LEFT, GOAL_BOTTOM, GOAL_LINE_LEFT, GOAL_BOTTOM);
-    // Goal mouth (posts)
-    g.lineStyle(4, 0xaabbff, 1);
-    g.lineBetween(GOAL_LINE_LEFT, GOAL_TOP,    GOAL_LINE_LEFT, GOAL_BOTTOM);
+    // ── Goals — inset box design matching IFF layout ──────────────────────────
+    // Each goal: outer crease rectangle (frame only) + inner net box (filled)
+    const drawGoal = (left: boolean): void => {
+      const wallX   = left ? FIELD_LEFT : FIELD_RIGHT;
+      const mouthX  = left ? GOAL_LINE_LEFT : GOAL_LINE_RIGHT;
+      const creaseX = left ? FIELD_LEFT : FIELD_RIGHT - creaseW;
+      const netX    = left ? FIELD_LEFT : GOAL_LINE_RIGHT;
+      const netW    = Math.abs(mouthX - wallX);
 
-    // Right goal — client defends
-    g.fillStyle(0xaa4444, 0.85);
-    g.fillRect(GOAL_LINE_RIGHT, GOAL_TOP, FIELD_RIGHT - GOAL_LINE_RIGHT, goalH);
-    g.lineStyle(3, 0xff6666, 1);
-    g.lineBetween(FIELD_RIGHT, GOAL_TOP, FIELD_RIGHT, GOAL_BOTTOM);
-    g.lineBetween(FIELD_RIGHT, GOAL_TOP,    GOAL_LINE_RIGHT, GOAL_TOP);
-    g.lineBetween(FIELD_RIGHT, GOAL_BOTTOM, GOAL_LINE_RIGHT, GOAL_BOTTOM);
-    g.lineStyle(4, 0xffaaaa, 1);
-    g.lineBetween(GOAL_LINE_RIGHT, GOAL_TOP, GOAL_LINE_RIGHT, GOAL_BOTTOM);
+      // Net fill (slightly darker teal so the goal reads clearly)
+      g.fillStyle(0x1a9080, 1);
+      g.fillRect(netX, GOAL_TOP, netW, goalH);
+
+      // Outer crease box (white outline, open on field side)
+      g.lineStyle(2, 0xffffff, 0.75);
+      g.strokeRect(creaseX, DZONE_TOP, creaseW, DZONE_BOTTOM - DZONE_TOP);
+
+      // Inner goal net box (thicker white frame)
+      g.lineStyle(3, 0xffffff, 1);
+      g.strokeRect(netX, GOAL_TOP, netW, goalH);
+    };
+
+    drawGoal(true);   // left goal (blue defends)
+    drawGoal(false);  // right goal (red defends)
+
+    // ── Rink border (drawn last, on top of everything) ────────────────────────
+    g.lineStyle(4, 0xffffff, 1);
+    g.strokeRoundedRect(FIELD_LEFT, FIELD_TOP, W, H, r);
   }
 }
