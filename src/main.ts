@@ -16,4 +16,12 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+// Refresh scale after orientation changes so the canvas resizes correctly.
+// Small delay lets the browser finish updating its dimensions first.
+const refreshScale = (): void => {
+  setTimeout(() => game.scale.refresh(), 150);
+};
+window.addEventListener("orientationchange", refreshScale);
+screen.orientation?.addEventListener("change", refreshScale);

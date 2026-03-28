@@ -282,18 +282,21 @@ export class GameScene extends Phaser.Scene {
     stepPlayer(this.host, hostInput, dt, elapsedMs);
     stepPlayer(this.client, clientInput, dt, elapsedMs);
 
-    // Slap shot charge + release detection
-    updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
-    updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
-
-    if (this._hostSlapWasDown && !hostInput.slap && this._hostShoot.chargeMs > 0) {
-      this._doSlapShot("host");
+    // Slap shot: check release BEFORE updating charge so chargeMs is still populated
+    if (this._hostSlapWasDown && !hostInput.slap) {
+      if (this._hostShoot.chargeMs > 0) this._doSlapShot("host");
+      this._hostShoot.chargeMs = 0;   // always reset on release
+      this._hostShoot.charging = false;
     }
-    if (this._clientSlapWasDown && !clientInput.slap && this._clientShoot.chargeMs > 0) {
-      this._doSlapShot("client");
+    if (this._clientSlapWasDown && !clientInput.slap) {
+      if (this._clientShoot.chargeMs > 0) this._doSlapShot("client");
+      this._clientShoot.chargeMs = 0;
+      this._clientShoot.charging = false;
     }
     this._hostSlapWasDown = hostInput.slap;
     this._clientSlapWasDown = clientInput.slap;
+    updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
+    updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
 
     // Player–ball collision (body and stick tip — tip is perpendicular to movement)
     const hostStick = this._stickDir(this.host, this._hostAim);
