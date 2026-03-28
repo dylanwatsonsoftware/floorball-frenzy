@@ -187,7 +187,10 @@ export class PeerConnection {
       log(this._role, "dataChannel open ✓");
       this.onChannelOpen();
     };
-    ch.onclose = () => log(this._role, "dataChannel closed");
+    ch.onclose = () => {
+      log(this._role, "dataChannel closed");
+      this._scheduleReconnect(0);
+    };
     ch.onerror = (e) => log(this._role, "dataChannel error", e);
     ch.onmessage = (ev: MessageEvent<string>) => {
       const msg = decodeMessage(ev.data);

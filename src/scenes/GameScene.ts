@@ -410,7 +410,7 @@ export class GameScene extends Phaser.Scene {
     const dy = this.ball.y - tipY;
     const dist = Math.hypot(dx, dy);
 
-    if (dist > BALL_RADIUS + 22) return; // outside possession range
+    if (dist > BALL_RADIUS + 34) return; // outside possession range
 
     // Don't override fast-moving balls (incoming shots/passes get deflected)
     const relSpeed = Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy);
@@ -418,16 +418,16 @@ export class GameScene extends Phaser.Scene {
 
     // Velocity coupling
     applyPossessionAssist(this.ball, player.vx, player.vy);
-    this.ball.vx += (player.vx - this.ball.vx) * 0.25; // extra on top of base 0.1
-    this.ball.vy += (player.vy - this.ball.vy) * 0.25;
+    this.ball.vx += (player.vx - this.ball.vx) * 0.35;
+    this.ball.vy += (player.vy - this.ball.vy) * 0.35;
 
-    // Position: pull ball to tip surface (lerp 45% of gap each step)
+    // Position: pull ball to tip surface (lerp 60% of gap each step)
     if (dist > 0) {
       const nx = dx / dist;
       const ny = dy / dist;
       const restDist = BALL_RADIUS;
-      this.ball.x = tipX + nx * (restDist + (dist - restDist) * 0.55);
-      this.ball.y = tipY + ny * (restDist + (dist - restDist) * 0.55);
+      this.ball.x = tipX + nx * (restDist + (dist - restDist) * 0.40);
+      this.ball.y = tipY + ny * (restDist + (dist - restDist) * 0.40);
     }
   }
 
