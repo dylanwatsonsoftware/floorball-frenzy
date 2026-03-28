@@ -12,6 +12,8 @@ const ICE_SERVERS: RTCIceServer[] = [
 ];
 
 const SIGNAL_POLL_MS = 500;
+/** Max time to wait for ICE gathering to complete before sending SDP. */
+const ICE_GATHER_TIMEOUT_MS = 5000;
 
 export class PeerConnection {
   private _pc: RTCPeerConnection;
@@ -22,6 +24,8 @@ export class PeerConnection {
 
   onMessage: OnMessageCb = () => undefined;
   onStateChange: OnStateCb = () => undefined;
+  /** Fired when the data channel is open and ready to send. */
+  onChannelOpen: () => void = () => undefined;
 
   constructor(role: Role, roomId: string) {
     this._role = role;
@@ -33,11 +37,6 @@ export class PeerConnection {
       this.onStateChange(this._pc.connectionState);
     };
 
-    this._pc.onicecandidate = (ev) => {
-      if (!ev.candidate) return;
-      this._signal({ type: "ice", candidate: ev.candidate.toJSON(), roomId: this._roomId });
-    };
-
     if (role === "host") {
       // Host creates the data channel
       this._channel = this._pc.createDataChannel("game", {
@@ -46,7 +45,7 @@ export class PeerConnection {
       });
       this._setupChannel(this._channel);
     } else {
-      // Client receives it
+      // Client receives the channel
       this._pc.ondatachannel = (ev) => {
         this._channel = ev.channel;
         this._setupChannel(this._channel);
@@ -54,19 +53,21 @@ export class PeerConnection {
     }
   }
 
-  /** Host calls this to create an offer and begin signaling. */
+  /**
+   * Host: gather all ICE candidates first, then send the complete offer.
+   * Using non-trickle ICE so the signaling relay only needs to store one
+   * message per direction (offer → client, answer → host).
+   */
   async startAsHost(): Promise<void> {
     const offer = await this._pc.createOffer();
+    const iceComplete = this._waitForICE();
     await this._pc.setLocalDescription(offer);
-    await this._signal({
-      type: "offer",
-      sdp: offer.sdp!,
-      roomId: this._roomId,
-    });
+    const finalDesc = await iceComplete;
+    await this._signal({ type: "offer", sdp: finalDesc.sdp!, roomId: this._roomId });
     this._startPolling();
   }
 
-  /** Client calls this to pick up the offer and send an answer. */
+  /** Client: start polling for the host's offer. */
   async startAsClient(): Promise<void> {
     this._startPolling();
   }
@@ -93,6 +94,7 @@ export class PeerConnection {
   // ─── Private ────────────────────────────────────────────────────────────────
 
   private _setupChannel(ch: RTCDataChannel): void {
+    ch.onopen = () => this.onChannelOpen();
     ch.onmessage = (ev: MessageEvent<string>) => {
       const msg = decodeMessage(ev.data);
       if (msg) this.onMessage(msg);
@@ -120,13 +122,14 @@ export class PeerConnection {
     if (msg.type === "offer" && this._role === "client") {
       await this._pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
       const answer = await this._pc.createAnswer();
+      const iceComplete = this._waitForICE();
       await this._pc.setLocalDescription(answer);
-      await this._signal({ type: "answer", sdp: answer.sdp!, roomId: this._roomId });
+      const finalDesc = await iceComplete;
+      await this._signal({ type: "answer", sdp: finalDesc.sdp!, roomId: this._roomId });
     } else if (msg.type === "answer" && this._role === "host") {
       await this._pc.setRemoteDescription({ type: "answer", sdp: msg.sdp });
-    } else if (msg.type === "ice") {
-      await this._pc.addIceCandidate(msg.candidate);
     }
+    // "ice" messages are no longer sent (non-trickle mode), but handled gracefully if received
   }
 
   private async _signal(msg: SignalMessage): Promise<void> {
@@ -139,5 +142,25 @@ export class PeerConnection {
     } catch {
       // signaling failure — connection won't establish
     }
+  }
+
+  /**
+   * Returns a promise that resolves with the final local description once
+   * ICE gathering is complete, or after ICE_GATHER_TIMEOUT_MS (takes what we have).
+   * Must be called before setLocalDescription so the handler is wired up in time.
+   */
+  private _waitForICE(): Promise<RTCSessionDescriptionInit> {
+    return new Promise((resolve) => {
+      const done = (): void => resolve(this._pc.localDescription!);
+      const t = setTimeout(done, ICE_GATHER_TIMEOUT_MS);
+      const check = (): void => {
+        if (this._pc.iceGatheringState === "complete") {
+          clearTimeout(t);
+          done();
+        }
+      };
+      this._pc.onicegatheringstatechange = check;
+      check(); // in case gathering already completed
+    });
   }
 }

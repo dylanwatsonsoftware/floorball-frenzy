@@ -39,12 +39,14 @@ export class OnlineGameScene extends GameScene {
 
     this._peer = new PeerConnection(data.role, data.roomId);
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
+    // Fire when the data channel is actually open (safe to send)
+    this._peer.onChannelOpen = () => {
+      this._connected = true;
+      this._statusText?.setText("");
+      if (this._isHost) this._peer.send({ type: "start" });
+    };
     this._peer.onStateChange = (state) => {
-      if (state === "connected") {
-        this._connected = true;
-        this._statusText?.setText("");
-        if (this._isHost) this._peer.send({ type: "start" });
-      } else if (state === "failed" || state === "disconnected") {
+      if (state === "failed" || state === "disconnected" || state === "closed") {
         this._statusText?.setText("Connection lost — press ESC");
       }
     };
