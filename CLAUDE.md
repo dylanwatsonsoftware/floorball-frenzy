@@ -1,4 +1,4 @@
-# 🤖 AGENTS.md — Development Workflow Guide
+# 🤖 CLAUDE.md — Development Workflow Guide
 
 ---
 
@@ -93,7 +93,7 @@ test: add unit tests for dash mechanic
 ## 🧱 Task Sizing Guidelines
 
 Good tasks:
-- Can be completed in < 1–2 hours
+- Can be completed in < 10-15 minutes
 - Have clear success criteria
 - Do not depend on large unfinished systems
 
