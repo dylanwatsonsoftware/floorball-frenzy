@@ -16,10 +16,6 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
   },
-  fps: {
-    target: 60,
-    forceSetTimeOut: true, // use setInterval instead of rAF so background tabs keep ticking
-  },
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
 };
 
