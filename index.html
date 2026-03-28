@@ -14,22 +14,33 @@
         overflow: hidden;
         background: #000;
       }
-      /* Force landscape layout on portrait devices */
+      /* Portrait overlay — shown only when device is portrait */
+      #rotate-msg {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #000;
+        color: #fff;
+        font-family: sans-serif;
+        font-size: 22px;
+        text-align: center;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        gap: 16px;
+      }
+      #rotate-msg span { font-size: 56px; }
       @media (orientation: portrait) {
-        body {
-          transform: rotate(90deg);
-          transform-origin: left top;
-          width: 100vh;
-          height: 100vw;
-          position: fixed;
-          top: 100%;
-          left: 0;
-          overflow: hidden;
-        }
+        #rotate-msg { display: flex; }
       }
     </style>
   </head>
   <body>
+    <div id="rotate-msg">
+      <span>&#8635;</span>
+      Please rotate your device to landscape
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
