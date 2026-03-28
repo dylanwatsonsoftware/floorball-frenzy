@@ -96,18 +96,18 @@ describe("stepBall — wall collisions", () => {
 });
 
 describe("stepBall — goal detection (at goal line, not end wall)", () => {
-  it("returns 'host' when ball crosses left goal line going left", () => {
+  it("returns 'client' when ball crosses left goal line going left (blue net, red scores)", () => {
     const goalMidY = (GOAL_TOP + GOAL_BOTTOM) / 2;
     const ball = makeBall({ x: GOAL_LINE_LEFT + 1, y: goalMidY, z: 0, vx: -300 });
     const result = stepBall(ball, FIXED_DT);
-    expect(result).toBe("host");
+    expect(result).toBe("client");
   });
 
-  it("returns 'client' when ball crosses right goal line going right", () => {
+  it("returns 'host' when ball crosses right goal line going right (red net, blue scores)", () => {
     const goalMidY = (GOAL_TOP + GOAL_BOTTOM) / 2;
     const ball = makeBall({ x: GOAL_LINE_RIGHT - 1, y: goalMidY, z: 0, vx: 300 });
     const result = stepBall(ball, FIXED_DT);
-    expect(result).toBe("client");
+    expect(result).toBe("host");
   });
 
   it("returns null when ball is above goal z threshold", () => {

@@ -76,10 +76,10 @@ function checkGoal(ball: Ball): GoalEvent {
   const inMouth = ball.y >= GOAL_TOP && ball.y <= GOAL_BOTTOM;
   if (!inMouth || ball.z >= GOAL_Z_THRESHOLD) return null;
 
-  // Left goal: ball crosses goal line travelling left (vx < 0)
-  if (ball.x - BALL_RADIUS < GOAL_LINE_LEFT && ball.vx < 0) return "host";
-  // Right goal: ball crosses goal line travelling right (vx > 0)
-  if (ball.x + BALL_RADIUS > GOAL_LINE_RIGHT && ball.vx > 0) return "client";
+  // Left goal (blue/host net): red scores
+  if (ball.x - BALL_RADIUS < GOAL_LINE_LEFT && ball.vx < 0) return "client";
+  // Right goal (red/client net): blue scores
+  if (ball.x + BALL_RADIUS > GOAL_LINE_RIGHT && ball.vx > 0) return "host";
   return null;
 }
 
