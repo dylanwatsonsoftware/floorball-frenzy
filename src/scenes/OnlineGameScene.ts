@@ -48,8 +48,11 @@ export class OnlineGameScene extends GameScene {
       if (this._isHost) this._peer.send({ type: "start" });
     };
     this._peer.onStateChange = (state) => {
-      if (state === "failed" || state === "disconnected" || state === "closed") {
-        this._statusText?.setText("Connection lost — press ESC");
+      console.log("[OnlineGame] connectionState →", state);
+      if (state === "connecting" || state === "new") {
+        this._statusText?.setText(`Connecting… (${state})`);
+      } else if (state === "failed" || state === "disconnected" || state === "closed") {
+        this._statusText?.setText(`Connection ${state} — press ESC`);
       }
     };
 

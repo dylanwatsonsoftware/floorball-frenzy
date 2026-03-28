@@ -12,8 +12,10 @@ const ICE_SERVERS: RTCIceServer[] = [
 ];
 
 const SIGNAL_POLL_MS = 500;
-/** Max time to wait for ICE gathering to complete before sending SDP. */
 const ICE_GATHER_TIMEOUT_MS = 5000;
+
+const log = (role: string, ...args: unknown[]): void =>
+  console.log(`[PeerConnection:${role}]`, ...args);
 
 export class PeerConnection {
   private _pc: RTCPeerConnection;
@@ -24,51 +26,63 @@ export class PeerConnection {
 
   onMessage: OnMessageCb = () => undefined;
   onStateChange: OnStateCb = () => undefined;
-  /** Fired when the data channel is open and ready to send. */
   onChannelOpen: () => void = () => undefined;
 
   constructor(role: Role, roomId: string) {
     this._role = role;
     this._roomId = roomId;
 
+    log(role, "creating RTCPeerConnection, room:", roomId);
     this._pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
     this._pc.onconnectionstatechange = () => {
+      log(role, "connectionState →", this._pc.connectionState);
       this.onStateChange(this._pc.connectionState);
     };
 
+    this._pc.oniceconnectionstatechange = () => {
+      log(role, "iceConnectionState →", this._pc.iceConnectionState);
+    };
+
+    this._pc.onicegatheringstatechange = () => {
+      log(role, "iceGatheringState →", this._pc.iceGatheringState);
+    };
+
+    this._pc.onsignalingstatechange = () => {
+      log(role, "signalingState →", this._pc.signalingState);
+    };
+
     if (role === "host") {
-      // Host creates the data channel
       this._channel = this._pc.createDataChannel("game", {
         ordered: false,
-        maxRetransmits: 0, // UDP-like
+        maxRetransmits: 0,
       });
+      log(role, "created dataChannel");
       this._setupChannel(this._channel);
     } else {
-      // Client receives the channel
       this._pc.ondatachannel = (ev) => {
+        log(role, "received dataChannel");
         this._channel = ev.channel;
         this._setupChannel(this._channel);
       };
     }
   }
 
-  /**
-   * Host: gather all ICE candidates first, then send the complete offer.
-   * Using non-trickle ICE so the signaling relay only needs to store one
-   * message per direction (offer → client, answer → host).
-   */
   async startAsHost(): Promise<void> {
+    log(this._role, "startAsHost — creating offer");
     const offer = await this._pc.createOffer();
     const iceComplete = this._waitForICE();
     await this._pc.setLocalDescription(offer);
+    log(this._role, "localDescription set, waiting for ICE gathering…");
     const finalDesc = await iceComplete;
+    log(this._role, "ICE gathering done, sending offer to signaling server");
     await this._signal({ type: "offer", sdp: finalDesc.sdp!, roomId: this._roomId });
+    log(this._role, "offer sent, starting poll");
     this._startPolling();
   }
 
-  /** Client: start polling for the host's offer. */
   async startAsClient(): Promise<void> {
+    log(this._role, "startAsClient — starting poll");
     this._startPolling();
   }
 
@@ -94,7 +108,12 @@ export class PeerConnection {
   // ─── Private ────────────────────────────────────────────────────────────────
 
   private _setupChannel(ch: RTCDataChannel): void {
-    ch.onopen = () => this.onChannelOpen();
+    ch.onopen = () => {
+      log(this._role, "dataChannel open ✓");
+      this.onChannelOpen();
+    };
+    ch.onclose = () => log(this._role, "dataChannel closed");
+    ch.onerror = (e) => log(this._role, "dataChannel error", e);
     ch.onmessage = (ev: MessageEvent<string>) => {
       const msg = decodeMessage(ev.data);
       if (msg) this.onMessage(msg);
@@ -107,60 +126,77 @@ export class PeerConnection {
 
   private async _poll(): Promise<void> {
     try {
-      const res = await fetch(
-        `/api/signal?room=${encodeURIComponent(this._roomId)}&role=${this._role}`
-      );
+      const url = `/api/signal?room=${encodeURIComponent(this._roomId)}&role=${this._role}`;
+      const res = await fetch(url);
+      log(this._role, `poll → HTTP ${res.status}`);
       const msg: unknown = await res.json();
-      if (!msg) return;
+      if (!msg) {
+        log(this._role, "poll → empty (no message waiting)");
+        return;
+      }
+      log(this._role, "poll → received message:", (msg as { type?: string }).type ?? msg);
       await this._handleSignal(msg as SignalMessage);
-    } catch {
-      // network error — keep polling
+    } catch (err) {
+      log(this._role, "poll error:", err);
     }
   }
 
   private async _handleSignal(msg: SignalMessage): Promise<void> {
     if (msg.type === "offer" && this._role === "client") {
+      log(this._role, "handling offer — setting remote description");
       await this._pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
+      log(this._role, "creating answer");
       const answer = await this._pc.createAnswer();
       const iceComplete = this._waitForICE();
       await this._pc.setLocalDescription(answer);
+      log(this._role, "waiting for ICE gathering…");
       const finalDesc = await iceComplete;
+      log(this._role, "ICE done, sending answer");
       await this._signal({ type: "answer", sdp: finalDesc.sdp!, roomId: this._roomId });
+      log(this._role, "answer sent");
     } else if (msg.type === "answer" && this._role === "host") {
+      log(this._role, "handling answer — setting remote description");
       await this._pc.setRemoteDescription({ type: "answer", sdp: msg.sdp });
+      log(this._role, "remote description set ✓");
+    } else {
+      log(this._role, "unhandled signal type:", msg.type, "for role:", this._role);
     }
-    // "ice" messages are no longer sent (non-trickle mode), but handled gracefully if received
   }
 
   private async _signal(msg: SignalMessage): Promise<void> {
     try {
-      await fetch("/api/signal", {
+      const res = await fetch("/api/signal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ room: this._roomId, role: this._role, msg }),
       });
-    } catch {
-      // signaling failure — connection won't establish
+      log(this._role, `signal POST → HTTP ${res.status}`);
+    } catch (err) {
+      log(this._role, "signal POST error:", err);
     }
   }
 
-  /**
-   * Returns a promise that resolves with the final local description once
-   * ICE gathering is complete, or after ICE_GATHER_TIMEOUT_MS (takes what we have).
-   * Must be called before setLocalDescription so the handler is wired up in time.
-   */
   private _waitForICE(): Promise<RTCSessionDescriptionInit> {
     return new Promise((resolve) => {
-      const done = (): void => resolve(this._pc.localDescription!);
-      const t = setTimeout(done, ICE_GATHER_TIMEOUT_MS);
+      const done = (): void => {
+        log(this._role, "ICE gathering complete, candidates in SDP");
+        resolve(this._pc.localDescription!);
+      };
+      const t = setTimeout(() => {
+        log(this._role, `ICE gathering timed out after ${ICE_GATHER_TIMEOUT_MS}ms, using what we have`);
+        done();
+      }, ICE_GATHER_TIMEOUT_MS);
       const check = (): void => {
         if (this._pc.iceGatheringState === "complete") {
           clearTimeout(t);
           done();
         }
       };
-      this._pc.onicegatheringstatechange = check;
-      check(); // in case gathering already completed
+      this._pc.onicegatheringstatechange = () => {
+        log(this._role, "iceGatheringState →", this._pc.iceGatheringState);
+        check();
+      };
+      check();
     });
   }
 }
