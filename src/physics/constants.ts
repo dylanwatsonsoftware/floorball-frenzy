@@ -3,10 +3,10 @@
 // Canvas: 1280 × 720, field inset 80px each side (left/right), 80px top/bottom
 export const PX_PER_M = 28;
 
-export const FIELD_LEFT = 80;
-export const FIELD_RIGHT = 1200; // 1120 px = 40 m ✓
-export const FIELD_TOP = 80;
-export const FIELD_BOTTOM = 640; // 560 px  = 20 m ✓
+export const FIELD_LEFT = 110;
+export const FIELD_RIGHT = 1170; // 1060 px ≈ 37.9 m
+export const FIELD_TOP = 100;
+export const FIELD_BOTTOM = 620; // 520 px  ≈ 18.6 m
 
 export const FIELD_WIDTH = FIELD_RIGHT - FIELD_LEFT;   // 1120
 export const FIELD_HEIGHT = FIELD_BOTTOM - FIELD_TOP;  // 560

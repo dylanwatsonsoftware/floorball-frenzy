@@ -17,7 +17,6 @@ export class MenuScene extends Phaser.Scene {
     // Auto-join if a room code is in the URL hash (e.g. #ABC123)
     const hashCode = window.location.hash.slice(1).toUpperCase();
     if (hashCode.length > 0) {
-      window.location.hash = "";
       this.scene.start("OnlineGameScene", {
         mode: "online",
         roomId: hashCode,

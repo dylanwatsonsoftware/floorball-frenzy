@@ -2,10 +2,11 @@ import type { GameState } from "../types/game";
 import { GameScene } from "./GameScene";
 import { PeerConnection } from "../net/PeerConnection";
 import type { GameMessage } from "../net/messages";
+import type { InputState } from "../types/game";
 import { lerpState } from "../net/lerp";
 import { stepPlayer } from "../physics/playerPhysics";
 import { stepBall } from "../physics/ballPhysics";
-import { resolvePlayerBallCollision } from "../physics/collision";
+import { resolvePlayerBallCollision, resolveStickTipCollision } from "../physics/collision";
 import { updateShootCharge } from "../physics/shooting";
 
 const SNAPSHOT_INTERVAL_MS = 1000 / 15; // 15 Hz
@@ -23,6 +24,7 @@ export class OnlineGameScene extends GameScene {
   private _statusText!: Phaser.GameObjects.Text;
   private _pingText!: Phaser.GameObjects.Text;
   private _onlineClientSlapWasDown = false;
+  private _clientWristWasDown = false;
 
   constructor() {
     super();
@@ -38,6 +40,8 @@ export class OnlineGameScene extends GameScene {
     this._snapshotTimer = 0;
     this._pingTimer = 0;
     this._inputSeq = 0;
+    this._onlineClientSlapWasDown = false;
+    this._clientWristWasDown = false;
 
     this._peer = new PeerConnection(data.role, data.roomId);
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
@@ -78,11 +82,36 @@ export class OnlineGameScene extends GameScene {
       .setOrigin(1, 0)
       .setDepth(15);
 
-    this.add.text(640, 710,
+    this.add.text(640, 708,
       `Room: ${this._roomId} · ${this._isHost ? "Host (Blue)" : "Client (Red)"}`, {
         fontSize: "13px", color: "#888888",
       })
       .setOrigin(0.5, 1);
+
+    if (this._isHost) {
+      const shareUrl = `${window.location.origin}${window.location.pathname}#${this._roomId}`;
+      const shareBtn = this.add
+        .text(640, 692,
+          "⬡  Tap to share link with opponent",
+          { fontSize: "15px", color: "#4488ff", stroke: "#000", strokeThickness: 2 }
+        )
+        .setOrigin(0.5, 1)
+        .setDepth(15)
+        .setInteractive({ useHandCursor: true });
+
+      shareBtn.on("pointerover", () => shareBtn.setAlpha(0.75));
+      shareBtn.on("pointerout",  () => shareBtn.setAlpha(1));
+      shareBtn.on("pointerdown", () => {
+        if (navigator.share) {
+          void navigator.share({ title: "Floorball Frenzy — join my game!", url: shareUrl });
+        } else {
+          void navigator.clipboard.writeText(shareUrl).then(() => {
+            shareBtn.setText("✓  Link copied!");
+            this.time.delayedCall(2000, () => shareBtn.setText("⬡  Tap to share link with opponent"));
+          });
+        }
+      });
+    }
   }
 
   update(time: number, delta: number): void {
@@ -110,12 +139,14 @@ export class OnlineGameScene extends GameScene {
     this._elapsedMs += elapsedMs;
 
     if (this._isHost) {
-      // Full authoritative sim (same as local) — but super._fixedUpdate also
-      // increments _elapsedMs, so we skip the super call and inline the logic
-      // by calling super's helpers through a fresh invocation.
-      // Simpler: just let super run (it will double-increment _elapsedMs,
-      // so we subtract the extra here).
-      this._elapsedMs -= elapsedMs; // undo our increment above; super will add it
+      // Detect wrist-shot rising edge from client network input before super runs physics
+      const clientWristFired = this.client.input.wrist && !this._clientWristWasDown;
+      this._clientWristWasDown = this.client.input.wrist;
+      if (clientWristFired) this._doWristShot("client");
+
+      // Full authoritative sim — _readClientInput() is overridden to return
+      // this.client.input (the latest network input), so slap/move/dash all work.
+      this._elapsedMs -= elapsedMs; // undo our increment; super will add it back
       super._fixedUpdate(dt);
 
       this._snapshotTimer += elapsedMs;
@@ -124,28 +155,40 @@ export class OnlineGameScene extends GameScene {
         this._sendSnapshot();
       }
     } else {
-      // Client: local physics for own player + send input to host
+      // Client: local physics prediction for own player + send input to host
       const input = this._readOnlineClientInput();
       if (input.moveX !== 0 || input.moveY !== 0) {
         this._clientAim = { x: input.moveX, y: input.moveY };
       }
       stepPlayer(this.client, input, dt, elapsedMs);
 
-      // Slap charge + release (host will also run this, so no local ball-velocity change)
-      updateShootCharge(this._clientShoot, input.slap, elapsedMs);
-      if (this._onlineClientSlapWasDown && !input.slap && this._clientShoot.chargeMs > 0) {
+      // Slap: check release BEFORE updating charge so chargeMs is still populated
+      if (this._onlineClientSlapWasDown && !input.slap) {
         this._clientShoot.chargeMs = 0;
         this._clientShoot.charging = false;
       }
       this._onlineClientSlapWasDown = input.slap;
+      updateShootCharge(this._clientShoot, input.slap, elapsedMs);
 
+      // Local prediction: stick tip and possession (visual only — host is authoritative)
+      const clientStick = this._stickDir(this.client, this._clientAim);
       resolvePlayerBallCollision(this.host, this.ball);
       resolvePlayerBallCollision(this.client, this.ball);
+      resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
       stepBall(this.ball, dt);
 
-      // Send input to host (host is authoritative for ball physics)
+      // Send input to host (host is authoritative for all ball physics)
       this._peer.send({ type: "input", seq: ++this._inputSeq, input });
     }
+  }
+
+  /**
+   * When running as host, return the latest received client input instead of
+   * reading local keyboard — the keyboard is only for the host player online.
+   */
+  protected override _readClientInput(): InputState {
+    if (this._isHost) return this.client.input;
+    return super._readClientInput();
   }
 
   /**
@@ -244,6 +287,8 @@ export class OnlineGameScene extends GameScene {
   }
 
   shutdown(): void {
+    // Clear the room hash so returning to menu doesn't auto-rejoin
+    history.replaceState(null, "", window.location.pathname);
     this._peer?.close();
   }
 }
