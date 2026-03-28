@@ -57,12 +57,12 @@ export class GameScene extends Phaser.Scene {
   private _clientShoot!: ShootState;
 
   // Last aim direction per player (used when shooting)
-  private _hostAim = { x: 1, y: 0 };
-  private _clientAim = { x: -1, y: 0 };
+  protected _hostAim = { x: 1, y: 0 };
+  protected _clientAim = { x: -1, y: 0 };
 
   // One-touch tracking
   private _lastTouch: LastTouch = { playerId: "", timeMs: 0 };
-  private _elapsedMs = 0; // total game time in ms
+  protected _elapsedMs = 0; // total game time in ms
 
   // Was slap held last frame? (to detect release)
   private _hostSlapWasDown = false;
@@ -81,13 +81,13 @@ export class GameScene extends Phaser.Scene {
   private _hostChargeBar!: Phaser.GameObjects.Rectangle;
   private _clientChargeBar!: Phaser.GameObjects.Rectangle;
   private _scoreText!: Phaser.GameObjects.Text;
-  private _messageText!: Phaser.GameObjects.Text;
+  protected _messageText!: Phaser.GameObjects.Text;
 
   // Fixed timestep accumulator
   private _accumulator = 0;
 
   // Frozen while showing goal message
-  private _frozenMs = 0;
+  protected _frozenMs = 0;
 
   // Keys
   private _wasd!: {
@@ -250,7 +250,7 @@ export class GameScene extends Phaser.Scene {
     this._syncSprites();
   }
 
-  private _fixedUpdate(dt: number): void {
+  protected _fixedUpdate(dt: number): void {
     const elapsedMs = dt * 1000;
     this._elapsedMs += elapsedMs;
 
@@ -325,7 +325,7 @@ export class GameScene extends Phaser.Scene {
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
   }
 
-  private _readHostInput(): InputState {
+  protected _readHostInput(): InputState {
     const k = this._wasd;
     let mx = 0;
     let my = 0;
@@ -352,7 +352,7 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  private _readClientInput(): InputState {
+  protected _readClientInput(): InputState {
     const k = this._arrows;
     let mx = 0;
     let my = 0;
