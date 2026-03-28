@@ -252,7 +252,10 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this._accumulator += delta / 1000;
+    // Cap delta so returning from a background tab doesn't cause a
+    // multi-second catch-up spiral through hundreds of fixed steps.
+    const clampedDelta = Math.min(delta, 200);
+    this._accumulator += clampedDelta / 1000;
     while (this._accumulator >= FIXED_DT) {
       this._fixedUpdate(FIXED_DT);
       this._accumulator -= FIXED_DT;
