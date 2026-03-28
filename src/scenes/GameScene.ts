@@ -230,8 +230,24 @@ export class GameScene extends Phaser.Scene {
     this._arrows.wrist.on("down", () => this._doWristShot("client"));
 
     kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC).on("down", () => {
-      this.scene.start("MenuScene");
+      this._confirmLeave();
     });
+
+    // Small back button — always visible, top-left corner
+    const backBg = this.add
+      .rectangle(10, 10, 90, 32, 0x000000, 0.45)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0xffffff, 0.2)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(15);
+    const backLabel = this.add
+      .text(55, 26, "← Menu", { fontSize: "14px", color: "#aaaaaa" })
+      .setOrigin(0.5)
+      .setDepth(15);
+    backLabel.disableInteractive();
+    backBg.on("pointerover", () => backLabel.setColor("#ffffff"));
+    backBg.on("pointerout",  () => backLabel.setColor("#aaaaaa"));
+    backBg.on("pointerup",   () => this._confirmLeave());
 
     // Touch UI — joystick anywhere in the left 60%, buttons on the far right
     this._hostJoy = new VirtualJoystick(this, 0, 0, 768, 720);
@@ -266,6 +282,12 @@ export class GameScene extends Phaser.Scene {
     this._clientShotAnimMs = Math.max(0, this._clientShotAnimMs - delta);
 
     this._syncSprites();
+  }
+
+  protected _confirmLeave(): void {
+    if (window.confirm("Leave game and go back to the menu?")) {
+      this.scene.start("MenuScene");
+    }
   }
 
   protected _fixedUpdate(dt: number): void {

@@ -56,11 +56,13 @@ export class OnlineGameScene extends GameScene {
       this._connected = false;
       this._statusText?.setText("Reconnecting…");
     };
+    this._peer.onGiveUp = () => {
+      this._connected = false;
+      this._statusText?.setText("");
+      this._buildDisconnectOverlay();
+    };
     this._peer.onStateChange = (state) => {
       console.log("[OnlineGame] connectionState →", state);
-      if (state === "closed") {
-        this._statusText?.setText(`Connection closed — press ESC`);
-      }
     };
 
     if (this._isHost) {
@@ -310,6 +312,36 @@ export class OnlineGameScene extends GameScene {
     }).setOrigin(0.5).setDepth(19);
 
     this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint];
+  }
+
+  /** Full-screen overlay shown when reconnection gives up. */
+  private _buildDisconnectOverlay(): void {
+    const cx = 640, cy = 360;
+
+    this.add.rectangle(cx, cy, 560, 280, 0x000000, 0.85).setDepth(25);
+
+    this.add.text(cx, cy - 80, "Connection lost", {
+      fontSize: "30px", color: "#ff6644", fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(26);
+
+    this.add.text(cx, cy - 38, "Could not reconnect to your opponent.", {
+      fontSize: "18px", color: "#888888",
+    }).setOrigin(0.5).setDepth(26);
+
+    const btnBg = this.add
+      .rectangle(cx, cy + 50, 320, 70, 0x1a44bb, 1)
+      .setStrokeStyle(2, 0x6699ff, 1)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(26);
+
+    const btnLabel = this.add.text(cx, cy + 50, "← Back to Menu", {
+      fontSize: "22px", color: "#ffffff", fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(26);
+    btnLabel.disableInteractive();
+
+    btnBg.on("pointerover", () => btnBg.setFillStyle(0x2255cc, 1));
+    btnBg.on("pointerout",  () => btnBg.setFillStyle(0x1a44bb, 1));
+    btnBg.on("pointerup",   () => this.scene.start("MenuScene"));
   }
 
   shutdown(): void {

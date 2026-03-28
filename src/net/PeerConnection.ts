@@ -43,6 +43,7 @@ export class PeerConnection {
   onStateChange: OnStateCb = () => undefined;
   onChannelOpen: () => void = () => undefined;
   onReconnecting: () => void = () => undefined;
+  onGiveUp: () => void = () => undefined;
 
   constructor(role: Role, roomId: string) {
     this._role = role;
@@ -138,6 +139,7 @@ export class PeerConnection {
     if (this._reconnectTimer !== null) return;
     if (this._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       log(this._role, "max reconnect attempts reached — giving up");
+      this.onGiveUp();
       return;
     }
     log(this._role, `scheduling reconnect in ${delayMs}ms (attempt ${this._reconnectAttempts + 1})`);
