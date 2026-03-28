@@ -28,8 +28,8 @@ export class ActionButtons {
     centerY: number,
     tint = 0xffffff
   ) {
-    const BTN_R = 55;
-    const GAP = 130;
+    const BTN_R = 70;
+    const GAP = 150;
 
     const labels = ["W", "S", "D"]; // Wrist, Slap, Dash
     const ys = [centerY - GAP, centerY, centerY + GAP];

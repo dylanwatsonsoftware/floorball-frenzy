@@ -75,6 +75,18 @@
         document.body.classList.add("no-fullscreen");
       }
 
+      // Portrait overlay — JS supplement to the CSS media query
+      var rotateMsg = document.getElementById("rotate-msg");
+      function updateOrientation() {
+        var portrait = window.innerWidth < window.innerHeight;
+        rotateMsg.style.display = portrait ? "flex" : "none";
+      }
+      window.addEventListener("resize", updateOrientation);
+      window.addEventListener("orientationchange", function () {
+        setTimeout(updateOrientation, 100);
+      });
+      updateOrientation();
+
       document.getElementById("fs-btn").addEventListener("click", function () {
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().then(function () {

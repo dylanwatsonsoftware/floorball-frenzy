@@ -365,15 +365,41 @@ export class GameScene extends Phaser.Scene {
     return { x: -ny, y: nx };
   }
 
-  /** Gently pulls ball along with player when stick tip is touching it. */
+  /**
+   * When ball is near the stick tip, carry it:
+   *  - velocity coupling: ball velocity is pulled toward player velocity (0.35/step)
+   *  - position correction: ball is pulled toward the tip surface (45% of gap/step)
+   *  - speed gate: if ball arrives too fast (incoming pass/shot), skip possession
+   *    so the collision system handles the deflection instead
+   */
   private _applyStickPossession(
     player: PlayerExtended,
     stickDir: { x: number; y: number }
   ): void {
     const tipX = player.x + stickDir.x * STICK_REACH;
     const tipY = player.y + stickDir.y * STICK_REACH;
-    if (Math.hypot(this.ball.x - tipX, this.ball.y - tipY) < BALL_RADIUS + 6) {
-      applyPossessionAssist(this.ball, player.vx, player.vy);
+    const dx = this.ball.x - tipX;
+    const dy = this.ball.y - tipY;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > BALL_RADIUS + 22) return; // outside possession range
+
+    // Don't override fast-moving balls (incoming shots/passes get deflected)
+    const relSpeed = Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy);
+    if (relSpeed > 220) return;
+
+    // Velocity coupling
+    applyPossessionAssist(this.ball, player.vx, player.vy);
+    this.ball.vx += (player.vx - this.ball.vx) * 0.25; // extra on top of base 0.1
+    this.ball.vy += (player.vy - this.ball.vy) * 0.25;
+
+    // Position: pull ball to tip surface (lerp 45% of gap each step)
+    if (dist > 0) {
+      const nx = dx / dist;
+      const ny = dy / dist;
+      const restDist = BALL_RADIUS;
+      this.ball.x = tipX + nx * (restDist + (dist - restDist) * 0.55);
+      this.ball.y = tipY + ny * (restDist + (dist - restDist) * 0.55);
     }
   }
 
