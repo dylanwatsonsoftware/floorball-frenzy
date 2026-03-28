@@ -11,6 +11,8 @@ import {
   wristShot,
 } from "../physics/shooting";
 import type { ShootState } from "../physics/shooting";
+import { VirtualJoystick } from "../ui/VirtualJoystick";
+import { ActionButtons } from "../ui/ActionButtons";
 import {
   FIELD_LEFT,
   FIELD_RIGHT,
@@ -65,6 +67,10 @@ export class GameScene extends Phaser.Scene {
   // Was slap held last frame? (to detect release)
   private _hostSlapWasDown = false;
   private _clientSlapWasDown = false;
+
+  // Touch UI (present on mobile; keyboard still works on desktop)
+  private _hostJoy!: VirtualJoystick;
+  private _hostButtons!: ActionButtons;
 
   // Graphics / display objects
   private _field!: Phaser.GameObjects.Graphics;
@@ -214,6 +220,14 @@ export class GameScene extends Phaser.Scene {
     kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC).on("down", () => {
       this.scene.start("MenuScene");
     });
+
+    // Touch UI — joystick on left third, action buttons on right side
+    // Zone covers the full canvas height so the player can drag anywhere on their side
+    this._hostJoy = new VirtualJoystick(this, 0, 0, 430, 720);
+    this._hostButtons = new ActionButtons(this, 60, 360, 0x4488ff);
+
+    // Enable multi-touch
+    this.input.addPointer(3);
   }
 
   update(_time: number, delta: number): void {
@@ -319,7 +333,23 @@ export class GameScene extends Phaser.Scene {
     if (k.right.isDown) mx += 1;
     if (k.up.isDown) my -= 1;
     if (k.down.isDown) my += 1;
-    return { moveX: mx, moveY: my, wrist: k.wrist.isDown, slap: k.slap.isDown, dash: k.dash.isDown };
+
+    // Merge touch joystick (takes priority when active)
+    if (this._hostJoy.isActive()) {
+      mx = this._hostJoy.value.x;
+      my = this._hostJoy.value.y;
+    }
+
+    const touch = this._hostButtons.read();
+    if (touch.wrist) this._doWristShot("host");
+
+    return {
+      moveX: mx,
+      moveY: my,
+      wrist: k.wrist.isDown,
+      slap: k.slap.isDown || touch.slapHeld,
+      dash: k.dash.isDown || touch.dash,
+    };
   }
 
   private _readClientInput(): InputState {
