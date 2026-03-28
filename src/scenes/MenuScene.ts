@@ -66,23 +66,6 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // Fullscreen button — only shown when fullscreen API is available
-    if (typeof document.documentElement.requestFullscreen === "function") {
-      this._makeButton(1240, 20, "⛶", 0x888888, () => this._enterFullscreen())
-        .setFontSize("32px")
-        .setOrigin(1, 0);
-    }
-  }
-
-  private _enterFullscreen(): void {
-    if (!this.scale.isFullscreen) {
-      this.scale.startFullscreen();
-    } else {
-      this.scale.stopFullscreen();
-    }
-    if (screen.orientation?.lock) {
-      void screen.orientation.lock("landscape").catch(() => { /* not supported */ });
-    }
   }
 
   private _makeButton(

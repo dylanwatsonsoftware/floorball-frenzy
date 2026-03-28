@@ -14,7 +14,8 @@
         overflow: hidden;
         background: #000;
       }
-      /* Portrait overlay — shown only when device is portrait */
+
+      /* Portrait overlay — asks user to rotate; hides game */
       #rotate-msg {
         display: none;
         position: fixed;
@@ -34,6 +35,30 @@
       @media (orientation: portrait) {
         #rotate-msg { display: flex; }
       }
+
+      /* Fullscreen toggle — always in real viewport corner, above canvas */
+      #fs-btn {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+        z-index: 998;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #fff;
+        font-size: 22px;
+        line-height: 1;
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* Hide when browser has no fullscreen API (e.g. iOS Safari) */
+      .no-fullscreen #fs-btn { display: none; }
+      /* Hide in portrait (rotate overlay covers everything anyway) */
+      @media (orientation: portrait) {
+        #fs-btn { display: none; }
+      }
     </style>
   </head>
   <body>
@@ -41,6 +66,28 @@
       <span>&#8635;</span>
       Please rotate your device to landscape
     </div>
+
+    <button id="fs-btn" title="Toggle fullscreen">&#x26F6;</button>
+
+    <script>
+      // Mark body if fullscreen API is unavailable (hides button via CSS)
+      if (typeof document.documentElement.requestFullscreen !== "function") {
+        document.body.classList.add("no-fullscreen");
+      }
+
+      document.getElementById("fs-btn").addEventListener("click", function () {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().then(function () {
+            if (screen.orientation && screen.orientation.lock) {
+              screen.orientation.lock("landscape").catch(function () {});
+            }
+          }).catch(function () {});
+        } else {
+          document.exitFullscreen();
+        }
+      });
+    </script>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
