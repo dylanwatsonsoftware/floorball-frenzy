@@ -350,22 +350,16 @@ export class GameScene extends Phaser.Scene {
    * This is the direction the stick extends — beside the player, not in front.
    */
   protected _stickDir(
-    player: { x: number; y: number },
+    _player: { x: number; y: number },
     aim: { x: number; y: number }
   ): { x: number; y: number } {
     const len = Math.hypot(aim.x, aim.y);
-    if (len === 0) return { x: 0, y: 1 }; // default: down
+    if (len === 0) return { x: 0, y: 1 };
     const nx = aim.x / len;
     const ny = aim.y / len;
-    // Two perpendiculars: CCW (-ny, nx) and CW (ny, -nx)
-    const p1x = -ny, p1y = nx;
-    const p2x =  ny, p2y = -nx;
-    // Pick the side toward the ball
-    const bx = this.ball.x - player.x;
-    const by = this.ball.y - player.y;
-    return (p1x * bx + p1y * by) >= 0
-      ? { x: p1x, y: p1y }
-      : { x: p2x, y: p2y };
+    // Right-hand side of player: 90° CCW from aim in screen coords (-ny, nx)
+    // e.g. facing right (1,0) → stick points down (0,1) — player's right
+    return { x: -ny, y: nx };
   }
 
   /** Gently pulls ball along with player when stick tip is touching it. */
