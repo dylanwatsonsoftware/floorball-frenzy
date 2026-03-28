@@ -10,10 +10,14 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Enter native fullscreen on first touch (mobile)
+    // Enter native fullscreen + lock landscape on first touch (mobile)
     this.input.once("pointerdown", () => {
       if (!this.scale.isFullscreen) {
         this.scale.startFullscreen();
+      }
+      // Lock to landscape if orientation API is available (Android Chrome)
+      if (screen.orientation?.lock) {
+        void screen.orientation.lock("landscape").catch(() => { /* not supported */ });
       }
     });
 

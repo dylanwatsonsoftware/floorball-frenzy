@@ -56,8 +56,8 @@ export class GameScene extends Phaser.Scene {
   protected score = { host: 0, client: 0 };
 
   // Shooting state per player
-  private _hostShoot!: ShootState;
-  private _clientShoot!: ShootState;
+  protected _hostShoot!: ShootState;
+  protected _clientShoot!: ShootState;
 
   // Last aim direction per player (used when shooting)
   protected _hostAim = { x: 1, y: 0 };
@@ -72,8 +72,8 @@ export class GameScene extends Phaser.Scene {
   private _clientSlapWasDown = false;
 
   // Touch UI (present on mobile; keyboard still works on desktop)
-  private _hostJoy!: VirtualJoystick;
-  private _hostButtons!: ActionButtons;
+  protected _hostJoy!: VirtualJoystick;
+  protected _hostButtons!: ActionButtons;
 
   // Graphics / display objects
   private _field!: Phaser.GameObjects.Graphics;
@@ -93,8 +93,12 @@ export class GameScene extends Phaser.Scene {
   // Frozen while showing goal message
   protected _frozenMs = 0;
 
+  // Shot animation (countdown ms per player; used by _drawSticks)
+  protected _hostShotAnimMs = 0;
+  protected _clientShotAnimMs = 0;
+
   // Keys
-  private _wasd!: {
+  protected _wasd!: {
     up: Phaser.Input.Keyboard.Key;
     down: Phaser.Input.Keyboard.Key;
     left: Phaser.Input.Keyboard.Key;
@@ -103,7 +107,7 @@ export class GameScene extends Phaser.Scene {
     wrist: Phaser.Input.Keyboard.Key;
     slap: Phaser.Input.Keyboard.Key;
   };
-  private _arrows!: {
+  protected _arrows!: {
     up: Phaser.Input.Keyboard.Key;
     down: Phaser.Input.Keyboard.Key;
     left: Phaser.Input.Keyboard.Key;
@@ -253,6 +257,10 @@ export class GameScene extends Phaser.Scene {
       this._accumulator -= FIXED_DT;
     }
 
+    // Decay shot animation timers
+    this._hostShotAnimMs = Math.max(0, this._hostShotAnimMs - delta);
+    this._clientShotAnimMs = Math.max(0, this._clientShotAnimMs - delta);
+
     this._syncSprites();
   }
 
@@ -326,20 +334,24 @@ export class GameScene extends Phaser.Scene {
     return dist <= STICK_REACH + BALL_RADIUS + 10; // +10px tolerance
   }
 
-  private _doWristShot(who: "host" | "client"): void {
+  protected _doWristShot(who: "host" | "client"): void {
     if (this._frozenMs > 0) return;
     if (!this._ballInRange(who)) return;
     const aim = who === "host" ? this._hostAim : this._clientAim;
     wristShot(this.ball, aim.x, aim.y, this._isOneTouch(who));
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
+    if (who === "host") this._hostShotAnimMs = 180;
+    else this._clientShotAnimMs = 180;
   }
 
-  private _doSlapShot(who: "host" | "client"): void {
+  protected _doSlapShot(who: "host" | "client"): void {
     if (!this._ballInRange(who)) return;
     const state = who === "host" ? this._hostShoot : this._clientShoot;
     const aim = who === "host" ? this._hostAim : this._clientAim;
     releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who));
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
+    if (who === "host") this._hostShotAnimMs = 280;
+    else this._clientShotAnimMs = 280;
   }
 
   protected _readHostInput(): InputState {
@@ -452,16 +464,25 @@ export class GameScene extends Phaser.Scene {
     const drawStick = (
       player: { x: number; y: number },
       aim: { x: number; y: number },
-      color: number
+      color: number,
+      animMs: number,
+      maxAnimMs: number
     ): void => {
       const len = Math.hypot(aim.x, aim.y);
       if (len === 0) return;
       const nx = aim.x / len;
       const ny = aim.y / len;
+
+      // Shot animation: stick pokes forward then retracts (sin curve)
+      const t = animMs > 0 ? 1 - animMs / maxAnimMs : 0; // 0=just fired, 1=done
+      const extra = Math.sin(t * Math.PI) * STICK_LENGTH * 0.9;
+      const reach = PLAYER_RADIUS + STICK_LENGTH + extra;
+
       const baseX = player.x + nx * PLAYER_RADIUS;
       const baseY = player.y + ny * PLAYER_RADIUS;
-      const tipX = player.x + nx * (PLAYER_RADIUS + STICK_LENGTH);
-      const tipY = player.y + ny * (PLAYER_RADIUS + STICK_LENGTH);
+      const tipX = player.x + nx * reach;
+      const tipY = player.y + ny * reach;
+
       // Stick shaft
       g.lineStyle(4, color, 0.9);
       g.lineBetween(baseX, baseY, tipX, tipY);
@@ -470,8 +491,8 @@ export class GameScene extends Phaser.Scene {
       g.fillCircle(tipX, tipY, 4);
     };
 
-    drawStick(this.host, this._hostAim, 0x4488ff);
-    drawStick(this.client, this._clientAim, 0xff4444);
+    drawStick(this.host,   this._hostAim,   0x4488ff, this._hostShotAnimMs,   280);
+    drawStick(this.client, this._clientAim, 0xff4444, this._clientShotAnimMs, 280);
   }
 
   private _drawField(): void {

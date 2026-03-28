@@ -6,6 +6,7 @@ import { lerpState } from "../net/lerp";
 import { stepPlayer } from "../physics/playerPhysics";
 import { stepBall } from "../physics/ballPhysics";
 import { resolvePlayerBallCollision } from "../physics/collision";
+import { updateShootCharge } from "../physics/shooting";
 
 const SNAPSHOT_INTERVAL_MS = 1000 / 15; // 15 Hz
 
@@ -21,6 +22,7 @@ export class OnlineGameScene extends GameScene {
 
   private _statusText!: Phaser.GameObjects.Text;
   private _pingText!: Phaser.GameObjects.Text;
+  private _onlineClientSlapWasDown = false;
 
   constructor() {
     super();
@@ -119,19 +121,58 @@ export class OnlineGameScene extends GameScene {
         this._sendSnapshot();
       }
     } else {
-      // Client: local physics for own (client) player only
-      const input = this._readClientInput();
+      // Client: local physics for own player + send input to host
+      const input = this._readOnlineClientInput();
       if (input.moveX !== 0 || input.moveY !== 0) {
         this._clientAim = { x: input.moveX, y: input.moveY };
       }
       stepPlayer(this.client, input, dt, elapsedMs);
+
+      // Slap charge + release (host will also run this, so no local ball-velocity change)
+      updateShootCharge(this._clientShoot, input.slap, elapsedMs);
+      if (this._onlineClientSlapWasDown && !input.slap && this._clientShoot.chargeMs > 0) {
+        this._clientShoot.chargeMs = 0;
+        this._clientShoot.charging = false;
+      }
+      this._onlineClientSlapWasDown = input.slap;
+
       resolvePlayerBallCollision(this.host, this.ball);
       resolvePlayerBallCollision(this.client, this.ball);
       stepBall(this.ball, dt);
 
-      // Send input to host
+      // Send input to host (host is authoritative for ball physics)
       this._peer.send({ type: "input", seq: ++this._inputSeq, input });
     }
+  }
+
+  /**
+   * Reads input for the client player on their own device.
+   * Accepts WASD, arrow keys, virtual joystick, and action buttons.
+   */
+  private _readOnlineClientInput() {
+    const w = this._wasd;
+    const a = this._arrows;
+    let mx = 0, my = 0;
+    if (w.left.isDown  || a.left.isDown)  mx -= 1;
+    if (w.right.isDown || a.right.isDown) mx += 1;
+    if (w.up.isDown    || a.up.isDown)    my -= 1;
+    if (w.down.isDown  || a.down.isDown)  my += 1;
+
+    if (this._hostJoy.isActive()) {
+      mx = this._hostJoy.value.x;
+      my = this._hostJoy.value.y;
+    }
+
+    const touch = this._hostButtons.read();
+    if (touch.wrist) this._doWristShot("client");
+
+    return {
+      moveX: mx,
+      moveY: my,
+      wrist: w.wrist.isDown || a.wrist.isDown,
+      slap: w.slap.isDown || a.slap.isDown || touch.slapHeld,
+      dash: w.dash.isDown || a.dash.isDown || touch.dash,
+    };
   }
 
   private _sendSnapshot(): void {
