@@ -97,6 +97,12 @@ export class GameScene extends Phaser.Scene {
   protected _hostShotAnimMs = 0;
   protected _clientShotAnimMs = 0;
 
+  /**
+   * When non-null, _readClientInput() returns this instead of reading keyboard.
+   * Set by OnlineGameScene on the host so network input drives client physics.
+   */
+  protected _clientInputOverride: import("../types/game").InputState | null = null;
+
   // Keys
   protected _wasd!: {
     up: Phaser.Input.Keyboard.Key;
@@ -451,6 +457,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   protected _readClientInput(): InputState {
+    if (this._clientInputOverride !== null) return this._clientInputOverride;
     const k = this._arrows;
     let mx = 0;
     let my = 0;

@@ -2,7 +2,6 @@ import type { GameState } from "../types/game";
 import { GameScene } from "./GameScene";
 import { PeerConnection } from "../net/PeerConnection";
 import type { GameMessage } from "../net/messages";
-import type { InputState } from "../types/game";
 import { lerpState } from "../net/lerp";
 import { stepPlayer } from "../physics/playerPhysics";
 import { stepBall } from "../physics/ballPhysics";
@@ -23,12 +22,14 @@ export class OnlineGameScene extends GameScene {
 
   private _statusText!: Phaser.GameObjects.Text;
   private _pingText!: Phaser.GameObjects.Text;
+  private _sharePanel!: Phaser.GameObjects.Container;
+  private _debugInputText!: Phaser.GameObjects.Text;
+
   private _onlineClientSlapWasDown = false;
   private _clientWristWasDown = false;
 
   constructor() {
     super();
-    // Override the scene key registered by the parent
     this.sys.settings.key = "OnlineGameScene";
   }
 
@@ -42,20 +43,19 @@ export class OnlineGameScene extends GameScene {
     this._inputSeq = 0;
     this._onlineClientSlapWasDown = false;
     this._clientWristWasDown = false;
+    this._clientInputOverride = null;
 
     this._peer = new PeerConnection(data.role, data.roomId);
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
-    // Fire when the data channel is actually open (safe to send)
     this._peer.onChannelOpen = () => {
       this._connected = true;
+      this._sharePanel?.setVisible(false);
       this._statusText?.setText("");
       if (this._isHost) this._peer.send({ type: "start" });
     };
     this._peer.onStateChange = (state) => {
       console.log("[OnlineGame] connectionState →", state);
-      if (state === "connecting" || state === "new") {
-        this._statusText?.setText(`Connecting… (${state})`);
-      } else if (state === "failed" || state === "disconnected" || state === "closed") {
+      if (state === "failed" || state === "disconnected" || state === "closed") {
         this._statusText?.setText(`Connection ${state} — press ESC`);
       }
     };
@@ -70,48 +70,29 @@ export class OnlineGameScene extends GameScene {
   create(): void {
     super.create();
 
-    this._statusText = this.add
-      .text(640, 350, "Connecting…", {
-        fontSize: "32px", color: "#ffff00", stroke: "#000", strokeThickness: 3,
-      })
-      .setOrigin(0.5)
-      .setDepth(15);
-
     this._pingText = this.add
       .text(1270, 10, "", { fontSize: "13px", color: "#888888" })
       .setOrigin(1, 0)
+      .setDepth(15);
+
+    this._statusText = this.add
+      .text(640, 30, "", { fontSize: "18px", color: "#ff8800", stroke: "#000", strokeThickness: 2 })
+      .setOrigin(0.5, 0)
       .setDepth(15);
 
     this.add.text(640, 708,
       `Room: ${this._roomId} · ${this._isHost ? "Host (Blue)" : "Client (Red)"}`, {
         fontSize: "13px", color: "#888888",
       })
-      .setOrigin(0.5, 1);
+      .setOrigin(0.5, 1)
+      .setDepth(15);
 
-    if (this._isHost) {
-      const shareUrl = `${window.location.origin}${window.location.pathname}#${this._roomId}`;
-      const shareBtn = this.add
-        .text(640, 692,
-          "⬡  Tap to share link with opponent",
-          { fontSize: "15px", color: "#4488ff", stroke: "#000", strokeThickness: 2 }
-        )
-        .setOrigin(0.5, 1)
-        .setDepth(15)
-        .setInteractive({ useHandCursor: true });
+    // Debug HUD: shows received client input on host (helps diagnose input sync)
+    this._debugInputText = this.add
+      .text(10, 50, "", { fontSize: "12px", color: "#ffff00" })
+      .setDepth(20);
 
-      shareBtn.on("pointerover", () => shareBtn.setAlpha(0.75));
-      shareBtn.on("pointerout",  () => shareBtn.setAlpha(1));
-      shareBtn.on("pointerdown", () => {
-        if (navigator.share) {
-          void navigator.share({ title: "Floorball Frenzy — join my game!", url: shareUrl });
-        } else {
-          void navigator.clipboard.writeText(shareUrl).then(() => {
-            shareBtn.setText("✓  Link copied!");
-            this.time.delayedCall(2000, () => shareBtn.setText("⬡  Tap to share link with opponent"));
-          });
-        }
-      });
-    }
+    this._sharePanel = this._buildSharePanel();
   }
 
   update(time: number, delta: number): void {
@@ -121,10 +102,17 @@ export class OnlineGameScene extends GameScene {
     this._pingTimer += delta;
     if (this._pingTimer >= 2000) {
       this._pingTimer = 0;
-      const t = performance.now();
-      this._peer.send({ type: "ping", t });
+      this._peer.send({ type: "ping", t: performance.now() });
     }
     if (this._pingMs > 0) this._pingText.setText(`${this._pingMs} ms`);
+
+    // Debug: show received client input on host's screen
+    if (this._isHost) {
+      const ci = this.client.input;
+      this._debugInputText.setText(
+        `P2 net input: ${ci.moveX.toFixed(1)},${ci.moveY.toFixed(1)} slap:${ci.slap}`
+      );
+    }
 
     super.update(time, delta);
   }
@@ -139,15 +127,19 @@ export class OnlineGameScene extends GameScene {
     this._elapsedMs += elapsedMs;
 
     if (this._isHost) {
-      // Detect wrist-shot rising edge from client network input before super runs physics
+      // Detect client wrist-shot rising edge before physics step
       const clientWristFired = this.client.input.wrist && !this._clientWristWasDown;
       this._clientWristWasDown = this.client.input.wrist;
       if (clientWristFired) this._doWristShot("client");
 
-      // Full authoritative sim — _readClientInput() is overridden to return
-      // this.client.input (the latest network input), so slap/move/dash all work.
+      // Set the override field so GameScene._readClientInput() returns network input
+      // instead of reading local keyboard (the defensive alternative to method override)
+      this._clientInputOverride = this.client.input;
+
       this._elapsedMs -= elapsedMs; // undo our increment; super will add it back
       super._fixedUpdate(dt);
+
+      this._clientInputOverride = null; // clear after use
 
       this._snapshotTimer += elapsedMs;
       if (this._snapshotTimer >= SNAPSHOT_INTERVAL_MS) {
@@ -155,14 +147,14 @@ export class OnlineGameScene extends GameScene {
         this._sendSnapshot();
       }
     } else {
-      // Client: local physics prediction for own player + send input to host
+      // Client: local prediction for own player + send input to host
       const input = this._readOnlineClientInput();
       if (input.moveX !== 0 || input.moveY !== 0) {
         this._clientAim = { x: input.moveX, y: input.moveY };
       }
       stepPlayer(this.client, input, dt, elapsedMs);
 
-      // Slap: check release BEFORE updating charge so chargeMs is still populated
+      // Slap: check release BEFORE updating charge
       if (this._onlineClientSlapWasDown && !input.slap) {
         this._clientShoot.chargeMs = 0;
         this._clientShoot.charging = false;
@@ -170,31 +162,17 @@ export class OnlineGameScene extends GameScene {
       this._onlineClientSlapWasDown = input.slap;
       updateShootCharge(this._clientShoot, input.slap, elapsedMs);
 
-      // Local prediction: stick tip and possession (visual only — host is authoritative)
+      // Local prediction: stick tip collision (visual only — host is authoritative)
       const clientStick = this._stickDir(this.client, this._clientAim);
       resolvePlayerBallCollision(this.host, this.ball);
       resolvePlayerBallCollision(this.client, this.ball);
       resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
       stepBall(this.ball, dt);
 
-      // Send input to host (host is authoritative for all ball physics)
       this._peer.send({ type: "input", seq: ++this._inputSeq, input });
     }
   }
 
-  /**
-   * When running as host, return the latest received client input instead of
-   * reading local keyboard — the keyboard is only for the host player online.
-   */
-  protected override _readClientInput(): InputState {
-    if (this._isHost) return this.client.input;
-    return super._readClientInput();
-  }
-
-  /**
-   * Reads input for the client player on their own device.
-   * Accepts WASD, arrow keys, virtual joystick, and action buttons.
-   */
   private _readOnlineClientInput() {
     const w = this._wasd;
     const a = this._arrows;
@@ -257,6 +235,7 @@ export class OnlineGameScene extends GameScene {
       case "input": {
         if (this._isHost) {
           this.client.input = msg.input;
+          console.log("[OnlineGame:host] input rx:", msg.input.moveX.toFixed(1), msg.input.moveY.toFixed(1));
         }
         break;
       }
@@ -272,6 +251,7 @@ export class OnlineGameScene extends GameScene {
       }
       case "start": {
         this._connected = true;
+        this._sharePanel?.setVisible(false);
         this._statusText?.setText("");
         break;
       }
@@ -286,8 +266,59 @@ export class OnlineGameScene extends GameScene {
     }
   }
 
+  /** Big centered panel shown on host while waiting for opponent. */
+  private _buildSharePanel(): Phaser.GameObjects.Container {
+    const shareUrl = `${window.location.origin}${window.location.pathname}#${this._roomId}`;
+    const cx = 640, cy = 360;
+
+    const overlay = this.add.rectangle(cx, cy, 560, 320, 0x000000, 0.75).setDepth(18);
+
+    const title = this.add.text(cx, cy - 110, "Waiting for opponent…", {
+      fontSize: "26px", color: "#ffffff", fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(19);
+
+    const roomLabel = this.add.text(cx, cy - 65, `Room code: ${this._roomId}`, {
+      fontSize: "20px", color: "#aaaaff",
+    }).setOrigin(0.5).setDepth(19);
+
+    // Share / copy button
+    const btnBg = this.add.rectangle(cx, cy, 420, 70, 0x2255cc, 1)
+      .setStrokeStyle(2, 0x6699ff)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(19);
+
+    const btnLabel = this.add.text(cx, cy, "Tap to share link with friend", {
+      fontSize: "20px", color: "#ffffff",
+    }).setOrigin(0.5).setDepth(20);
+
+    btnBg.on("pointerover", () => btnBg.setFillStyle(0x3366ee));
+    btnBg.on("pointerout",  () => btnBg.setFillStyle(0x2255cc));
+    btnBg.on("pointerdown", () => {
+      if (navigator.share) {
+        void navigator.share({ title: "Floorball Frenzy — join my game!", url: shareUrl });
+        btnLabel.setText("✓  Sharing…");
+      } else {
+        void navigator.clipboard.writeText(shareUrl).then(() => {
+          btnLabel.setText("✓  Link copied to clipboard!");
+          this.time.delayedCall(3000, () => btnLabel.setText("Tap to share link with friend"));
+        }).catch(() => {
+          btnLabel.setText(shareUrl);
+        });
+      }
+    });
+
+    const hint = this.add.text(cx, cy + 70, "Or share the URL — room code is in the address bar", {
+      fontSize: "14px", color: "#666688",
+    }).setOrigin(0.5).setDepth(19);
+
+    // Only show on host
+    const panel = this.add.container(0, 0, [overlay, title, roomLabel, btnBg, btnLabel, hint]);
+    panel.setDepth(18);
+    panel.setVisible(this._isHost);
+    return panel;
+  }
+
   shutdown(): void {
-    // Clear the room hash so returning to menu doesn't auto-rejoin
     history.replaceState(null, "", window.location.pathname);
     this._peer?.close();
   }
