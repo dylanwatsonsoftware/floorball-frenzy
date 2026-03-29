@@ -10,8 +10,10 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 720,
   backgroundColor: "#1a1a2e",
   scale: {
-    // EXPAND fills the full viewport, revealing extra background around the field.
-    mode: Phaser.Scale.EXPAND,
+    // FIT scales the canvas to fill the viewport while maintaining 16:9.
+    // The body background (#1a1a2e) matches the game background, so the
+    // letterbox areas on ultra-wide screens are invisible.
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene],

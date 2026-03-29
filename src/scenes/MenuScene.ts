@@ -150,9 +150,9 @@ export class MenuScene extends Phaser.Scene {
     })();
 
     const label = `${__GIT_HASH__}  ·  ${timeAgo}  ·  ${__GIT_MSG__}`;
-    this.add.text(W / 2, H - 14, label, {
-      fontSize: "11px",
-      color: "#1e3322",
+    this.add.text(W / 2, H - 10, label, {
+      fontSize: "15px",
+      color: "#3a6644",
     }).setOrigin(0.5, 1);
   }
 
