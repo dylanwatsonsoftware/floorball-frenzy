@@ -152,9 +152,8 @@ export class GameScene extends Phaser.Scene {
     this._drawField();
 
     // Stick sprites (depth 3, below players)
-    // Make them slightly larger (scale 0.55) so they are visible correctly
-    this._hostStickSprite = this.add.sprite(0, 0, "stick_host").setDepth(3).setScale(0.55);
-    this._clientStickSprite = this.add.sprite(0, 0, "stick_client").setDepth(3).setScale(0.55);
+    this._hostStickSprite = this.add.sprite(0, 0, "stick_host").setDepth(3).setScale(0.9);
+    this._clientStickSprite = this.add.sprite(0, 0, "stick_client").setDepth(3).setScale(0.9);
 
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
@@ -162,8 +161,9 @@ export class GameScene extends Phaser.Scene {
     this._ballSprite = this.add.circle(midX, midY, BALL_RADIUS, 0xffffff).setDepth(6);
 
     // Players (depth 5 — above stick, below ball)
-    this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(0.35);
-    this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(0.35);
+    // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
+    this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(0.65).setOrigin(0.5, 0.56);
+    this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(0.65).setOrigin(0.5, 0.56);
 
     // Charge bars (shown above each player when charging slap)
     const BAR_W = 40;
@@ -459,23 +459,27 @@ export class GameScene extends Phaser.Scene {
 
   protected _doWristShot(who: "host" | "client"): void {
     if (this._frozenMs > 0) return;
+    // Always play the swing animation on button press
+    if (who === "host") this._hostShotAnimMs = 180;
+    else this._clientShotAnimMs = 180;
+    // Only apply ball physics when in range
     if (!this._ballInRange(who)) return;
     const aim = who === "host" ? this._hostAim : this._clientAim;
     wristShot(this.ball, aim.x, aim.y, this._isOneTouch(who));
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
-    if (who === "host") this._hostShotAnimMs = 180;
-    else this._clientShotAnimMs = 180;
   }
 
   protected _doSlapShot(who: "host" | "client"): void {
+    // Always play the swing animation on release
+    if (who === "host") this._hostShotAnimMs = 280;
+    else this._clientShotAnimMs = 280;
+    // Only apply ball physics when in range
     if (!this._ballInRange(who)) return;
     const state = who === "host" ? this._hostShoot : this._clientShoot;
     const aim = who === "host" ? this._hostAim : this._clientAim;
     const player = who === "host" ? this.host : this.client;
     releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
-    if (who === "host") this._hostShotAnimMs = 280;
-    else this._clientShotAnimMs = 280;
   }
 
   protected _readHostInput(): InputState {
