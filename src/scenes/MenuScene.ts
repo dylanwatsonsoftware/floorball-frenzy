@@ -134,6 +134,26 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(W / 2, cy + 218, "Or share the URL — the room code is in the address bar", {
       fontSize: "13px", color: "#2a4a32",
     }).setOrigin(0.5);
+
+    this._drawCommitInfo();
+  }
+
+  private _drawCommitInfo(): void {
+    const timeAgo = (() => {
+      const diffMs = Date.now() - new Date(__GIT_DATE__).getTime();
+      const m = Math.floor(diffMs / 60000);
+      if (m < 60) return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}h ago`;
+      const d = Math.floor(h / 24);
+      return `${d}d ago`;
+    })();
+
+    const label = `${__GIT_HASH__}  ·  ${timeAgo}  ·  ${__GIT_MSG__}`;
+    this.add.text(W / 2, H - 14, label, {
+      fontSize: "11px",
+      color: "#1e3322",
+    }).setOrigin(0.5, 1);
   }
 
   /**
