@@ -510,7 +510,7 @@ export class GameScene extends Phaser.Scene {
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
-    const scale = 1 + this.ball.z * 0.007;
+    const scale = 1 + this.ball.z * 0.003;
     this._ballSprite.setPosition(this.ball.x, visualY).setScale(scale).setDepth(6 + this.ball.z * 0.01);
 
     // Shadow stays at ground position, shrinks and fades as ball rises
