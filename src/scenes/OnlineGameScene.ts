@@ -26,8 +26,8 @@ export class OnlineGameScene extends GameScene {
   private _debugInputText!: Phaser.GameObjects.Text;
 
   private _onlineClientSlapWasDown = false;
-  private _clientWristWasDown = false;
-  private _pendingWristShot = false;
+  private _pendingWristShot = false;      // client → host: latched on key-down
+  private _pendingClientWrist = false;    // host side: set when any input msg has wrist:true
 
   constructor() {
     super();
@@ -43,8 +43,8 @@ export class OnlineGameScene extends GameScene {
     this._pingTimer = 0;
     this._inputSeq = 0;
     this._onlineClientSlapWasDown = false;
-    this._clientWristWasDown = false;
     this._pendingWristShot = false;
+    this._pendingClientWrist = false;
 
     this._peer = new PeerConnection(data.role, data.roomId);
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
@@ -151,10 +151,14 @@ export class OnlineGameScene extends GameScene {
     this._elapsedMs += elapsedMs;
 
     if (this._isHost) {
-      // Detect client wrist rising edge and fire before physics (event-driven)
-      const clientWristFired = this.client.input.wrist && !this._clientWristWasDown;
-      this._clientWristWasDown = this.client.input.wrist;
-      if (clientWristFired) this._doWristShot("client");
+      // Fire client wrist shot from the latch set in _onNetMessage.
+      // Using a latch rather than rising-edge on client.input avoids missing
+      // shots when two packets arrive between host fixed steps (wrist:true then
+      // wrist:false — the second overwrites the first before we read it).
+      if (this._pendingClientWrist) {
+        this._pendingClientWrist = false;
+        this._doWristShot("client");
+      }
 
       // Call physics directly with explicit inputs — no override tricks, no super call.
       // this.client.input is updated from network messages in _onNetMessage.
@@ -268,8 +272,8 @@ export class OnlineGameScene extends GameScene {
       }
       case "input": {
         if (this._isHost) {
+          if (msg.input.wrist) this._pendingClientWrist = true;
           this.client.input = msg.input;
-          console.log("[OnlineGame:host] input rx:", msg.input.moveX.toFixed(1), msg.input.moveY.toFixed(1));
         }
         break;
       }

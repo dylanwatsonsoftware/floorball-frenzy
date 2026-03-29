@@ -4,6 +4,7 @@ import type { PlayerExtended } from "../physics/playerPhysics";
 import { createPlayer, stepPlayer } from "../physics/playerPhysics";
 import { stepBall, resetBall, applyPossessionAssist } from "../physics/ballPhysics";
 import { resolvePlayerBallCollision, resolveStickTipCollision } from "../physics/collision";
+import { stickDir as stickDirPure, ballInRange } from "../physics/stickUtils";
 import {
   createShootState,
   updateShootCharge,
@@ -401,12 +402,7 @@ export class GameScene extends Phaser.Scene {
   private _ballInRange(who: "host" | "client"): boolean {
     const player = who === "host" ? this.host : this.client;
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
-    const sDir = this._stickDir(player, aim);
-    const tipX = player.x + sDir.x * STICK_REACH;
-    const tipY = player.y + sDir.y * STICK_REACH;
-    const distToTip = Math.hypot(this.ball.x - tipX, this.ball.y - tipY);
-    const distToBody = Math.hypot(this.ball.x - player.x, this.ball.y - player.y);
-    return distToTip < BALL_RADIUS + 18 || distToBody < PLAYER_RADIUS + BALL_RADIUS + 5;
+    return ballInRange(player, this.ball, aim);
   }
 
   /**
@@ -417,13 +413,7 @@ export class GameScene extends Phaser.Scene {
     _player: { x: number; y: number },
     aim: { x: number; y: number }
   ): { x: number; y: number } {
-    const len = Math.hypot(aim.x, aim.y);
-    if (len === 0) return { x: 0, y: 1 };
-    const nx = aim.x / len;
-    const ny = aim.y / len;
-    // Right-hand side of player: 90° CCW from aim in screen coords (-ny, nx)
-    // e.g. facing right (1,0) → stick points down (0,1) — player's right
-    return { x: -ny, y: nx };
+    return stickDirPure(aim);
   }
 
   /**
