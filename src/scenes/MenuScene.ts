@@ -8,7 +8,6 @@ const W = 1280;
 const H = 720;
 
 const GREEN  = 0x36b346;
-const DARK   = 0x111111;
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
