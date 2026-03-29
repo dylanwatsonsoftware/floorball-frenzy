@@ -315,9 +315,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   protected _confirmLeave(): void {
-    if (window.confirm("Leave game and go back to the menu?")) {
-      this.scene.start("MenuScene");
-    }
+    this.scene.start("MenuScene");
   }
 
   protected _fixedUpdate(dt: number): void {
@@ -689,6 +687,10 @@ export class GameScene extends Phaser.Scene {
     if (delta < -Math.PI) delta += 2 * Math.PI;
     const newAngle = curAngle + Math.max(-MAX_RAD, Math.min(MAX_RAD, delta));
     return { x: Math.cos(newAngle), y: Math.sin(newAngle) };
+  }
+
+  shutdown(): void {
+    history.replaceState(null, "", window.location.pathname);
   }
 
   private _drawField(): void {
