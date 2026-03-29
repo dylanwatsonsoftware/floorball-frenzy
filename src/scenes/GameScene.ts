@@ -416,7 +416,7 @@ export class GameScene extends Phaser.Scene {
 
     // When charging a slap shot, allow the ball to be carried even at speed
     // so the player doesn't run past it before releasing.
-    const relSpeedCap = isCharging ? 500 : 320;
+    const relSpeedCap = isCharging ? 600 : 480;
     const relSpeed = Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy);
     if (relSpeed > relSpeedCap) return;
 
