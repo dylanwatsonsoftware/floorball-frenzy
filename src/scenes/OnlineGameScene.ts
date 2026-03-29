@@ -27,6 +27,7 @@ export class OnlineGameScene extends GameScene {
 
   private _onlineClientSlapWasDown = false;
   private _clientWristWasDown = false;
+  private _pendingWristShot = false;
 
   constructor() {
     super();
@@ -43,6 +44,7 @@ export class OnlineGameScene extends GameScene {
     this._inputSeq = 0;
     this._onlineClientSlapWasDown = false;
     this._clientWristWasDown = false;
+    this._pendingWristShot = false;
 
     this._peer = new PeerConnection(data.role, data.roomId);
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
@@ -110,8 +112,10 @@ export class OnlineGameScene extends GameScene {
       this._wasd.wrist.on("down", () => this._doWristShot("host"));
     } else {
       // Client controls the black player; either Q or comma works.
-      this._wasd.wrist.on("down",   () => this._doWristShot("client"));
-      this._arrows.wrist.on("down", () => this._doWristShot("client"));
+      // Also latch _pendingWristShot so the host sees the rising edge even if
+      // the key is pressed and released within a single fixed-step interval.
+      this._wasd.wrist.on("down",   () => { this._doWristShot("client"); this._pendingWristShot = true; });
+      this._arrows.wrist.on("down", () => { this._doWristShot("client"); this._pendingWristShot = true; });
     }
   }
 
@@ -213,12 +217,17 @@ export class OnlineGameScene extends GameScene {
     }
 
     const touch = this._hostButtons.read();
-    if (touch.wrist) this._doWristShot("client");
+    if (touch.wrist) { this._doWristShot("client"); this._pendingWristShot = true; }
+
+    // Latch: wrist is true for exactly one input packet after the key/button
+    // was pressed, regardless of how quickly it was released.
+    const wrist = this._pendingWristShot;
+    this._pendingWristShot = false;
 
     return {
       moveX: mx,
       moveY: my,
-      wrist: w.wrist.isDown || a.wrist.isDown,
+      wrist,
       slap: w.slap.isDown || a.slap.isDown || touch.slapHeld,
       dash: w.dash.isDown || a.dash.isDown || touch.dash,
     };
