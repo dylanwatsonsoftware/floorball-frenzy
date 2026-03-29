@@ -339,8 +339,8 @@ export class GameScene extends Phaser.Scene {
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host,   this.ball, hostStick.x,   hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
-    this._applyStickPossession(this.host,   hostStick);
-    this._applyStickPossession(this.client, clientStick);
+    this._applyStickPossession(this.host,   hostStick,   this._hostShoot.charging);
+    this._applyStickPossession(this.client, clientStick, this._clientShoot.charging);
 
     this._updateLastTouch();
 
@@ -403,7 +403,8 @@ export class GameScene extends Phaser.Scene {
    */
   protected _applyStickPossession(
     player: PlayerExtended,
-    stickDir: { x: number; y: number }
+    stickDir: { x: number; y: number },
+    isCharging = false
   ): void {
     const tipX = player.x + stickDir.x * STICK_REACH;
     const tipY = player.y + stickDir.y * STICK_REACH;
@@ -413,9 +414,11 @@ export class GameScene extends Phaser.Scene {
 
     if (dist > BALL_RADIUS + 28) return; // outside possession range
 
-    // Don't override fast-moving balls (incoming shots/passes get deflected)
+    // When charging a slap shot, allow the ball to be carried even at speed
+    // so the player doesn't run past it before releasing.
+    const relSpeedCap = isCharging ? 500 : 160;
     const relSpeed = Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy);
-    if (relSpeed > 160) return;
+    if (relSpeed > relSpeedCap) return;
 
     // Velocity coupling — reduced to make ball easier to steal
     applyPossessionAssist(this.ball, player.vx, player.vy);
