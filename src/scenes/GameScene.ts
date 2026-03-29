@@ -411,24 +411,24 @@ export class GameScene extends Phaser.Scene {
     const dy = this.ball.y - tipY;
     const dist = Math.hypot(dx, dy);
 
-    if (dist > BALL_RADIUS + 34) return; // outside possession range
+    if (dist > BALL_RADIUS + 28) return; // outside possession range
 
     // Don't override fast-moving balls (incoming shots/passes get deflected)
     const relSpeed = Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy);
-    if (relSpeed > 220) return;
+    if (relSpeed > 160) return;
 
-    // Velocity coupling
+    // Velocity coupling — reduced to make ball easier to steal
     applyPossessionAssist(this.ball, player.vx, player.vy);
-    this.ball.vx += (player.vx - this.ball.vx) * 0.35;
-    this.ball.vy += (player.vy - this.ball.vy) * 0.35;
+    this.ball.vx += (player.vx - this.ball.vx) * 0.22;
+    this.ball.vy += (player.vy - this.ball.vy) * 0.22;
 
-    // Position: pull ball to tip surface (lerp 60% of gap each step)
+    // Position: pull ball to tip surface
     if (dist > 0) {
       const nx = dx / dist;
       const ny = dy / dist;
       const restDist = BALL_RADIUS;
-      this.ball.x = tipX + nx * (restDist + (dist - restDist) * 0.40);
-      this.ball.y = tipY + ny * (restDist + (dist - restDist) * 0.40);
+      this.ball.x = tipX + nx * (restDist + (dist - restDist) * 0.50);
+      this.ball.y = tipY + ny * (restDist + (dist - restDist) * 0.50);
     }
   }
 
@@ -445,8 +445,9 @@ export class GameScene extends Phaser.Scene {
   protected _doSlapShot(who: "host" | "client"): void {
     if (!this._ballInRange(who)) return;
     const state = who === "host" ? this._hostShoot : this._clientShoot;
-    const aim = who === "host" ? this._hostAim : this._clientAim;
-    releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who));
+    const aim   = who === "host" ? this._hostAim   : this._clientAim;
+    const player = who === "host" ? this.host : this.client;
+    releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotAnimMs = 280;
     else this._clientShotAnimMs = 280;
@@ -504,10 +505,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   protected _syncSprites(): void {
-    const visualY = this.ball.y - this.ball.z * 0.5;
-    const scale = 1 + this.ball.z * 0.003;
-    this._ballSprite.setPosition(this.ball.x, visualY).setScale(scale);
-    this._ballShadow.setPosition(this.ball.x, this.ball.y).setAlpha(Math.max(0, 0.3 - this.ball.z * 0.001));
+    // Ball rises visually as z increases; scale grows noticeably with height
+    const visualY = this.ball.y - this.ball.z * 0.6;
+    const scale = 1 + this.ball.z * 0.007;
+    this._ballSprite.setPosition(this.ball.x, visualY).setScale(scale).setDepth(6 + this.ball.z * 0.01);
+
+    // Shadow stays at ground position, shrinks and fades as ball rises
+    const shadowScale = Math.max(0.3, 1 - this.ball.z * 0.004);
+    const shadowAlpha = Math.max(0, 0.45 - this.ball.z * 0.002);
+    this._ballShadow.setPosition(this.ball.x, this.ball.y).setScale(shadowScale).setAlpha(shadowAlpha);
 
     this._hostSprite.setPosition(this.host.x, this.host.y);
     this._clientSprite.setPosition(this.client.x, this.client.y);

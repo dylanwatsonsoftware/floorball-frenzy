@@ -68,7 +68,7 @@ export const DASH_COOLDOWN = 1000;
 // ─── Shooting ─────────────────────────────────────────────────────────────────
 export const SHOOT_BASE_POWER    = 500;  // was 400
 export const SHOOT_POWER_SCALE   = 700;  // was 600
-export const SHOOT_LIFT_SCALE    = 300;
+export const SHOOT_LIFT_SCALE    = 550;
 export const SHOOT_MAX_CHARGE_MS = 800;
 
 // ─── One-touch bonus ──────────────────────────────────────────────────────────

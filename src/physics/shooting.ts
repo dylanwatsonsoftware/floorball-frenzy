@@ -41,7 +41,9 @@ export function releaseShot(
   ball: Ball,
   aimX: number,
   aimY: number,
-  oneTouch: boolean
+  oneTouch: boolean,
+  playerVx = 0,
+  playerVy = 0,
 ): void {
   const charge = state.chargeMs / SHOOT_MAX_CHARGE_MS; // 0..1
   let power = SHOOT_BASE_POWER + charge * SHOOT_POWER_SCALE;
@@ -52,8 +54,9 @@ export function releaseShot(
   const nx = len > 0 ? aimX / len : 1;
   const ny = len > 0 ? aimY / len : 0;
 
-  ball.vx = nx * power;
-  ball.vy = ny * power;
+  // Add player momentum so moving shots feel natural
+  ball.vx = nx * power + playerVx;
+  ball.vy = ny * power + playerVy;
   ball.vz = charge * SHOOT_LIFT_SCALE;
 
   state.chargeMs = 0;
