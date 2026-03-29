@@ -77,6 +77,11 @@ export class GameScene extends Phaser.Scene {
   protected _hostSlapWasDown = false;
   protected _clientSlapWasDown = false;
 
+  // After firing a shot, skip possession for this many ms so the ball escapes
+  private _hostShotCooldownMs = 0;
+  private _clientShotCooldownMs = 0;
+  private static readonly SHOT_COOLDOWN_MS = 200;
+
   // Touch UI (present on mobile; keyboard still works on desktop)
   protected _hostJoy!: VirtualJoystick;
   protected _hostButtons!: ActionButtons;
@@ -365,6 +370,10 @@ export class GameScene extends Phaser.Scene {
     updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
     updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
 
+    // Tick down shot cooldowns
+    this._hostShotCooldownMs   = Math.max(0, this._hostShotCooldownMs   - elapsedMs);
+    this._clientShotCooldownMs = Math.max(0, this._clientShotCooldownMs - elapsedMs);
+
     // Use smoothed aim for stick direction so stick doesn't teleport on direction change
     const hostStick = this._stickDir(this.host, this._hostAimSmooth);
     const clientStick = this._stickDir(this.client, this._clientAimSmooth);
@@ -372,8 +381,8 @@ export class GameScene extends Phaser.Scene {
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
-    this._applyStickPossession(this.host, hostStick, this._hostShoot.charging);
-    this._applyStickPossession(this.client, clientStick, this._clientShoot.charging);
+    this._applyStickPossession(this.host, hostStick, this._hostShoot.charging, this._hostShotCooldownMs > 0);
+    this._applyStickPossession(this.client, clientStick, this._clientShoot.charging, this._clientShotCooldownMs > 0);
 
     this._updateLastTouch();
 
@@ -426,8 +435,10 @@ export class GameScene extends Phaser.Scene {
   protected _applyStickPossession(
     player: PlayerExtended,
     stickDir: { x: number; y: number },
-    isCharging = false
+    isCharging = false,
+    shotCooldownActive = false
   ): void {
+    if (shotCooldownActive) return;
     const tipX = player.x + stickDir.x * STICK_REACH;
     const tipY = player.y + stickDir.y * STICK_REACH;
     const dx = this.ball.x - tipX;
@@ -467,6 +478,8 @@ export class GameScene extends Phaser.Scene {
     const aim = who === "host" ? this._hostAim : this._clientAim;
     wristShot(this.ball, aim.x, aim.y, this._isOneTouch(who));
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
+    if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
+    else this._clientShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
   }
 
   protected _doSlapShot(who: "host" | "client"): void {
@@ -480,6 +493,8 @@ export class GameScene extends Phaser.Scene {
     const player = who === "host" ? this.host : this.client;
     releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
+    if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
+    else this._clientShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
   }
 
   protected _readHostInput(): InputState {
