@@ -1,22 +1,53 @@
 /**
- * Vercel serverless function — WebRTC signaling relay via in-memory store.
+ * Vercel serverless function — WebRTC signaling relay via Vercel KV.
  *
  * GET  /api/signal?room=<id>&role=<host|client>  → poll for a message
  * POST /api/signal                               → { room, role, msg } push a message
  *
- * Messages are held for 30 s then expire. This is ephemeral — no persistence.
+ * Messages expire after 30 s (KV TTL). Uses @vercel/kv in production;
+ * falls back to in-memory map when KV env vars are absent (local dev).
  * NOTE: compiled as CommonJS (see api/tsconfig.json) for Vercel Node.js runtime.
  */
 
 import type { IncomingMessage, ServerResponse } from "http";
 
-const store = new Map<string, { body: unknown; expiresAt: number }>();
-const TTL_MS = 30_000;
+// ── Storage abstraction ──────────────────────────────────────────────────────
 
-function gc(): void {
+const TTL_S = 30;
+
+// In-memory fallback for local dev (no KV credentials available)
+const memStore = new Map<string, { body: unknown; expiresAt: number }>();
+
+function memGc(): void {
   const now = Date.now();
-  for (const [k, v] of store) if (v.expiresAt < now) store.delete(k);
+  for (const [k, v] of memStore) if (v.expiresAt < now) memStore.delete(k);
 }
+
+async function storeGet(key: string): Promise<unknown | null> {
+  if (process.env.KV_REST_API_URL) {
+    const { kv } = await import("@vercel/kv");
+    const val = await kv.get<unknown>(key);
+    if (val !== null && val !== undefined) await kv.del(key);
+    return val ?? null;
+  }
+  memGc();
+  const entry = memStore.get(key);
+  if (!entry || entry.expiresAt < Date.now()) { memStore.delete(key); return null; }
+  memStore.delete(key);
+  return entry.body;
+}
+
+async function storeSet(key: string, value: unknown): Promise<void> {
+  if (process.env.KV_REST_API_URL) {
+    const { kv } = await import("@vercel/kv");
+    await kv.set(key, value, { ex: TTL_S });
+    return;
+  }
+  memGc();
+  memStore.set(key, { body: value, expiresAt: Date.now() + TTL_S * 1000 });
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function qs(url: string, key: string): string | null {
   const idx = url.indexOf("?");
@@ -32,17 +63,16 @@ function qs(url: string, key: string): string | null {
 type Req = IncomingMessage & { body?: unknown };
 type Res = ServerResponse;
 
-export default function handler(req: Req, res: Res): void {
+// ── Handler ──────────────────────────────────────────────────────────────────
+
+export default async function handler(req: Req, res: Res): Promise<void> {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  gc();
-
   const send = (code: number, body: unknown): void => {
-    const json = JSON.stringify(body);
     res.writeHead(code, { "Content-Type": "application/json" });
-    res.end(json);
+    res.end(JSON.stringify(body));
   };
 
   if (req.method === "OPTIONS") { res.writeHead(200).end(); return; }
@@ -52,11 +82,8 @@ export default function handler(req: Req, res: Res): void {
     const room = qs(url, "room");
     const role = qs(url, "role");
     if (!room || !role) { send(400, { error: "missing room or role" }); return; }
-    const key = `${room}:${role}`;
-    const entry = store.get(key);
-    if (!entry || entry.expiresAt < Date.now()) { store.delete(key); send(200, null); return; }
-    store.delete(key);
-    send(200, entry.body);
+    const val = await storeGet(`${room}:${role}`);
+    send(200, val);
     return;
   }
 
@@ -66,7 +93,7 @@ export default function handler(req: Req, res: Res): void {
       send(400, { error: "missing room, role, or msg" }); return;
     }
     const recipient = payload.role === "host" ? "client" : "host";
-    store.set(`${payload.room}:${recipient}`, { body: payload.msg, expiresAt: Date.now() + TTL_MS });
+    await storeSet(`${payload.room}:${recipient}`, payload.msg);
     send(200, { ok: true });
     return;
   }
