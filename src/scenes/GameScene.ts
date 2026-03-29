@@ -31,6 +31,7 @@ import {
   DZONE_DEPTH,
   DZONE_TOP,
   DZONE_BOTTOM,
+  GOAL_CAGE_DEPTH,
   PX_PER_M,
   STICK_LENGTH,
   STICK_REACH,
@@ -159,7 +160,7 @@ export class GameScene extends Phaser.Scene {
     this._ballSprite = this.add.circle(midX, midY, BALL_RADIUS, 0xffffff).setDepth(6);
 
     // Players (depth 5 — above stick, below ball)
-    this._hostSprite = this.add.circle(this.host.x, this.host.y, PLAYER_RADIUS, 0x33bb33).setDepth(5);
+    this._hostSprite = this.add.circle(this.host.x, this.host.y, PLAYER_RADIUS, 0x36b346).setDepth(5);
     this._clientSprite = this.add.circle(this.client.x, this.client.y, PLAYER_RADIUS, 0x222222).setDepth(5);
 
     // Charge bars (shown above each player when charging slap)
@@ -251,7 +252,7 @@ export class GameScene extends Phaser.Scene {
 
     // Touch UI — joystick anywhere in the left 60%, buttons on the far right
     this._hostJoy = new VirtualJoystick(this, 0, 0, 768, 720);
-    this._hostButtons = new ActionButtons(this, 1210, 360, 0x33bb33);
+    this._hostButtons = new ActionButtons(this, 1210, 360, 0x36b346);
 
     // Enable multi-touch
     this.input.addPointer(3);
@@ -594,7 +595,7 @@ export class GameScene extends Phaser.Scene {
       g.fillCircle(tipX, tipY, 4);
     };
 
-    drawStick(this.host,   this._hostAim,   0x33bb33, this._hostShotAnimMs,   280);
+    drawStick(this.host,   this._hostAim,   0x36b346, this._hostShotAnimMs,   280);
     drawStick(this.client, this._clientAim, 0x444444, this._clientShotAnimMs, 280);
   }
 
@@ -608,8 +609,6 @@ export class GameScene extends Phaser.Scene {
     const midY = (FIELD_TOP + FIELD_BOTTOM) / 2;
     const r = CORNER_RADIUS;
     const goalH = GOAL_BOTTOM - GOAL_TOP;
-    // Crease box extends from end wall to goal line + D-zone depth
-    const creaseW = (GOAL_LINE_LEFT - FIELD_LEFT) + DZONE_DEPTH;
 
     // ── Field surface — bright teal matching real floorball courts ────────────
     g.fillStyle(0x2cc0b0, 1);
@@ -641,30 +640,32 @@ export class GameScene extends Phaser.Scene {
       g.lineBetween(cx, cy - cs, cx, cy + cs);
     }
 
-    // ── Goals — inset box design matching IFF layout ──────────────────────────
-    // Each goal: outer crease rectangle (frame only) + inner net box (filled)
+    // ── Goals — floating cage with open space behind (IFF spec) ──────────────
+    // Structure (left goal example):
+    //  FIELD_LEFT ··· [open space] ··· [back wall] ··· [cage] ··· [mouth = GOAL_LINE_LEFT] ··· [crease] ··· field
     const drawGoal = (left: boolean): void => {
-      const wallX   = left ? FIELD_LEFT : FIELD_RIGHT;
-      const mouthX  = left ? GOAL_LINE_LEFT : GOAL_LINE_RIGHT;
-      const creaseX = left ? FIELD_LEFT : FIELD_RIGHT - creaseW;
-      const netX    = left ? FIELD_LEFT : GOAL_LINE_RIGHT;
-      const netW    = Math.abs(mouthX - wallX);
+      const mouthX = left ? GOAL_LINE_LEFT  : GOAL_LINE_RIGHT;
+      // Back of the goal cage (floats away from end wall)
+      const cageBackX = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
+      // Crease starts at mouth and extends into the field
+      const creaseFieldX = left ? mouthX : mouthX - DZONE_DEPTH;
 
-      // Net fill (slightly darker teal so the goal reads clearly)
-      g.fillStyle(0x1a9080, 1);
-      g.fillRect(netX, GOAL_TOP, netW, goalH);
+      // Net fill (darker teal inside the cage)
+      g.fillStyle(0x1a7060, 1);
+      const netFillX = left ? cageBackX : mouthX;
+      g.fillRect(netFillX, GOAL_TOP, GOAL_CAGE_DEPTH, goalH);
 
-      // Outer crease box (white outline, open on field side)
-      g.lineStyle(2, 0xffffff, 0.75);
-      g.strokeRect(creaseX, DZONE_TOP, creaseW, DZONE_BOTTOM - DZONE_TOP);
+      // Crease box (white outline) — in front of goal, open on field side
+      g.lineStyle(2, 0xffffff, 0.6);
+      g.strokeRect(creaseFieldX, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
 
-      // Inner goal net box (thicker white frame)
+      // Goal cage frame (thicker white) — back wall + two side rails + mouth posts
       g.lineStyle(3, 0xffffff, 1);
-      g.strokeRect(netX, GOAL_TOP, netW, goalH);
+      g.strokeRect(netFillX, GOAL_TOP, GOAL_CAGE_DEPTH, goalH);
     };
 
-    drawGoal(true);   // left goal (blue defends)
-    drawGoal(false);  // right goal (red defends)
+    drawGoal(true);   // left goal (green defends)
+    drawGoal(false);  // right goal (black defends)
 
     // ── Rink border (drawn last, on top of everything) ────────────────────────
     g.lineStyle(4, 0xffffff, 1);

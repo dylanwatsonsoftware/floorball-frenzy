@@ -19,13 +19,15 @@ export const CORNER_RADIUS = Math.round(1.5 * PX_PER_M); // 42
 export const GOAL_MOUTH_M = 2.0;
 export const GOAL_HEIGHT_PX = Math.round(GOAL_MOUTH_M * PX_PER_M); // 56 px
 
-// Goal is inset 2 m from the end wall (space behind the goal per IFF layout)
-export const GOAL_LINE_INSET = Math.round(2 * PX_PER_M); // 56 px
-export const GOAL_LINE_LEFT  = FIELD_LEFT  + GOAL_LINE_INSET; // 136
-export const GOAL_LINE_RIGHT = FIELD_RIGHT - GOAL_LINE_INSET; // 1144
+// Goal line sits 3 m from the end wall — leaves visible open space behind goal
+export const GOAL_LINE_INSET = Math.round(3 * PX_PER_M); // 84 px
+export const GOAL_LINE_LEFT  = FIELD_LEFT  + GOAL_LINE_INSET; // 194
+export const GOAL_LINE_RIGHT = FIELD_RIGHT - GOAL_LINE_INSET; // 1086
 
-// Visual net depth: drawn from end wall to goal line
-export const GOAL_DEPTH = GOAL_LINE_INSET; // 56 px (same as inset)
+// Goal cage extends 1.5 m back from the goal mouth toward the end wall.
+// The remaining space (GOAL_LINE_INSET - GOAL_CAGE_DEPTH = 1.5 m) is open
+// space behind the goal that players and the ball can freely enter.
+export const GOAL_CAGE_DEPTH = Math.round(1.5 * PX_PER_M); // 42 px
 export const GOAL_Z_THRESHOLD = 120; // ball.z must be below this to score (px)
 export const GOAL_TOP    = (FIELD_TOP + FIELD_BOTTOM) / 2 - GOAL_HEIGHT_PX / 2;
 export const GOAL_BOTTOM = GOAL_TOP + GOAL_HEIGHT_PX;

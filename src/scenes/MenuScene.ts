@@ -79,7 +79,7 @@ export class MenuScene extends Phaser.Scene {
       fontSize: "58px",
       fontStyle: "bold",
       color: "#ffffff",
-      stroke: "#1a6622",
+      stroke: "#1e7a29",
       strokeThickness: 5,
     }).setOrigin(0.5);
 
@@ -93,7 +93,7 @@ export class MenuScene extends Phaser.Scene {
     const shift = 65; // push buttons down to make room for logo
 
     // ── Local match ──────────────────────────────────────────────────────────
-    this._makeButton(W / 2, 285 + shift, "Local Match", "Same keyboard, 2 players", 0x44cc66, () => {
+    this._makeButton(W / 2, 285 + shift, "Local Match", "Same keyboard, 2 players", 0x36b346, () => {
       this.scene.start("GameScene", { mode: "local" });
     });
 
@@ -114,7 +114,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // ── Online: host ─────────────────────────────────────────────────────────
-    this._makeButton(W / 2, 440 + shift, "Host Game", "Create a room and share the link", 0x44bb44, () => {
+    this._makeButton(W / 2, 440 + shift, "Host Game", "Create a room and share the link", 0x36b346, () => {
       const roomId = randomRoomId();
       window.location.hash = roomId;
       this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
