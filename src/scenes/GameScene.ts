@@ -159,8 +159,8 @@ export class GameScene extends Phaser.Scene {
     this._ballSprite = this.add.circle(midX, midY, BALL_RADIUS, 0xffffff).setDepth(6);
 
     // Players (depth 5 — above stick, below ball)
-    this._hostSprite = this.add.circle(this.host.x, this.host.y, PLAYER_RADIUS, 0x4488ff).setDepth(5);
-    this._clientSprite = this.add.circle(this.client.x, this.client.y, PLAYER_RADIUS, 0xff4444).setDepth(5);
+    this._hostSprite = this.add.circle(this.host.x, this.host.y, PLAYER_RADIUS, 0x33bb33).setDepth(5);
+    this._clientSprite = this.add.circle(this.client.x, this.client.y, PLAYER_RADIUS, 0x222222).setDepth(5);
 
     // Charge bars (shown above each player when charging slap)
     const BAR_W = 40;
@@ -196,11 +196,11 @@ export class GameScene extends Phaser.Scene {
 
     // Controls hint
     this.add.text(FIELD_LEFT, FIELD_BOTTOM + 8,
-      "Blue: WASD move · Shift dash · Q wrist · E slap", {
+      "Green: WASD move · Shift dash · Q wrist · E slap", {
         fontSize: "14px", color: "#aaaaaa",
       });
     this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 8,
-      "Red: Arrows move · Space dash · , wrist · . slap", {
+      "Black: Arrows move · Space dash · , wrist · . slap", {
         fontSize: "14px", color: "#aaaaaa",
       }).setOrigin(1, 0);
 
@@ -251,7 +251,7 @@ export class GameScene extends Phaser.Scene {
 
     // Touch UI — joystick anywhere in the left 60%, buttons on the far right
     this._hostJoy = new VirtualJoystick(this, 0, 0, 768, 720);
-    this._hostButtons = new ActionButtons(this, 1210, 360, 0x4488ff);
+    this._hostButtons = new ActionButtons(this, 1210, 360, 0x33bb33);
 
     // Enable multi-touch
     this.input.addPointer(3);
@@ -491,9 +491,9 @@ export class GameScene extends Phaser.Scene {
 
   protected _onGoal(scorer: "host" | "client"): void {
     this.score[scorer]++;
-    const label = scorer === "host" ? "Blue scores!" : "Red scores!";
+    const label = scorer === "host" ? "Green scores!" : "Black scores!";
     if (this.score[scorer] >= WINNING_SCORE) {
-      this._messageText.setText(`${scorer === "host" ? "Blue" : "Red"} wins!`);
+      this._messageText.setText(`${scorer === "host" ? "Green" : "Black"} wins!`);
       this._frozenMs = 3000;
       this.time.delayedCall(3000, () => this.scene.start("MenuScene"));
     } else {
@@ -594,8 +594,8 @@ export class GameScene extends Phaser.Scene {
       g.fillCircle(tipX, tipY, 4);
     };
 
-    drawStick(this.host,   this._hostAim,   0x4488ff, this._hostShotAnimMs,   280);
-    drawStick(this.client, this._clientAim, 0xff4444, this._clientShotAnimMs, 280);
+    drawStick(this.host,   this._hostAim,   0x33bb33, this._hostShotAnimMs,   280);
+    drawStick(this.client, this._clientAim, 0x444444, this._clientShotAnimMs, 280);
   }
 
   private _drawField(): void {

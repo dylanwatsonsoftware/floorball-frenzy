@@ -63,35 +63,41 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private _drawTitle(): void {
-    // Shadow for the big title
-    this.add.text(W / 2 + 3, 108, "FLOORBALL FRENZY", {
-      fontSize: "68px",
-      fontStyle: "bold",
-      color: "#000000",
-      alpha: 0.6,
+    // Club logo
+    const logo = this.textures.exists("logo")
+      ? this.add.image(W / 2, 108, "logo").setOrigin(0.5).setDisplaySize(160, 160)
+      : null;
+
+    const titleY = logo ? 215 : 105;
+
+    // Shadow
+    this.add.text(W / 2 + 3, titleY + 3, "FLOORBALL FRENZY", {
+      fontSize: "58px", fontStyle: "bold", color: "#000000",
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5).setAlpha(0.35);
 
-    this.add.text(W / 2, 105, "FLOORBALL FRENZY", {
-      fontSize: "68px",
+    this.add.text(W / 2, titleY, "FLOORBALL FRENZY", {
+      fontSize: "58px",
       fontStyle: "bold",
       color: "#ffffff",
-      stroke: "#2266cc",
-      strokeThickness: 6,
+      stroke: "#1a6622",
+      strokeThickness: 5,
     }).setOrigin(0.5);
 
-    this.add.text(W / 2, 162, "Fast-paced 1v1 hockey · First to 5 goals wins", {
-      fontSize: "20px",
-      color: "#7799cc",
+    this.add.text(W / 2, titleY + 52, "Lambs Floorball Club · First to 5 goals wins", {
+      fontSize: "18px",
+      color: "#66aa66",
     }).setOrigin(0.5);
   }
 
   private _drawButtons(): void {
+    const shift = 65; // push buttons down to make room for logo
+
     // ── Local match ──────────────────────────────────────────────────────────
-    this._makeButton(W / 2, 285, "Local Match", "Same keyboard, 2 players", 0x44cc88, () => {
+    this._makeButton(W / 2, 285 + shift, "Local Match", "Same keyboard, 2 players", 0x44cc66, () => {
       this.scene.start("GameScene", { mode: "local" });
     });
 
-    this.add.text(W / 2, 340, "Blue: WASD + Shift / Q / E     Red: Arrows + Space / , / .", {
+    this.add.text(W / 2, 340 + shift, "Green: WASD + Shift / Q / E     Black: Arrows + Space / , / .", {
       fontSize: "14px",
       color: "#556677",
     }).setOrigin(0.5);
@@ -99,23 +105,23 @@ export class MenuScene extends Phaser.Scene {
     // Divider
     const gfx = this.add.graphics();
     gfx.lineStyle(1, 0x334455, 0.8);
-    gfx.lineBetween(W / 2 - 220, 375, W / 2 + 220, 375);
+    gfx.lineBetween(W / 2 - 220, 375 + shift, W / 2 + 220, 375 + shift);
 
-    this.add.text(W / 2, 375, "  ONLINE  ", {
+    this.add.text(W / 2, 375 + shift, "  ONLINE  ", {
       fontSize: "13px",
       color: "#445566",
       backgroundColor: "#0d1b3e",
     }).setOrigin(0.5);
 
     // ── Online: host ─────────────────────────────────────────────────────────
-    this._makeButton(W / 2, 440, "Host Game", "Create a room and share the link", 0x6688ff, () => {
+    this._makeButton(W / 2, 440 + shift, "Host Game", "Create a room and share the link", 0x44bb44, () => {
       const roomId = randomRoomId();
       window.location.hash = roomId;
       this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
     });
 
     // ── Online: join ─────────────────────────────────────────────────────────
-    this._makeButton(W / 2, 545, "Join Game", "Enter a room code to connect", 0xff8866, () => {
+    this._makeButton(W / 2, 535 + shift, "Join Game", "Enter a room code to connect", 0x888888, () => {
       const code = window.prompt("Enter room code:");
       if (!code) return;
       const roomId = code.trim().toUpperCase();
@@ -123,7 +129,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "client" });
     });
 
-    this.add.text(W / 2, 620, "Or share the URL — the room code is in the address bar", {
+    this.add.text(W / 2, 605 + shift, "Or share the URL — the room code is in the address bar", {
       fontSize: "15px",
       color: "#445566",
     }).setOrigin(0.5);

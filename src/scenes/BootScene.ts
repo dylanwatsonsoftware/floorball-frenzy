@@ -6,7 +6,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // load assets here later
+    this.load.image("logo", "lambs-logo.png");
   }
 
   create(): void {
