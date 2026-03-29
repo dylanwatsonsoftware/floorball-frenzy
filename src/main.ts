@@ -10,9 +10,9 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 720,
   backgroundColor: "#1a1a2e",
   scale: {
-    // ENVELOP fills the entire viewport — scales up to cover, centering the field.
-    // Field has 110px padding each side so minor edge cropping on ultra-wide is fine.
-    mode: Phaser.Scale.ENVELOP,
+    // FIT scales to fill as much of the viewport as possible without clipping.
+    // CENTER_BOTH centres the canvas so it fills screen height in landscape.
+    mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
