@@ -33,7 +33,6 @@ import {
   DZONE_BOTTOM,
   GOAL_CAGE_DEPTH,
   PX_PER_M,
-  STICK_LENGTH,
   STICK_REACH,
 } from "../physics/constants";
 
@@ -78,9 +77,10 @@ export class GameScene extends Phaser.Scene {
 
   // Graphics / display objects
   private _field!: Phaser.GameObjects.Graphics;
-  private _stickGraphics!: Phaser.GameObjects.Graphics;
-  private _hostSprite!: Phaser.GameObjects.Arc;
-  private _clientSprite!: Phaser.GameObjects.Arc;
+  private _hostStickSprite!: Phaser.GameObjects.Sprite;
+  private _clientStickSprite!: Phaser.GameObjects.Sprite;
+  private _hostSprite!: Phaser.GameObjects.Sprite;
+  private _clientSprite!: Phaser.GameObjects.Sprite;
   private _ballSprite!: Phaser.GameObjects.Arc;
   private _ballShadow!: Phaser.GameObjects.Arc;
   private _hostChargeBar!: Phaser.GameObjects.Rectangle;
@@ -151,8 +151,9 @@ export class GameScene extends Phaser.Scene {
     this._field = this.add.graphics();
     this._drawField();
 
-    // Stick graphics (redrawn every frame, above field but below players/ball)
-    this._stickGraphics = this.add.graphics().setDepth(3);
+    // Stick sprites (depth 3, below players)
+    this._hostStickSprite = this.add.sprite(0, 0, "stick_host").setDepth(3).setScale(0.35);
+    this._clientStickSprite = this.add.sprite(0, 0, "stick_client").setDepth(3).setScale(0.35);
 
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
@@ -160,8 +161,8 @@ export class GameScene extends Phaser.Scene {
     this._ballSprite = this.add.circle(midX, midY, BALL_RADIUS, 0xffffff).setDepth(6);
 
     // Players (depth 5 — above stick, below ball)
-    this._hostSprite = this.add.circle(this.host.x, this.host.y, PLAYER_RADIUS, 0x36b346).setDepth(5);
-    this._clientSprite = this.add.circle(this.client.x, this.client.y, PLAYER_RADIUS, 0x222222).setDepth(5);
+    this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(0.35);
+    this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(0.35);
 
     // Charge bars (shown above each player when charging slap)
     const BAR_W = 40;
@@ -198,12 +199,12 @@ export class GameScene extends Phaser.Scene {
     // Controls hint
     this.add.text(FIELD_LEFT, FIELD_BOTTOM + 8,
       "Green: WASD move · Shift dash · Q wrist · E slap", {
-        fontSize: "14px", color: "#aaaaaa",
-      });
+      fontSize: "14px", color: "#aaaaaa",
+    });
     this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 8,
       "Black: Arrows move · Space dash · , wrist · . slap", {
-        fontSize: "14px", color: "#aaaaaa",
-      }).setOrigin(1, 0);
+      fontSize: "14px", color: "#aaaaaa",
+    }).setOrigin(1, 0);
 
     // Keyboard bindings
     const kb = this.input.keyboard!;
@@ -247,8 +248,8 @@ export class GameScene extends Phaser.Scene {
       .setDepth(15);
     backLabel.disableInteractive();
     backBg.on("pointerover", () => backLabel.setColor("#ffffff"));
-    backBg.on("pointerout",  () => backLabel.setColor("#aaaaaa"));
-    backBg.on("pointerup",   () => this._confirmLeave());
+    backBg.on("pointerout", () => backLabel.setColor("#aaaaaa"));
+    backBg.on("pointerup", () => this._confirmLeave());
 
     // Touch UI — joystick anywhere in the left 60%, buttons on the far right
     this._hostJoy = new VirtualJoystick(this, 0, 0, 768, 720);
@@ -333,13 +334,13 @@ export class GameScene extends Phaser.Scene {
     updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
     updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
 
-    const hostStick   = this._stickDir(this.host,   this._hostAim);
+    const hostStick = this._stickDir(this.host, this._hostAim);
     const clientStick = this._stickDir(this.client, this._clientAim);
-    resolvePlayerBallCollision(this.host,   this.ball);
+    resolvePlayerBallCollision(this.host, this.ball);
     resolvePlayerBallCollision(this.client, this.ball);
-    resolveStickTipCollision(this.host,   this.ball, hostStick.x,   hostStick.y);
+    resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
-    this._applyStickPossession(this.host,   hostStick,   this._hostShoot.charging);
+    this._applyStickPossession(this.host, hostStick, this._hostShoot.charging);
     this._applyStickPossession(this.client, clientStick, this._clientShoot.charging);
 
     this._updateLastTouch();
@@ -368,11 +369,11 @@ export class GameScene extends Phaser.Scene {
   /** Returns true if ball is near the stick tip or player body. */
   private _ballInRange(who: "host" | "client"): boolean {
     const player = who === "host" ? this.host : this.client;
-    const aim    = who === "host" ? this._hostAim : this._clientAim;
-    const sDir   = this._stickDir(player, aim);
-    const tipX   = player.x + sDir.x * STICK_REACH;
-    const tipY   = player.y + sDir.y * STICK_REACH;
-    const distToTip  = Math.hypot(this.ball.x - tipX, this.ball.y - tipY);
+    const aim = who === "host" ? this._hostAim : this._clientAim;
+    const sDir = this._stickDir(player, aim);
+    const tipX = player.x + sDir.x * STICK_REACH;
+    const tipY = player.y + sDir.y * STICK_REACH;
+    const distToTip = Math.hypot(this.ball.x - tipX, this.ball.y - tipY);
     const distToBody = Math.hypot(this.ball.x - player.x, this.ball.y - player.y);
     return distToTip < BALL_RADIUS + 18 || distToBody < PLAYER_RADIUS + BALL_RADIUS + 5;
   }
@@ -448,7 +449,7 @@ export class GameScene extends Phaser.Scene {
   protected _doSlapShot(who: "host" | "client"): void {
     if (!this._ballInRange(who)) return;
     const state = who === "host" ? this._hostShoot : this._clientShoot;
-    const aim   = who === "host" ? this._hostAim   : this._clientAim;
+    const aim = who === "host" ? this._hostAim : this._clientAim;
     const player = who === "host" ? this.host : this.client;
     releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
@@ -519,7 +520,10 @@ export class GameScene extends Phaser.Scene {
     this._ballShadow.setPosition(this.ball.x, this.ball.y).setScale(shadowScale).setAlpha(shadowAlpha);
 
     this._hostSprite.setPosition(this.host.x, this.host.y);
+    this._hostSprite.setRotation(Math.atan2(this._hostAim.y, this._hostAim.x) + Math.PI / 2);
+
     this._clientSprite.setPosition(this.client.x, this.client.y);
+    this._clientSprite.setRotation(Math.atan2(this._clientAim.y, this._clientAim.x) + Math.PI / 2);
 
     // Draw sticks
     this._drawSticks();
@@ -565,13 +569,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   protected _drawSticks(): void {
-    const g = this._stickGraphics;
-    g.clear();
-
     const drawStick = (
       player: { x: number; y: number },
       aim: { x: number; y: number },
-      color: number,
+      sprite: Phaser.GameObjects.Sprite,
       animMs: number,
       maxAnimMs: number
     ): void => {
@@ -593,19 +594,16 @@ export class GameScene extends Phaser.Scene {
       const nx = dirX / dLen;
       const ny = dirY / dLen;
 
-      const baseX = player.x + nx * PLAYER_RADIUS;
-      const baseY = player.y + ny * PLAYER_RADIUS;
-      const tipX  = player.x + nx * (PLAYER_RADIUS + STICK_LENGTH);
-      const tipY  = player.y + ny * (PLAYER_RADIUS + STICK_LENGTH);
+      const baseX = player.x + nx * (PLAYER_RADIUS * 0.5);
+      const baseY = player.y + ny * (PLAYER_RADIUS * 0.5);
 
-      g.lineStyle(4, color, 0.9);
-      g.lineBetween(baseX, baseY, tipX, tipY);
-      g.fillStyle(color, 1);
-      g.fillCircle(tipX, tipY, 4);
+      sprite.setPosition(baseX, baseY);
+      // Add Math.PI/2 offset assuming the stick sprite is drawn vertically
+      sprite.setRotation(Math.atan2(ny, nx) + Math.PI / 2);
     };
 
-    drawStick(this.host,   this._hostAim,   0x36b346, this._hostShotAnimMs,   280);
-    drawStick(this.client, this._clientAim, 0x444444, this._clientShotAnimMs, 280);
+    drawStick(this.host, this._hostAim, this._hostStickSprite, this._hostShotAnimMs, 280);
+    drawStick(this.client, this._clientAim, this._clientStickSprite, this._clientShotAnimMs, 280);
   }
 
   private _drawField(): void {
@@ -629,7 +627,7 @@ export class GameScene extends Phaser.Scene {
     // Centre line
     g.lineBetween(midX, FIELD_TOP, midX, FIELD_BOTTOM);
     // Centre tick marks on top/bottom border
-    g.lineBetween(midX - 6, FIELD_TOP,    midX + 6, FIELD_TOP);
+    g.lineBetween(midX - 6, FIELD_TOP, midX + 6, FIELD_TOP);
     g.lineBetween(midX - 6, FIELD_BOTTOM, midX + 6, FIELD_BOTTOM);
 
     // Centre circle
@@ -640,9 +638,9 @@ export class GameScene extends Phaser.Scene {
     // Corner faceoff crosses
     g.lineStyle(2, 0xffffff, 0.8);
     const cs = 10;
-    const fcx1 = FIELD_LEFT  + Math.round(3.5 * PX_PER_M);
+    const fcx1 = FIELD_LEFT + Math.round(3.5 * PX_PER_M);
     const fcx2 = FIELD_RIGHT - Math.round(3.5 * PX_PER_M);
-    const fcy1 = FIELD_TOP    + Math.round(1.5 * PX_PER_M);
+    const fcy1 = FIELD_TOP + Math.round(1.5 * PX_PER_M);
     const fcy2 = FIELD_BOTTOM - Math.round(1.5 * PX_PER_M);
     for (const [cx, cy] of [[fcx1, fcy1], [fcx1, fcy2], [fcx2, fcy1], [fcx2, fcy2]]) {
       g.lineBetween(cx - cs, cy, cx + cs, cy);
@@ -653,7 +651,7 @@ export class GameScene extends Phaser.Scene {
     // Structure (left goal example):
     //  FIELD_LEFT ··· [open space] ··· [back wall] ··· [cage] ··· [mouth = GOAL_LINE_LEFT] ··· [crease] ··· field
     const drawGoal = (left: boolean): void => {
-      const mouthX = left ? GOAL_LINE_LEFT  : GOAL_LINE_RIGHT;
+      const mouthX = left ? GOAL_LINE_LEFT : GOAL_LINE_RIGHT;
       // Back of the goal cage (floats away from end wall)
       const cageBackX = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
       // Crease starts at mouth and extends into the field
