@@ -142,6 +142,7 @@ export class MenuScene extends Phaser.Scene {
     const timeAgo = (() => {
       const diffMs = Date.now() - Number(__GIT_DATE__) * 1000;
       const m = Math.floor(diffMs / 60000);
+      if (m === 0) return "just now";
       if (m < 60) return `${m}m ago`;
       const h = Math.floor(m / 60);
       if (h < 24) return `${h}h ago`;
