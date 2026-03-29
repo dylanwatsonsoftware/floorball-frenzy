@@ -98,6 +98,21 @@ export class OnlineGameScene extends GameScene {
       .setDepth(20);
 
     this._buildSharePanel();
+
+    // GameScene.create() binds Q→host and comma→client for local 2-player.
+    // In online mode each machine controls only one player, so replace those
+    // bindings with role-correct ones.
+    this._wasd.wrist.removeAllListeners("down");
+    this._arrows.wrist.removeAllListeners("down");
+
+    if (this._isHost) {
+      // Host controls the green player; comma key does nothing locally.
+      this._wasd.wrist.on("down", () => this._doWristShot("host"));
+    } else {
+      // Client controls the black player; either Q or comma works.
+      this._wasd.wrist.on("down",   () => this._doWristShot("client"));
+      this._arrows.wrist.on("down", () => this._doWristShot("client"));
+    }
   }
 
   update(time: number, delta: number): void {
