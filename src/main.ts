@@ -10,9 +10,8 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 720,
   backgroundColor: "#1a1a2e",
   scale: {
-    // FIT scales to fill as much of the viewport as possible without clipping.
-    // CENTER_BOTH centres the canvas so it fills screen height in landscape.
-    mode: Phaser.Scale.FIT,
+    // EXPAND fills the full viewport, revealing extra background around the field.
+    mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
