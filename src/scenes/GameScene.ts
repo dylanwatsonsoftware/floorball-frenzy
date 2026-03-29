@@ -152,8 +152,9 @@ export class GameScene extends Phaser.Scene {
     this._drawField();
 
     // Stick sprites (depth 3, below players)
-    this._hostStickSprite = this.add.sprite(0, 0, "stick_host").setDepth(3).setScale(0.35);
-    this._clientStickSprite = this.add.sprite(0, 0, "stick_client").setDepth(3).setScale(0.35);
+    // Make them slightly larger (scale 0.55) so they are visible correctly
+    this._hostStickSprite = this.add.sprite(0, 0, "stick_host").setDepth(3).setScale(0.55);
+    this._clientStickSprite = this.add.sprite(0, 0, "stick_client").setDepth(3).setScale(0.55);
 
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
@@ -255,8 +256,28 @@ export class GameScene extends Phaser.Scene {
     this._hostJoy = new VirtualJoystick(this, 0, 0, 768, 720);
     this._hostButtons = new ActionButtons(this, 1210, 360, 0x36b346);
 
+    // Initialize Animations
+    this._createAnimations();
+
     // Enable multi-touch
     this.input.addPointer(3);
+  }
+
+  private _createAnimations(): void {
+    if (!this.anims.exists("walk_host")) {
+      this.anims.create({
+        key: "walk_host",
+        frames: this.anims.generateFrameNumbers("char_host", { start: 0, end: 7 }),
+        frameRate: 12,
+        repeat: -1,
+      });
+      this.anims.create({
+        key: "walk_client",
+        frames: this.anims.generateFrameNumbers("char_client", { start: 0, end: 7 }),
+        frameRate: 12,
+        repeat: -1,
+      });
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -521,9 +542,21 @@ export class GameScene extends Phaser.Scene {
 
     this._hostSprite.setPosition(this.host.x, this.host.y);
     this._hostSprite.setRotation(Math.atan2(this._hostAim.y, this._hostAim.x) + Math.PI / 2);
+    if (Math.abs(this.host.vx) > 10 || Math.abs(this.host.vy) > 10) {
+      this._hostSprite.anims.play("walk_host", true);
+    } else {
+      this._hostSprite.anims.stop();
+      this._hostSprite.setFrame(0);
+    }
 
     this._clientSprite.setPosition(this.client.x, this.client.y);
     this._clientSprite.setRotation(Math.atan2(this._clientAim.y, this._clientAim.x) + Math.PI / 2);
+    if (Math.abs(this.client.vx) > 10 || Math.abs(this.client.vy) > 10) {
+      this._clientSprite.anims.play("walk_client", true);
+    } else {
+      this._clientSprite.anims.stop();
+      this._clientSprite.setFrame(0);
+    }
 
     // Draw sticks
     this._drawSticks();
@@ -594,12 +627,23 @@ export class GameScene extends Phaser.Scene {
       const nx = dirX / dLen;
       const ny = dirY / dLen;
 
-      const baseX = player.x + nx * (PLAYER_RADIUS * 0.5);
-      const baseY = player.y + ny * (PLAYER_RADIUS * 0.5);
+      // Adjust stick positional offset to make it look like they are holding it contextually
+      const baseX = player.x + nx * (PLAYER_RADIUS * 0.8);
+      const baseY = player.y + ny * (PLAYER_RADIUS * 0.8);
 
       sprite.setPosition(baseX, baseY);
-      // Add Math.PI/2 offset assuming the stick sprite is drawn vertically
       sprite.setRotation(Math.atan2(ny, nx) + Math.PI / 2);
+
+      // Animate stick frame based on swing progress. Assuming 16 frames in the sheet (4x4).
+      if (animMs > 0) {
+        // animMs goes from 280 down to 0. 
+        // We want the frame to progress from 0 to 15.
+        const frameProgress = 1 - (animMs / maxAnimMs);
+        const frameIndex = Math.min(15, Math.floor(frameProgress * 16));
+        sprite.setFrame(frameIndex);
+      } else {
+        sprite.setFrame(0);
+      }
     };
 
     drawStick(this.host, this._hostAim, this._hostStickSprite, this._hostShotAnimMs, 280);
