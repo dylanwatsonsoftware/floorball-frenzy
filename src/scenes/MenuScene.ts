@@ -140,7 +140,7 @@ export class MenuScene extends Phaser.Scene {
 
   private _drawCommitInfo(): void {
     const timeAgo = (() => {
-      const diffMs = Date.now() - new Date(__GIT_DATE__).getTime();
+      const diffMs = Date.now() - Number(__GIT_DATE__) * 1000;
       const m = Math.floor(diffMs / 60000);
       if (m < 60) return `${m}m ago`;
       const h = Math.floor(m / 60);

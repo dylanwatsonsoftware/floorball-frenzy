@@ -5,8 +5,8 @@ function gitInfo() {
   try {
     const hash = execSync("git rev-parse --short HEAD").toString().trim();
     const msg = execSync("git log -1 --format=%s").toString().trim();
-    const isoDate = execSync("git log -1 --format=%cI").toString().trim();
-    return { hash, msg, isoDate };
+    const unixTs = execSync("git log -1 --format=%ct").toString().trim();
+    return { hash, msg, isoDate: unixTs };
   } catch {
     return { hash: "unknown", msg: "", isoDate: new Date().toISOString() };
   }
