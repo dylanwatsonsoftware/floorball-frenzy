@@ -1,21 +1,40 @@
 /**
- * Vercel serverless function — WebRTC signaling relay via Vercel KV.
+ * Vercel serverless function — WebRTC signaling relay.
  *
  * GET  /api/signal?room=<id>&role=<host|client>  → poll for a message
  * POST /api/signal                               → { room, role, msg } push a message
  *
- * Messages expire after 30 s (KV TTL). Uses @vercel/kv in production;
- * falls back to in-memory map when KV env vars are absent (local dev).
+ * Production: uses Upstash Redis REST API (set UPSTASH_REDIS_REST_URL and
+ * UPSTASH_REDIS_REST_TOKEN in Vercel environment variables).
+ * Local dev: falls back to in-memory map when those vars are absent.
+ *
  * NOTE: compiled as CommonJS (see api/tsconfig.json) for Vercel Node.js runtime.
  */
 
 import type { IncomingMessage, ServerResponse } from "http";
 
-// ── Storage abstraction ──────────────────────────────────────────────────────
-
 const TTL_S = 30;
 
-// In-memory fallback for local dev (no KV credentials available)
+// ── Upstash Redis helpers ────────────────────────────────────────────────────
+
+async function redisCommand<T>(command: unknown[]): Promise<T | null> {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null; // signal: "use in-memory fallback"
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(command),
+  });
+  const data = (await res.json()) as { result: T };
+  return data.result ?? null;
+}
+
+// ── In-memory fallback (local dev only) ─────────────────────────────────────
+
 const memStore = new Map<string, { body: unknown; expiresAt: number }>();
 
 function memGc(): void {
@@ -23,12 +42,14 @@ function memGc(): void {
   for (const [k, v] of memStore) if (v.expiresAt < now) memStore.delete(k);
 }
 
+// ── Storage abstraction ──────────────────────────────────────────────────────
+
 async function storeGet(key: string): Promise<unknown | null> {
-  if (process.env.KV_REST_API_URL) {
-    const { kv } = await import("@vercel/kv");
-    const val = await kv.get<unknown>(key);
-    if (val !== null && val !== undefined) await kv.del(key);
-    return val ?? null;
+  if (process.env.UPSTASH_REDIS_REST_URL) {
+    const raw = await redisCommand<string>(["GET", key]);
+    if (raw === null) return null;
+    await redisCommand(["DEL", key]);
+    try { return JSON.parse(raw); } catch { return raw; }
   }
   memGc();
   const entry = memStore.get(key);
@@ -38,9 +59,8 @@ async function storeGet(key: string): Promise<unknown | null> {
 }
 
 async function storeSet(key: string, value: unknown): Promise<void> {
-  if (process.env.KV_REST_API_URL) {
-    const { kv } = await import("@vercel/kv");
-    await kv.set(key, value, { ex: TTL_S });
+  if (process.env.UPSTASH_REDIS_REST_URL) {
+    await redisCommand(["SET", key, JSON.stringify(value), "EX", TTL_S]);
     return;
   }
   memGc();

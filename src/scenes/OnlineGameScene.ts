@@ -365,6 +365,15 @@ export class OnlineGameScene extends GameScene {
 
   shutdown(): void {
     history.replaceState(null, "", window.location.pathname);
-    this._peer?.close();
+    if (this._peer) {
+      // Clear all callbacks before closing so async events (channel close,
+      // reconnect timers) don't fire on already-destroyed scene objects.
+      this._peer.onMessage = () => undefined;
+      this._peer.onChannelOpen = () => undefined;
+      this._peer.onReconnecting = () => undefined;
+      this._peer.onGiveUp = () => undefined;
+      this._peer.onStateChange = () => undefined;
+      this._peer.close();
+    }
   }
 }
