@@ -20,6 +20,8 @@
     "vitest": "2.1.9"
   },
   "dependencies": {
+    "@upstash/redis": "1.37.0",
+    "@vercel/kv": "3.0.0",
     "phaser": "3.90.0"
   }
 }

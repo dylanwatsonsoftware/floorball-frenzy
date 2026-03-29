@@ -4,9 +4,9 @@
  * GET  /api/signal?room=<id>&role=<host|client>  → poll for a message
  * POST /api/signal                               → { room, role, msg } push a message
  *
- * Production: uses Upstash Redis REST API (set UPSTASH_REDIS_REST_URL and
- * UPSTASH_REDIS_REST_TOKEN in Vercel environment variables).
- * Local dev: falls back to in-memory map when those vars are absent.
+ * Production: uses Upstash Redis via @upstash/redis (Redis.fromEnv() picks up
+ * KV_REST_API_URL + KV_REST_API_TOKEN automatically).
+ * Local dev: falls back to in-memory map when those env vars are absent.
  *
  * NOTE: compiled as CommonJS (see api/tsconfig.json) for Vercel Node.js runtime.
  */
@@ -14,24 +14,6 @@
 import type { IncomingMessage, ServerResponse } from "http";
 
 const TTL_S = 30;
-
-// ── Upstash Redis helpers ────────────────────────────────────────────────────
-
-async function redisCommand<T>(command: unknown[]): Promise<T | null> {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null; // signal: "use in-memory fallback"
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(command),
-  });
-  const data = (await res.json()) as { result: T };
-  return data.result ?? null;
-}
 
 // ── In-memory fallback (local dev only) ─────────────────────────────────────
 
@@ -45,11 +27,12 @@ function memGc(): void {
 // ── Storage abstraction ──────────────────────────────────────────────────────
 
 async function storeGet(key: string): Promise<unknown | null> {
-  if (process.env.UPSTASH_REDIS_REST_URL) {
-    const raw = await redisCommand<string>(["GET", key]);
-    if (raw === null) return null;
-    await redisCommand(["DEL", key]);
-    try { return JSON.parse(raw); } catch { return raw; }
+  if (process.env.KV_REST_API_URL) {
+    const { Redis } = await import("@upstash/redis");
+    const redis = Redis.fromEnv();
+    const val = await redis.get<unknown>(key);
+    if (val !== null && val !== undefined) await redis.del(key);
+    return val ?? null;
   }
   memGc();
   const entry = memStore.get(key);
@@ -59,8 +42,10 @@ async function storeGet(key: string): Promise<unknown | null> {
 }
 
 async function storeSet(key: string, value: unknown): Promise<void> {
-  if (process.env.UPSTASH_REDIS_REST_URL) {
-    await redisCommand(["SET", key, JSON.stringify(value), "EX", TTL_S]);
+  if (process.env.KV_REST_API_URL) {
+    const { Redis } = await import("@upstash/redis");
+    const redis = Redis.fromEnv();
+    await redis.set(key, value, { ex: TTL_S });
     return;
   }
   memGc();
