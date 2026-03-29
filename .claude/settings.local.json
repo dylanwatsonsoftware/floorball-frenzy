@@ -6,7 +6,10 @@
       "Bash(git commit:*)",
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm run:*)",
+      "Bash(npm list:*)",
+      "Bash(npx vitest:*)"
     ]
   }
 }
