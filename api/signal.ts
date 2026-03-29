@@ -26,10 +26,14 @@ function memGc(): void {
 
 // ── Storage abstraction ──────────────────────────────────────────────────────
 
+function makeRedis() {
+  const { Redis } = require("@upstash/redis");
+  return new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+}
+
 async function storeGet(key: string): Promise<unknown | null> {
   if (process.env.KV_REST_API_URL) {
-    const { Redis } = await import("@upstash/redis");
-    const redis = Redis.fromEnv();
+    const redis = makeRedis();
     const val = await redis.get<unknown>(key);
     if (val !== null && val !== undefined) await redis.del(key);
     return val ?? null;
@@ -43,8 +47,7 @@ async function storeGet(key: string): Promise<unknown | null> {
 
 async function storeSet(key: string, value: unknown): Promise<void> {
   if (process.env.KV_REST_API_URL) {
-    const { Redis } = await import("@upstash/redis");
-    const redis = Redis.fromEnv();
+    const redis = makeRedis();
     await redis.set(key, value, { ex: TTL_S });
     return;
   }
