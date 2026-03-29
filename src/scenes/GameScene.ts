@@ -63,6 +63,11 @@ export class GameScene extends Phaser.Scene {
   protected _hostAim = { x: 1, y: 0 };
   protected _clientAim = { x: -1, y: 0 };
 
+  // Smoothed aim used for stick direction/rendering — capped at 45°/step
+  // to prevent instant 180° flips that drop the ball.
+  protected _hostAimSmooth = { x: 1, y: 0 };
+  protected _clientAimSmooth = { x: -1, y: 0 };
+
   // One-touch tracking
   private _lastTouch: LastTouch = { playerId: "", timeMs: 0 };
   protected _elapsedMs = 0; // total game time in ms
@@ -146,6 +151,8 @@ export class GameScene extends Phaser.Scene {
     this._lastTouch = { playerId: "", timeMs: 0 };
     this._hostAim = { x: 1, y: 0 };
     this._clientAim = { x: -1, y: 0 };
+    this._hostAimSmooth = { x: 1, y: 0 };
+    this._clientAimSmooth = { x: -1, y: 0 };
 
     // Static field
     this._field = this.add.graphics();
@@ -337,6 +344,10 @@ export class GameScene extends Phaser.Scene {
       this._clientAim = { x: clientInput.moveX, y: clientInput.moveY };
     }
 
+    // Advance smoothed aim — capped at 45°/step to prevent instant flips dropping the ball
+    this._hostAimSmooth = this._lerpAim(this._hostAimSmooth, this._hostAim);
+    this._clientAimSmooth = this._lerpAim(this._clientAimSmooth, this._clientAim);
+
     stepPlayer(this.host, hostInput, dt, elapsedMs);
     stepPlayer(this.client, clientInput, dt, elapsedMs);
 
@@ -355,8 +366,9 @@ export class GameScene extends Phaser.Scene {
     updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
     updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
 
-    const hostStick = this._stickDir(this.host, this._hostAim);
-    const clientStick = this._stickDir(this.client, this._clientAim);
+    // Use smoothed aim for stick direction so stick doesn't teleport on direction change
+    const hostStick = this._stickDir(this.host, this._hostAimSmooth);
+    const clientStick = this._stickDir(this.client, this._clientAimSmooth);
     resolvePlayerBallCollision(this.host, this.ball);
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
@@ -390,7 +402,7 @@ export class GameScene extends Phaser.Scene {
   /** Returns true if ball is near the stick tip or player body. */
   private _ballInRange(who: "host" | "client"): boolean {
     const player = who === "host" ? this.host : this.client;
-    const aim = who === "host" ? this._hostAim : this._clientAim;
+    const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const sDir = this._stickDir(player, aim);
     const tipX = player.x + sDir.x * STICK_REACH;
     const tipY = player.y + sDir.y * STICK_REACH;
@@ -545,7 +557,7 @@ export class GameScene extends Phaser.Scene {
     this._ballShadow.setPosition(this.ball.x, this.ball.y).setScale(shadowScale).setAlpha(shadowAlpha);
 
     this._hostSprite.setPosition(this.host.x, this.host.y);
-    this._hostSprite.setRotation(Math.atan2(this._hostAim.y, this._hostAim.x) + Math.PI / 2);
+    this._hostSprite.setRotation(Math.atan2(this._hostAimSmooth.y, this._hostAimSmooth.x) + Math.PI / 2);
     if (Math.abs(this.host.vx) > 10 || Math.abs(this.host.vy) > 10) {
       this._hostSprite.anims.play("walk_host", true);
     } else {
@@ -554,7 +566,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._clientSprite.setPosition(this.client.x, this.client.y);
-    this._clientSprite.setRotation(Math.atan2(this._clientAim.y, this._clientAim.x) + Math.PI / 2);
+    this._clientSprite.setRotation(Math.atan2(this._clientAimSmooth.y, this._clientAimSmooth.x) + Math.PI / 2);
     if (Math.abs(this.client.vx) > 10 || Math.abs(this.client.vy) > 10) {
       this._clientSprite.anims.play("walk_client", true);
     } else {
@@ -611,47 +623,72 @@ export class GameScene extends Phaser.Scene {
       aim: { x: number; y: number },
       sprite: Phaser.GameObjects.Sprite,
       animMs: number,
-      maxAnimMs: number
+      maxAnimMs: number,
+      chargeMs: number
     ): void => {
       const aimLen = Math.hypot(aim.x, aim.y);
       if (aimLen === 0) return;
       const aNx = aim.x / aimLen;
       const aNy = aim.y / aimLen;
 
-      // Perpendicular direction (toward ball side)
       const stickDir = this._stickDir(player, aim);
 
-      // Swing fraction: 1 = just fired (stick snaps forward), 0 = idle (perpendicular)
-      const swingFrac = animMs > 0 ? Math.sin((animMs / maxAnimMs) * (Math.PI / 2)) : 0;
+      let dirX: number;
+      let dirY: number;
 
-      // Blend stick direction from perpendicular → forward aim as swingFrac → 1
-      const dirX = stickDir.x * (1 - swingFrac) + aNx * swingFrac;
-      const dirY = stickDir.y * (1 - swingFrac) + aNy * swingFrac;
+      if (animMs > 0) {
+        // Swing animation: stick snaps to forward aim, then returns to perpendicular
+        const swingFrac = Math.sin((animMs / maxAnimMs) * (Math.PI / 2));
+        dirX = stickDir.x * (1 - swingFrac) + aNx * swingFrac;
+        dirY = stickDir.y * (1 - swingFrac) + aNy * swingFrac;
+      } else if (chargeMs > 0) {
+        // Wind-up: rotate stick backward (opposite of aim) as charge builds
+        const windupFrac = Math.min(chargeMs / SHOOT_MAX_CHARGE_MS_LOCAL, 1) * 0.8;
+        dirX = stickDir.x * (1 - windupFrac) + (-aNx) * windupFrac;
+        dirY = stickDir.y * (1 - windupFrac) + (-aNy) * windupFrac;
+      } else {
+        dirX = stickDir.x;
+        dirY = stickDir.y;
+      }
+
       const dLen = Math.hypot(dirX, dirY) || 1;
       const nx = dirX / dLen;
       const ny = dirY / dLen;
 
-      // Adjust stick positional offset to make it look like they are holding it contextually
       const baseX = player.x + nx * (PLAYER_RADIUS * 0.8);
       const baseY = player.y + ny * (PLAYER_RADIUS * 0.8);
 
       sprite.setPosition(baseX, baseY);
       sprite.setRotation(Math.atan2(ny, nx) + Math.PI / 2);
 
-      // Animate stick frame based on swing progress. Assuming 16 frames in the sheet (4x4).
       if (animMs > 0) {
-        // animMs goes from 280 down to 0. 
-        // We want the frame to progress from 0 to 15.
         const frameProgress = 1 - (animMs / maxAnimMs);
-        const frameIndex = Math.min(15, Math.floor(frameProgress * 16));
-        sprite.setFrame(frameIndex);
+        sprite.setFrame(Math.min(15, Math.floor(frameProgress * 16)));
       } else {
         sprite.setFrame(0);
       }
     };
 
-    drawStick(this.host, this._hostAim, this._hostStickSprite, this._hostShotAnimMs, 280);
-    drawStick(this.client, this._clientAim, this._clientStickSprite, this._clientShotAnimMs, 280);
+    drawStick(this.host, this._hostAimSmooth, this._hostStickSprite, this._hostShotAnimMs, 280, this._hostShoot.chargeMs);
+    drawStick(this.client, this._clientAimSmooth, this._clientStickSprite, this._clientShotAnimMs, 280, this._clientShoot.chargeMs);
+  }
+
+  /**
+   * Rotates `current` toward `target`, capped at 45° per fixed step.
+   * Using angle-space lerp so opposite directions converge correctly.
+   */
+  protected _lerpAim(
+    current: { x: number; y: number },
+    target: { x: number; y: number }
+  ): { x: number; y: number } {
+    const MAX_RAD = Math.PI / 4; // 45° per fixed step
+    const curAngle = Math.atan2(current.y, current.x);
+    const tgtAngle = Math.atan2(target.y, target.x);
+    let delta = tgtAngle - curAngle;
+    if (delta > Math.PI) delta -= 2 * Math.PI;
+    if (delta < -Math.PI) delta += 2 * Math.PI;
+    const newAngle = curAngle + Math.max(-MAX_RAD, Math.min(MAX_RAD, delta));
+    return { x: Math.cos(newAngle), y: Math.sin(newAngle) };
   }
 
   private _drawField(): void {

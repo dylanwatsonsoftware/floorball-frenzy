@@ -153,6 +153,7 @@ export class OnlineGameScene extends GameScene {
       if (input.moveX !== 0 || input.moveY !== 0) {
         this._clientAim = { x: input.moveX, y: input.moveY };
       }
+      this._clientAimSmooth = this._lerpAim(this._clientAimSmooth, this._clientAim);
       stepPlayer(this.client, input, dt, elapsedMs);
 
       // Slap: check release BEFORE updating charge
@@ -164,7 +165,7 @@ export class OnlineGameScene extends GameScene {
       updateShootCharge(this._clientShoot, input.slap, elapsedMs);
 
       // Local prediction: stick tip collision + possession (host is authoritative)
-      const clientStick = this._stickDir(this.client, this._clientAim);
+      const clientStick = this._stickDir(this.client, this._clientAimSmooth);
       resolvePlayerBallCollision(this.host, this.ball);
       resolvePlayerBallCollision(this.client, this.ball);
       resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
