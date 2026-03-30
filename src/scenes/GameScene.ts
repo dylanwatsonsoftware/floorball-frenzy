@@ -627,32 +627,54 @@ export class GameScene extends Phaser.Scene {
       sprite: Phaser.GameObjects.Sprite,
       animMs: number,
       maxAnimMs: number,
-      chargeMs: number
+      chargeMs: number,
+      isSlap: boolean
     ): void => {
       const aimLen = Math.hypot(aim.x, aim.y);
       if (aimLen === 0) return;
       const aNx = aim.x / aimLen;
       const aNy = aim.y / aimLen;
+      const sd = this._stickDir(player, aim); // perpendicular rest direction
 
-      const stickDir = this._stickDir(player, aim);
-
-      let dirX: number;
-      let dirY: number;
+      // angleDeg: rotation from rest. Negative = backswing, Positive = forward swing.
+      // Rotates in the (sd, aimNorm) plane:  dir = cos(a)*sd + sin(a)*aimNorm
+      let angleDeg = 0;
 
       if (animMs > 0) {
-        // Swing animation: stick snaps to forward aim, then returns to perpendicular
-        const swingFrac = Math.sin((animMs / maxAnimMs) * (Math.PI / 2));
-        dirX = stickDir.x * (1 - swingFrac) + aNx * swingFrac;
-        dirY = stickDir.y * (1 - swingFrac) + aNy * swingFrac;
+        const progress = 1 - animMs / maxAnimMs; // 0 → 1 as animation plays out
+        if (isSlap) {
+          // Slap release: start at full backswing, sweep hard forward, settle
+          // 0–0.45: -90° → +85°   (power stroke)
+          // 0.45–1: +85° → 0°    (follow-through return)
+          if (progress < 0.45) {
+            angleDeg = -90 + (175 * progress / 0.45);
+          } else {
+            angleDeg = 85 * (1 - (progress - 0.45) / 0.55);
+          }
+        } else {
+          // Wrist shot: quick 30% wind-back then snap forward, return
+          // 0–0.20: 0° → -27°    (brief wind-back)
+          // 0.20–0.60: -27° → +60°  (hit)
+          // 0.60–1:  +60° → 0°   (return)
+          if (progress < 0.20) {
+            angleDeg = -27 * (progress / 0.20);
+          } else if (progress < 0.60) {
+            angleDeg = -27 + 87 * ((progress - 0.20) / 0.40);
+          } else {
+            angleDeg = 60 * (1 - (progress - 0.60) / 0.40);
+          }
+        }
       } else if (chargeMs > 0) {
-        // Wind-up: rotate stick backward (opposite of aim) as charge builds
-        const windupFrac = Math.min(chargeMs / SHOOT_MAX_CHARGE_MS_LOCAL, 1) * 0.8;
-        dirX = stickDir.x * (1 - windupFrac) + (-aNx) * windupFrac;
-        dirY = stickDir.y * (1 - windupFrac) + (-aNy) * windupFrac;
-      } else {
-        dirX = stickDir.x;
-        dirY = stickDir.y;
+        // Charging slap: wind back to -90° as charge builds up to max
+        const windupFrac = Math.min(chargeMs / SHOOT_MAX_CHARGE_MS_LOCAL, 1);
+        angleDeg = -90 * windupFrac;
       }
+
+      const rad = angleDeg * (Math.PI / 180);
+      const c = Math.cos(rad);
+      const s = Math.sin(rad);
+      const dirX = c * sd.x + s * aNx;
+      const dirY = c * sd.y + s * aNy;
 
       const dLen = Math.hypot(dirX, dirY) || 1;
       const nx = dirX / dLen;
@@ -663,17 +685,11 @@ export class GameScene extends Phaser.Scene {
 
       sprite.setPosition(baseX, baseY);
       sprite.setRotation(Math.atan2(ny, nx) + Math.PI / 2);
-
-      if (animMs > 0) {
-        const frameProgress = 1 - (animMs / maxAnimMs);
-        sprite.setFrame(Math.min(15, Math.floor(frameProgress * 16)));
-      } else {
-        sprite.setFrame(0);
-      }
+      sprite.setFrame(0); // no sprite-sheet animation — geometry only
     };
 
-    drawStick(this.host, this._hostAimSmooth, this._hostStickSprite, this._hostShotAnimMs, 280, this._hostShoot.chargeMs);
-    drawStick(this.client, this._clientAimSmooth, this._clientStickSprite, this._clientShotAnimMs, 280, this._clientShoot.chargeMs);
+    drawStick(this.host,   this._hostAimSmooth,   this._hostStickSprite,   this._hostShotAnimMs,   280, this._hostShoot.chargeMs,   this._hostShotAnimMs === 280);
+    drawStick(this.client, this._clientAimSmooth, this._clientStickSprite, this._clientShotAnimMs, 280, this._clientShoot.chargeMs, this._clientShotAnimMs === 280);
   }
 
   /**

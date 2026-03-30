@@ -32,10 +32,10 @@ describe("updateShootCharge", () => {
     expect(s.charging).toBe(true);
   });
 
-  it("does not exceed SHOOT_MAX_CHARGE_MS", () => {
+  it("does not exceed 2× SHOOT_MAX_CHARGE_MS (overcharge headroom)", () => {
     const s = createShootState();
-    updateShootCharge(s, true, SHOOT_MAX_CHARGE_MS + 500);
-    expect(s.chargeMs).toBeLessThanOrEqual(SHOOT_MAX_CHARGE_MS);
+    updateShootCharge(s, true, SHOOT_MAX_CHARGE_MS * 3);
+    expect(s.chargeMs).toBeLessThanOrEqual(SHOOT_MAX_CHARGE_MS * 2);
   });
 
   it("resets charge when slap released", () => {
@@ -63,6 +63,20 @@ describe("releaseShot — direction and power", () => {
     const ball = makeBall();
     releaseShot(s, ball, -1, 0, false);
     expect(ball.vx).toBeLessThan(0);
+  });
+
+  it("overcharge (2× max) produces less power than full charge", () => {
+    const ballFull = makeBall();
+    const sFull = createShootState();
+    sFull.chargeMs = SHOOT_MAX_CHARGE_MS;
+    releaseShot(sFull, ballFull, 1, 0, false);
+
+    const ballOver = makeBall();
+    const sOver = createShootState();
+    sOver.chargeMs = SHOOT_MAX_CHARGE_MS * 2; // fully overcharged
+    releaseShot(sOver, ballOver, 1, 0, false);
+
+    expect(ballOver.vx).toBeLessThan(ballFull.vx);
   });
 
   it("full charge produces more power than zero charge", () => {

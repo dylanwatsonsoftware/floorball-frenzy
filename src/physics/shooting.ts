@@ -18,6 +18,7 @@ export function createShootState(): ShootState {
 
 /**
  * Call every fixed-step frame. Accumulates charge while slap is held.
+ * chargeMs is allowed to exceed SHOOT_MAX_CHARGE_MS so overcharge is detectable.
  */
 export function updateShootCharge(
   state: ShootState,
@@ -26,7 +27,8 @@ export function updateShootCharge(
 ): void {
   if (slapHeld) {
     state.charging = true;
-    state.chargeMs = Math.min(state.chargeMs + elapsedMs, SHOOT_MAX_CHARGE_MS);
+    // Allow up to 2× max so overcharge can be detected by releaseShot
+    state.chargeMs = Math.min(state.chargeMs + elapsedMs, SHOOT_MAX_CHARGE_MS * 2);
   } else {
     state.charging = false;
   }
@@ -34,6 +36,11 @@ export function updateShootCharge(
 
 /**
  * Fire a charged slap shot. Call when slap button is released.
+ *
+ * Power curve (triangle):
+ *   0 → SHOOT_MAX_CHARGE_MS  : ramps from base to base + SHOOT_POWER_SCALE
+ *   SHOOT_MAX_CHARGE_MS → 2× : ramps back down to base (overcharge penalty)
+ *
  * Resets charge to 0 after firing.
  */
 export function releaseShot(
@@ -45,19 +52,19 @@ export function releaseShot(
   playerVx = 0,
   playerVy = 0,
 ): void {
-  const charge = state.chargeMs / SHOOT_MAX_CHARGE_MS; // 0..1
-  let power = SHOOT_BASE_POWER + charge * SHOOT_POWER_SCALE;
+  const t = Math.min(state.chargeMs / SHOOT_MAX_CHARGE_MS, 2); // 0..2
+  // Triangle: ramp up 0→1, ramp down 1→2
+  const chargeFrac = t <= 1 ? t : 2 - t;
+  let power = SHOOT_BASE_POWER + chargeFrac * SHOOT_POWER_SCALE;
   if (oneTouch) power *= ONE_TOUCH_MULTIPLIER;
 
-  // Normalise aim direction
   const len = Math.hypot(aimX, aimY);
   const nx = len > 0 ? aimX / len : 1;
   const ny = len > 0 ? aimY / len : 0;
 
-  // Add player momentum so moving shots feel natural
   ball.vx = nx * power + playerVx;
   ball.vy = ny * power + playerVy;
-  ball.vz = charge * SHOOT_LIFT_SCALE;
+  ball.vz = chargeFrac * SHOOT_LIFT_SCALE;
 
   state.chargeMs = 0;
   state.charging = false;
