@@ -540,7 +540,7 @@ export class GameScene extends Phaser.Scene {
     const dy = this.ball.y - tipY;
     const dist = Math.hypot(dx, dy);
 
-    if (dist > BALL_RADIUS + 28) return; // outside possession range
+    if (dist > BALL_RADIUS + 42) return; // outside possession range
 
     // When charging a slap shot, allow the ball to be carried even at speed
     // so the player doesn't run past it before releasing.
@@ -681,11 +681,11 @@ export class GameScene extends Phaser.Scene {
       p.y += p.vy * dt;
 
       const t = p.life / p.maxLife; // 1=fresh, 0=dead
-      // yellow (t=1) → orange (t=0.5) → red (t=0)
+      // bright yellow (t=1) → orange (t=0.5) → pure red (t<0.5)
       const r = 0xff;
-      const g = Math.round(t * 180);
+      const g = t > 0.5 ? Math.round((t - 0.5) * 2 * 220) : 0;
       const color = (r << 16) | (g << 8);
-      this._fireGraphics.fillStyle(color, t * 0.85);
+      this._fireGraphics.fillStyle(color, Math.min(1, t * 1.1));
       this._fireGraphics.fillCircle(p.x, p.y, p.size * t);
       return true;
     });
@@ -729,7 +729,7 @@ export class GameScene extends Phaser.Scene {
     const shadowAlpha = Math.max(0, 0.45 - this.ball.z * 0.002);
     this._ballShadow.setPosition(this.ball.x, this.ball.y).setScale(shadowScale).setAlpha(shadowAlpha);
 
-    const POSSESSION_RANGE = BALL_RADIUS + 28;
+    const POSSESSION_RANGE = BALL_RADIUS + 42;
     const hostStickDir = this._stickDir(this.host, this._hostAimSmooth);
     const hostFwdX = hostStickDir.y * PLAYER_RADIUS * 0.84;
     const hostFwdY = -hostStickDir.x * PLAYER_RADIUS * 0.84;

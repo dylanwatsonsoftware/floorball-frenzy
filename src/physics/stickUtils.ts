@@ -35,5 +35,5 @@ export function ballInRange(
   const tipY = player.y + sd.y * STICK_REACH + fwdY;
   const distToTip  = Math.hypot(ball.x - tipX,    ball.y - tipY);
   const distToBody = Math.hypot(ball.x - player.x, ball.y - player.y);
-  return distToTip < BALL_RADIUS + 18 || distToBody < PLAYER_RADIUS + BALL_RADIUS + 10;
+  return distToTip < BALL_RADIUS + 30 || distToBody < PLAYER_RADIUS + BALL_RADIUS + 10;
 }
