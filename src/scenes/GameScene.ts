@@ -179,8 +179,8 @@ export class GameScene extends Phaser.Scene {
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
-    this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56).setAlpha(0.7);
-    this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56).setAlpha(0.7);
+    this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56);
+    this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56);
 
     // Charge bars (shown above each player when charging slap)
     const BAR_W = 40;
