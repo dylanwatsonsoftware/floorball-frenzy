@@ -513,7 +513,7 @@ export class GameScene extends Phaser.Scene {
     else this._clientShotAnimMs = 180;
     // Only apply ball physics when in range
     if (!this._ballInRange(who)) return;
-    const aim = who === "host" ? this._hostAim : this._clientAim;
+    const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const player = who === "host" ? this.host : this.client;
     wristShot(this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
@@ -528,7 +528,7 @@ export class GameScene extends Phaser.Scene {
     // Only apply ball physics when in range
     if (!this._ballInRange(who)) return;
     const state = who === "host" ? this._hostShoot : this._clientShoot;
-    const aim = who === "host" ? this._hostAim : this._clientAim;
+    const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const player = who === "host" ? this.host : this.client;
     releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
