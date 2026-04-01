@@ -886,58 +886,74 @@ export class GameScene extends Phaser.Scene {
       g.lineBetween(cx, cy - cs, cx, cy + cs);
     }
 
-    // ── Goals — stylized cage with net hatching and colored posts ───────────────
-    const drawGoal = (left: boolean): void => {
-      const mouthX    = left ? GOAL_LINE_LEFT  : GOAL_LINE_RIGHT;
-      const cageBackX = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
-      const creaseFieldX = left ? mouthX : mouthX - DZONE_DEPTH;
-      const netFillX  = left ? cageBackX : mouthX;
-      const teamColor = left ? 0x00cc66 : 0xdd2244;
+    // ── Goals — IFF-spec goal area + goalkeeper area + stylized cage ────────────
+    //
+    // Outer goal area (crease): 4 m deep × 5 m wide, in front of goal mouth
+    // Inner goalkeeper area (house): 1 m deep × 2.5 m wide, directly at goal mouth
+    // Cage: 1.5 m deep behind goal mouth, 2 m tall (arcade scaled from 1.6 m)
+    //
+    const HOUSE_DEPTH = Math.round(1   * PX_PER_M); // 28 px — goalkeeper area depth
+    const HOUSE_W     = Math.round(2.5 * PX_PER_M); // 70 px — goalkeeper area width
 
-      // Net shadow (dark fill with slight team tint)
+    const drawGoal = (left: boolean): void => {
+      const mouthX       = left ? GOAL_LINE_LEFT  : GOAL_LINE_RIGHT;
+      const cageBackX    = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
+      const netFillX     = left ? cageBackX : mouthX;
+      // Crease extends from the goal mouth into the field
+      const creaseX      = left ? mouthX : mouthX - DZONE_DEPTH;
+      // House (goalkeeper area) sits right at the goal mouth, extends into the field
+      const houseX       = left ? mouthX : mouthX - HOUSE_DEPTH;
+      const midGoalY     = (GOAL_TOP + GOAL_BOTTOM) / 2;
+      const houseTop     = midGoalY - HOUSE_W / 2;
+
+      const teamColor    = left ? 0x00cc66 : 0xdd2244;
+
+      // ── Net fill + crosshatch ────────────────────────────────────────────────
       g.fillStyle(0x0a1210, 1);
       g.fillRect(netFillX, GOAL_TOP, GOAL_CAGE_DEPTH, goalH);
 
-      // Net crosshatch lines
       g.lineStyle(1, 0xffffff, 0.18);
-      const netSpacingX = 8;
-      const netSpacingY = 8;
       const nx0 = netFillX;
-      const nx1 = netFillX + GOAL_CAGE_DEPTH;
-      // Horizontal grid lines
-      for (let yy = GOAL_TOP; yy <= GOAL_BOTTOM; yy += netSpacingY) {
+      const nx1 = left ? netFillX + GOAL_CAGE_DEPTH : netFillX + GOAL_CAGE_DEPTH;
+      for (let yy = GOAL_TOP; yy <= GOAL_BOTTOM; yy += 8) {
         g.lineBetween(nx0, yy, nx1, yy);
       }
-      // Vertical grid lines
-      for (let xx = nx0; xx <= nx1; xx += netSpacingX) {
+      for (let xx = Math.min(nx0, nx1); xx <= Math.max(nx0, nx1); xx += 8) {
         g.lineBetween(xx, GOAL_TOP, xx, GOAL_BOTTOM);
       }
 
-      // Crease box (team-color outline)
-      g.lineStyle(2, teamColor, 0.45);
-      g.strokeRect(creaseFieldX, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
+      // ── Outer goal area (crease): 4 m × 5 m ────────────────────────────────
+      g.fillStyle(teamColor, 0.06);
+      g.fillRect(creaseX, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
+      g.lineStyle(2, teamColor, 0.55);
+      g.strokeRect(creaseX, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
 
-      // Goal cage frame — back wall + rails (white)
+      // ── Inner goalkeeper area (house): 1 m × 2.5 m ─────────────────────────
+      g.fillStyle(teamColor, 0.18);
+      g.fillRect(houseX, houseTop, HOUSE_DEPTH, HOUSE_W);
+      g.lineStyle(2, teamColor, 0.9);
+      g.strokeRect(houseX, houseTop, HOUSE_DEPTH, HOUSE_W);
+
+      // ── Goal cage frame ──────────────────────────────────────────────────────
       g.lineStyle(3, 0xffffff, 0.9);
       g.strokeRect(netFillX, GOAL_TOP, GOAL_CAGE_DEPTH, goalH);
 
-      // Mouth posts — bright team-colored thick marks at goal line corners
+      // ── Mouth posts (team-colored circles at goal line corners) ──────────────
       const postR = 5;
       g.fillStyle(teamColor, 1);
       g.fillCircle(mouthX, GOAL_TOP,    postR);
       g.fillCircle(mouthX, GOAL_BOTTOM, postR);
-      // Post highlight ring
       g.lineStyle(2, 0xffffff, 0.8);
       g.strokeCircle(mouthX, GOAL_TOP,    postR);
       g.strokeCircle(mouthX, GOAL_BOTTOM, postR);
 
-      // Goal line (vertical, team color)
+      // ── Goal line (team color, only across mouth opening) ────────────────────
       g.lineStyle(3, teamColor, 0.9);
       g.lineBetween(mouthX, GOAL_TOP, mouthX, GOAL_BOTTOM);
     };
 
-    drawGoal(true);   // left goal (green)
-    drawGoal(false);  // right goal (red)
+    drawGoal(true);   // left goal (green team)
+    drawGoal(false);  // right goal (red team)
 
     // ── Rink border (drawn last, on top of everything) ────────────────────────
     g.lineStyle(4, 0xffffff, 1);
