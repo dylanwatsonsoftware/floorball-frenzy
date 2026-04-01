@@ -207,10 +207,31 @@ export class GameScene extends Phaser.Scene {
     (this._hostChargeBar as Phaser.GameObjects.Rectangle & { maxW: number }).maxW = BAR_W;
     (this._clientChargeBar as Phaser.GameObjects.Rectangle & { maxW: number }).maxW = BAR_W;
 
-    // Score HUD
+    // ── Top HUD bar ────────────────────────────────────────────────────────────
+    const HUD_H = 95;
+    this.add.rectangle(640, HUD_H / 2, 1280, HUD_H, 0x06060e, 1).setDepth(14);
+    // subtle bottom edge
+    this.add.rectangle(640, HUD_H, 1280, 1, 0xffffff, 0.08).setDepth(14);
+
+    // "SCOREBOARD" eyebrow
+    this.add
+      .text(640, 10, "SCOREBOARD", {
+        fontSize: "10px", color: "#555577", fontStyle: "bold",
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(15);
+
+    // Side labels
+    this.add.text(430, 52, "HOME", { fontSize: "18px", color: "#aaaacc", fontStyle: "bold" })
+      .setOrigin(1, 0.5).setDepth(15);
+    this.add.text(850, 52, "AWAY", { fontSize: "18px", color: "#aaaacc", fontStyle: "bold" })
+      .setOrigin(0, 0.5).setDepth(15);
+
+    // Score — updated every frame
     this._scoreText = this.add
-      .text(640, 30, "0 — 0", { fontSize: "36px", color: "#ffffff", fontStyle: "bold" })
-      .setOrigin(0.5, 0);
+      .text(640, 52, "0  —  0", { fontSize: "34px", color: "#ffffff", fontStyle: "bold" })
+      .setOrigin(0.5)
+      .setDepth(15);
 
     // Goal / win message
     this._messageText = this.add
@@ -222,16 +243,16 @@ export class GameScene extends Phaser.Scene {
         strokeThickness: 4,
       })
       .setOrigin(0.5)
-      .setDepth(10);
+      .setDepth(16);
 
-    // Controls hint
-    this.add.text(FIELD_LEFT, FIELD_BOTTOM + 8,
-      "Green: WASD move · Shift dash · Q wrist · E slap", {
-      fontSize: "14px", color: "#aaaaaa",
+    // ── Bottom keyboard hints ───────────────────────────────────────────────────
+    this.add.text(FIELD_LEFT, FIELD_BOTTOM + 10,
+      "Green: WASD · Shift dash · Q wrist · E slap", {
+      fontSize: "13px", color: "#444466",
     });
-    this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 8,
-      "Black: Arrows move · Space dash · , wrist · . slap", {
-      fontSize: "14px", color: "#aaaaaa",
+    this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 10,
+      "Black: Arrows · Space dash · , wrist · . slap", {
+      fontSize: "13px", color: "#444466",
     }).setOrigin(1, 0);
 
     // Keyboard bindings
@@ -263,25 +284,25 @@ export class GameScene extends Phaser.Scene {
       this._confirmLeave();
     });
 
-    // Small back button — always visible, top-left corner
+    // Back button — top-left, inside HUD bar
     const backBg = this.add
-      .rectangle(10, 10, 90, 32, 0x000000, 0.45)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1, 0xffffff, 0.2)
+      .rectangle(14, 47, 100, 38, 0x1a1a2e, 1)
+      .setOrigin(0, 0.5)
+      .setStrokeStyle(1, 0x00e5ff, 0.35)
       .setInteractive({ useHandCursor: true })
-      .setDepth(15);
+      .setDepth(16);
     const backLabel = this.add
-      .text(55, 26, "← Menu", { fontSize: "14px", color: "#aaaaaa" })
+      .text(64, 47, "‹ BACK", { fontSize: "14px", color: "#8888aa", fontStyle: "bold" })
       .setOrigin(0.5)
-      .setDepth(15);
+      .setDepth(16);
     backLabel.disableInteractive();
-    backBg.on("pointerover", () => backLabel.setColor("#ffffff"));
-    backBg.on("pointerout", () => backLabel.setColor("#aaaaaa"));
+    backBg.on("pointerover", () => { backLabel.setColor("#ffffff"); backBg.setStrokeStyle(1, 0x00e5ff, 0.9); });
+    backBg.on("pointerout",  () => { backLabel.setColor("#8888aa"); backBg.setStrokeStyle(1, 0x00e5ff, 0.35); });
     backBg.on("pointerup", () => this._confirmLeave());
 
     // Touch UI — joystick anywhere in the left 60%, buttons on the far right
     this._hostJoy = new VirtualJoystick(this, 0, 0, 768, 720);
-    this._hostButtons = new ActionButtons(this, 1210, 360, 0x36b346);
+    this._hostButtons = new ActionButtons(this, 1210, 360);
 
     // Initialize Animations
     this._createAnimations();
@@ -668,7 +689,7 @@ export class GameScene extends Phaser.Scene {
     this._updateChargeBar(this._hostChargeBar, this._hostShoot, this.host.x - 20, this.host.y - PLAYER_RADIUS - 8);
     this._updateChargeBar(this._clientChargeBar, this._clientShoot, this.client.x - 20, this.client.y - PLAYER_RADIUS - 8);
 
-    this._scoreText.setText(`${this.score.host} — ${this.score.client}`);
+    this._scoreText.setText(`${this.score.host}  —  ${this.score.client}`);
   }
 
   private _updateChargeBar(
