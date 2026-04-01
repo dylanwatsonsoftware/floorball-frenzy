@@ -92,8 +92,11 @@ export class GameScene extends Phaser.Scene {
   private _clientStickSprite!: Phaser.GameObjects.Sprite;
   private _hostSprite!: Phaser.GameObjects.Sprite;
   private _clientSprite!: Phaser.GameObjects.Sprite;
-  private _ballSprite!: Phaser.GameObjects.Image;
+  private _ballGraphics!: Phaser.GameObjects.Graphics;
   protected _ballRotation = 0;
+  // Perpendicular-to-travel axis used to project rolling dots (unit vector)
+  private _ballPerpX = 0;
+  private _ballPerpY = 1;
   private _ballShadow!: Phaser.GameObjects.Arc;
   private _hostChargeBar!: Phaser.GameObjects.Rectangle;
   private _clientChargeBar!: Phaser.GameObjects.Rectangle;
@@ -171,8 +174,8 @@ export class GameScene extends Phaser.Scene {
 
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
-    // Ball (procedurally generated texture from BootScene; 64px → scaled to BALL_RADIUS*2)
-    this._ballSprite = this.add.image(midX, midY, "ball").setDepth(6).setScale((BALL_RADIUS * 2) / 64);
+    // Ball drawn each frame via Graphics for physically correct rolling animation
+    this._ballGraphics = this.add.graphics().setDepth(6);
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
@@ -319,9 +322,13 @@ export class GameScene extends Phaser.Scene {
     this._hostShotAnimMs = Math.max(0, this._hostShotAnimMs - delta);
     this._clientShotAnimMs = Math.max(0, this._clientShotAnimMs - delta);
 
-    // Accumulate ball rotation based on distance travelled this frame
+    // Accumulate ball rotation and track perpendicular-to-travel axis for rolling projection
     const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
     this._ballRotation += (ballSpeed * Math.min(delta, 200) / 1000) / BALL_RADIUS;
+    if (ballSpeed > 5) {
+      this._ballPerpX = -this.ball.vy / ballSpeed;
+      this._ballPerpY =  this.ball.vx / ballSpeed;
+    }
 
     this._syncSprites();
   }
@@ -557,8 +564,27 @@ export class GameScene extends Phaser.Scene {
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
-    const scale = ((BALL_RADIUS * 2) / 64) * (1 + this.ball.z * 0.003);
-    this._ballSprite.setPosition(this.ball.x, visualY).setScale(scale).setDepth(6 + this.ball.z * 0.01).setRotation(this._ballRotation);
+    const displayR = BALL_RADIUS * (1 + this.ball.z * 0.003);
+    const depth = 6 + this.ball.z * 0.01;
+    this._ballGraphics.clear().setPosition(this.ball.x, visualY).setDepth(depth);
+
+    // White ball body
+    this._ballGraphics.fillStyle(0xffffff, 1);
+    this._ballGraphics.fillCircle(0, 0, displayR);
+
+    // 3 dots projected onto the equatorial plane perpendicular to travel direction.
+    // sin(angle) gives the lateral offset — positive = front hemisphere, negative = back (hidden).
+    const dotBaseR = Math.max(1, displayR * 0.22);
+    const orbitR = displayR * 0.62;
+    this._ballGraphics.fillStyle(0x888888, 0.9);
+    for (let i = 0; i < 3; i++) {
+      const a = this._ballRotation + (i / 3) * Math.PI * 2;
+      const s = Math.sin(a);
+      if (s <= 0) continue; // back hemisphere — don't draw
+      const dotX = this._ballPerpX * s * orbitR;
+      const dotY = this._ballPerpY * s * orbitR;
+      this._ballGraphics.fillCircle(dotX, dotY, dotBaseR * (0.4 + 0.6 * s));
+    }
 
     // Shadow stays at ground position, shrinks and fades as ball rises
     const shadowScale = Math.max(0.3, 1 - this.ball.z * 0.004);
