@@ -35,6 +35,7 @@ import {
   GOAL_CAGE_DEPTH,
   PX_PER_M,
   STICK_REACH,
+  DASH_COOLDOWN,
 } from "../physics/constants";
 
 const WINNING_SCORE = 5;
@@ -112,6 +113,7 @@ export class GameScene extends Phaser.Scene {
     });
   })();
   private _ballShadow!: Phaser.GameObjects.Arc;
+  private _dashRingGfx!: Phaser.GameObjects.Graphics;
   private _fireGraphics!: Phaser.GameObjects.Graphics;
   private _fireParticles: Array<{
     x: number; y: number; vx: number; vy: number;
@@ -199,6 +201,8 @@ export class GameScene extends Phaser.Scene {
 
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
+    // Dash cooldown rings (drawn below players)
+    this._dashRingGfx = this.add.graphics().setDepth(4.5);
     // Fire trail — drawn behind the ball
     this._fireGraphics = this.add.graphics().setDepth(5.5);
     // Ball drawn each frame via Graphics for physically correct rolling animation
@@ -822,11 +826,31 @@ export class GameScene extends Phaser.Scene {
     // Draw sticks
     this._drawSticks();
 
+    // Dash cooldown rings
+    this._updateDashRings();
+
     // Charge bars
     this._updateChargeBar(this._hostChargeBar, this._hostShoot, this.host.x - 20, this.host.y - PLAYER_RADIUS - 8);
     this._updateChargeBar(this._clientChargeBar, this._clientShoot, this.client.x - 20, this.client.y - PLAYER_RADIUS - 8);
 
     this._scoreText.setText(`${this.score.host}  —  ${this.score.client}`);
+  }
+
+  private _updateDashRings(): void {
+    const gfx = this._dashRingGfx;
+    gfx.clear();
+    for (const player of [this.host, this.client]) {
+      if (player.dashCooldownMs <= 0) continue;
+      // Arc sweeps clockwise from the top as cooldown recovers (0 = just used, 1 = ready)
+      const progress = 1 - player.dashCooldownMs / DASH_COOLDOWN;
+      const r = PLAYER_RADIUS + 7;
+      const start = -Math.PI / 2;
+      const end   = start + progress * Math.PI * 2;
+      gfx.lineStyle(3, 0x00ff66, 0.85);
+      gfx.beginPath();
+      gfx.arc(player.x, player.y, r, start, end, false);
+      gfx.strokePath();
+    }
   }
 
   private _updateChargeBar(

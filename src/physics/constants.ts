@@ -63,7 +63,7 @@ export const CONTROL_RADIUS = 40;
 
 // ─── Dash ─────────────────────────────────────────────────────────────────────
 export const DASH_FORCE    = 950;
-export const DASH_COOLDOWN = 1000;
+export const DASH_COOLDOWN = 1800;
 
 // ─── Shooting ─────────────────────────────────────────────────────────────────
 export const SHOOT_BASE_POWER    = 500;  // was 400
