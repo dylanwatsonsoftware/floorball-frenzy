@@ -3,7 +3,7 @@ import type { Ball, GameMode, InputState } from "../types/game";
 import type { PlayerExtended } from "../physics/playerPhysics";
 import { createPlayer, stepPlayer } from "../physics/playerPhysics";
 import { stepBall, resetBall, applyPossessionAssist } from "../physics/ballPhysics";
-import { resolvePlayerBallCollision, resolveStickTipCollision } from "../physics/collision";
+import { resolvePlayerBallCollision, resolveStickTipCollision, resolvePlayerPlayerCollision } from "../physics/collision";
 import { stickDir as stickDirPure, ballInRange } from "../physics/stickUtils";
 import {
   createShootState,
@@ -487,6 +487,7 @@ export class GameScene extends Phaser.Scene {
     // Use smoothed aim for stick direction so stick doesn't teleport on direction change
     const hostStick = this._stickDir(this.host, this._hostAimSmooth);
     const clientStick = this._stickDir(this.client, this._clientAimSmooth);
+    resolvePlayerPlayerCollision(this.host, this.client);
     resolvePlayerBallCollision(this.host, this.ball);
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);

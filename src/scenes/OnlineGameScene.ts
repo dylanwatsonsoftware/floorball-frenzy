@@ -5,7 +5,7 @@ import type { GameMessage } from "../net/messages";
 import { lerpState } from "../net/lerp";
 import { stepPlayer } from "../physics/playerPhysics";
 import { stepBall } from "../physics/ballPhysics";
-import { resolvePlayerBallCollision, resolveStickTipCollision } from "../physics/collision";
+import { resolvePlayerBallCollision, resolveStickTipCollision, resolvePlayerPlayerCollision } from "../physics/collision";
 import { updateShootCharge } from "../physics/shooting";
 
 const SNAPSHOT_INTERVAL_MS = 1000 / 15; // 15 Hz
@@ -244,8 +244,9 @@ export class OnlineGameScene extends GameScene {
       this._onlineClientSlapWasDown = input.slap;
       updateShootCharge(this._clientShoot, input.slap, elapsedMs);
 
-      // Local prediction: stick tip collision + possession (host is authoritative)
+      // Local prediction: player collision, stick tip collision + possession (host is authoritative)
       const clientStick = this._stickDir(this.client, this._clientAimSmooth);
+      resolvePlayerPlayerCollision(this.host, this.client);
       resolvePlayerBallCollision(this.host, this.ball);
       resolvePlayerBallCollision(this.client, this.ball);
       resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
