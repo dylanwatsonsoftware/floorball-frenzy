@@ -62,7 +62,7 @@ export const STICK_REACH  = PLAYER_RADIUS + STICK_LENGTH; // 48 px
 export const CONTROL_RADIUS = 40;
 
 // ─── Dash ─────────────────────────────────────────────────────────────────────
-export const DASH_FORCE    = 600;  // was 400 — scaled with player speed
+export const DASH_FORCE    = 950;
 export const DASH_COOLDOWN = 1000;
 
 // ─── Shooting ─────────────────────────────────────────────────────────────────
