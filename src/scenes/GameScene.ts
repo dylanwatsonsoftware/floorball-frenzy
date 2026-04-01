@@ -128,6 +128,12 @@ export class GameScene extends Phaser.Scene {
   protected _hostShotAnimMs = 0;
   protected _clientShotAnimMs = 0;
 
+  // Dribble state
+  protected _hostDribblePhase = 0;
+  protected _clientDribblePhase = 0;
+  protected _hostHasPossession = false;
+  protected _clientHasPossession = false;
+
 
   // Keys
   protected _wasd!: {
@@ -474,8 +480,11 @@ export class GameScene extends Phaser.Scene {
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
-    this._applyStickPossession(this.host, hostStick, this._hostShoot.charging, this._hostShotCooldownMs > 0);
-    this._applyStickPossession(this.client, clientStick, this._clientShoot.charging, this._clientShotCooldownMs > 0);
+    const DRIBBLE_FREQ = 4.5; // tic-tacs per second
+    this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging, this._hostShotCooldownMs > 0);
+    if (this._hostHasPossession) this._hostDribblePhase += dt * 2 * Math.PI * DRIBBLE_FREQ;
+    this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
+    if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * DRIBBLE_FREQ;
 
     this._updateLastTouch();
 
@@ -528,39 +537,42 @@ export class GameScene extends Phaser.Scene {
   protected _applyStickPossession(
     player: PlayerExtended,
     stickDir: { x: number; y: number },
+    dribblePhase: number,
     isCharging = false,
     shotCooldownActive = false
-  ): void {
-    if (shotCooldownActive) return;
-    const fwdX = stickDir.y * PLAYER_RADIUS * 0.84 * 1.32;
-    const fwdY = -stickDir.x * PLAYER_RADIUS * 0.84 * 1.32;
-    const tipX = player.x + stickDir.x * STICK_REACH * 1.3 + fwdX;
-    const tipY = player.y + stickDir.y * STICK_REACH * 1.3 + fwdY;
-    const dx = this.ball.x - tipX;
-    const dy = this.ball.y - tipY;
-    const dist = Math.hypot(dx, dy);
+  ): boolean {
+    if (shotCooldownActive) return false;
 
-    if (dist > BALL_RADIUS + 42) return; // outside possession range
+    // Aim direction is 90° CW from stickDir (stickDir is 90° CCW from aim)
+    const aNx = stickDir.y;
+    const aNy = -stickDir.x;
 
-    // When charging a slap shot, allow the ball to be carried even at speed
-    // so the player doesn't run past it before releasing.
+    // Dribble target: oscillates side-to-side in front of the player
+    const DRIBBLE_AMP = 30;   // px, half-sweep width
+    const FORWARD_DIST = STICK_REACH * 0.95;
+    const side = Math.sin(dribblePhase) * DRIBBLE_AMP;
+    const targetX = player.x + aNx * FORWARD_DIST + stickDir.x * side;
+    const targetY = player.y + aNy * FORWARD_DIST + stickDir.y * side;
+
+    // Possession zone: centred in front of player, wide enough to cover the full sweep
+    const zoneRadius = DRIBBLE_AMP + STICK_REACH * 0.7 + BALL_RADIUS;
+    const zoneCX = player.x + aNx * FORWARD_DIST;
+    const zoneCY = player.y + aNy * FORWARD_DIST;
+    if (Math.hypot(this.ball.x - zoneCX, this.ball.y - zoneCY) > zoneRadius) return false;
+
     const relSpeedCap = isCharging ? 600 : 480;
-    const relSpeed = Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy);
-    if (relSpeed > relSpeedCap) return;
+    if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > relSpeedCap) return false;
 
-    // Velocity coupling — reduced to make ball easier to steal
+    // Velocity coupling
     applyPossessionAssist(this.ball, player.vx, player.vy);
     this.ball.vx += (player.vx - this.ball.vx) * 0.22;
     this.ball.vy += (player.vy - this.ball.vy) * 0.22;
 
-    // Position: pull ball to tip surface
-    if (dist > 0) {
-      const nx = dx / dist;
-      const ny = dy / dist;
-      const restDist = BALL_RADIUS;
-      this.ball.x = tipX + nx * (restDist + (dist - restDist) * 0.50);
-      this.ball.y = tipY + ny * (restDist + (dist - restDist) * 0.50);
-    }
+    // Spring ball toward dribble target
+    this.ball.x += (targetX - this.ball.x) * 0.45;
+    this.ball.y += (targetY - this.ball.y) * 0.45;
+
+    return true;
   }
 
   protected _doWristShot(who: "host" | "client"): void {
@@ -733,20 +745,8 @@ export class GameScene extends Phaser.Scene {
     const shadowAlpha = Math.max(0, 0.45 - this.ball.z * 0.002);
     this._ballShadow.setPosition(this.ball.x, this.ball.y).setScale(shadowScale).setAlpha(shadowAlpha);
 
-    const POSSESSION_RANGE = BALL_RADIUS + 42;
-    const hostStickDir = this._stickDir(this.host, this._hostAimSmooth);
-    const hostFwdX = hostStickDir.y * PLAYER_RADIUS * 0.84;
-    const hostFwdY = -hostStickDir.x * PLAYER_RADIUS * 0.84;
-    const hostTipX = this.host.x + hostStickDir.x * STICK_REACH + hostFwdX;
-    const hostTipY = this.host.y + hostStickDir.y * STICK_REACH + hostFwdY;
-    const hostHasBall = Math.hypot(this.ball.x - hostTipX, this.ball.y - hostTipY) <= POSSESSION_RANGE;
-
-    const clientStickDir = this._stickDir(this.client, this._clientAimSmooth);
-    const clientFwdX = clientStickDir.y * PLAYER_RADIUS * 0.84;
-    const clientFwdY = -clientStickDir.x * PLAYER_RADIUS * 0.84;
-    const clientTipX = this.client.x + clientStickDir.x * STICK_REACH + clientFwdX;
-    const clientTipY = this.client.y + clientStickDir.y * STICK_REACH + clientFwdY;
-    const clientHasBall = Math.hypot(this.ball.x - clientTipX, this.ball.y - clientTipY) <= POSSESSION_RANGE;
+    const hostHasBall = this._hostHasPossession;
+    const clientHasBall = this._clientHasPossession;
     const toggleFrame = Math.floor(this.time.now / 200) % 2;
 
     this._hostSprite.setPosition(this.host.x, this.host.y);
@@ -824,13 +824,33 @@ export class GameScene extends Phaser.Scene {
       animMs: number,
       maxAnimMs: number,
       chargeMs: number,
-      isSlap: boolean
+      isSlap: boolean,
+      hasPossession: boolean,
+      dribblePhase: number,
     ): void => {
       const aimLen = Math.hypot(aim.x, aim.y);
       if (aimLen === 0) return;
       const aNx = aim.x / aimLen;
       const aNy = aim.y / aimLen;
       const sd = this._stickDir(player, aim); // perpendicular rest direction
+
+      // While dribbling with no shot animation, point stick toward the ball's dribble position
+      if (hasPossession && animMs === 0 && chargeMs === 0) {
+        const DRIBBLE_AMP = 30;
+        const FORWARD_DIST = STICK_REACH * 0.95;
+        const side = Math.sin(dribblePhase) * DRIBBLE_AMP;
+        const dirX = aNx * FORWARD_DIST + sd.x * side;
+        const dirY = aNy * FORWARD_DIST + sd.y * side;
+        const dLen = Math.hypot(dirX, dirY) || 1;
+        const nx = dirX / dLen;
+        const ny = dirY / dLen;
+        const baseX = player.x + nx * (PLAYER_RADIUS * 1.82) + aNx * (PLAYER_RADIUS * 0.84);
+        const baseY = player.y + ny * (PLAYER_RADIUS * 1.82) + aNy * (PLAYER_RADIUS * 0.84);
+        sprite.setPosition(baseX, baseY);
+        sprite.setRotation(Math.atan2(ny, nx));
+        sprite.setFrame(6);
+        return;
+      }
 
       // angleDeg: rotation from rest. Negative = backswing, Positive = forward swing.
       // Rotates in the (sd, aimNorm) plane:  dir = cos(a)*sd + sin(a)*aimNorm
@@ -884,8 +904,8 @@ export class GameScene extends Phaser.Scene {
       sprite.setFrame(6);
     };
 
-    drawStick(this.host, this._hostAimSmooth, this._hostStickSprite, this._hostShotAnimMs, 280, this._hostShoot.chargeMs, this._hostShotAnimMs === 280);
-    drawStick(this.client, this._clientAimSmooth, this._clientStickSprite, this._clientShotAnimMs, 280, this._clientShoot.chargeMs, this._clientShotAnimMs === 280);
+    drawStick(this.host, this._hostAimSmooth, this._hostStickSprite, this._hostShotAnimMs, 280, this._hostShoot.chargeMs, this._hostShotAnimMs === 280, this._hostHasPossession, this._hostDribblePhase);
+    drawStick(this.client, this._clientAimSmooth, this._clientStickSprite, this._clientShotAnimMs, 280, this._clientShoot.chargeMs, this._clientShotAnimMs === 280, this._clientHasPossession, this._clientDribblePhase);
   }
 
   /**
