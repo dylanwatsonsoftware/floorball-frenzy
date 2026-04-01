@@ -613,17 +613,19 @@ export class GameScene extends Phaser.Scene {
 
   protected _doWristShot(who: "host" | "client"): void {
     if (this._frozenMs > 0) return;
-    // Always play the swing animation on button press
     if (who === "host") this._hostShotAnimMs = 180;
     else this._clientShotAnimMs = 180;
-    const hasPossession = who === "host" ? this._hostHasPossession : this._clientHasPossession;
-    if (hasPossession) {
-      this._snapBallToBlade(who);
-    } else if (!this._ballInRange(who)) {
-      return;
-    }
-    const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
+
+    // Use a generous reach so wrist shot works throughout the dribble cycle and
+    // on loose balls nearby. The possession flag is stale (set last physics frame,
+    // before this key-event fires), so we just check raw distance instead.
     const player = who === "host" ? this.host : this.client;
+    const distToBall = Math.hypot(this.ball.x - player.x, this.ball.y - player.y);
+    if (distToBall > STICK_REACH * 2.2) return; // ball too far away
+
+    // Always snap ball to blade tip so the shot always connects cleanly
+    this._snapBallToBlade(who);
+    const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     wristShot(this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
