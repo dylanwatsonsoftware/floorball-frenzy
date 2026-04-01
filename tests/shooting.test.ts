@@ -134,7 +134,7 @@ describe("wristShot", () => {
   it("fires ball at base power with no lift", () => {
     const ball = makeBall();
     wristShot(ball, 1, 0, false);
-    expect(ball.vx).toBeCloseTo(SHOOT_BASE_POWER, 2);
+    expect(ball.vx).toBeCloseTo(SHOOT_BASE_POWER * 1.8, 2);
     expect(ball.vz).toBe(0);
   });
 

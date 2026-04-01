@@ -71,22 +71,24 @@ export function releaseShot(
 }
 
 /**
- * Instant wrist shot — base power, no lift, no charge needed.
+ * Instant wrist shot — 1.8× base power, no lift, inherits player momentum.
  */
 export function wristShot(
   ball: Ball,
   aimX: number,
   aimY: number,
-  oneTouch: boolean
+  oneTouch: boolean,
+  playerVx = 0,
+  playerVy = 0,
 ): void {
-  let power = SHOOT_BASE_POWER;
+  let power = SHOOT_BASE_POWER * 1.8;
   if (oneTouch) power *= ONE_TOUCH_MULTIPLIER;
 
   const len = Math.hypot(aimX, aimY);
   const nx = len > 0 ? aimX / len : 1;
   const ny = len > 0 ? aimY / len : 0;
 
-  ball.vx = nx * power;
-  ball.vy = ny * power;
+  ball.vx = nx * power + playerVx;
+  ball.vy = ny * power + playerVy;
   ball.vz = 0;
 }
