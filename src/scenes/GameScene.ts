@@ -137,7 +137,7 @@ export class GameScene extends Phaser.Scene {
   // Pending wrist shot: counts down after key-down, fires when it hits 0
   protected _hostPendingWristMs = 0;
   protected _clientPendingWristMs = 0;
-  private static readonly WRIST_DELAY_MS = 80;
+  private static readonly WRIST_DELAY_MS = 160;
 
   // Dribble state
   protected _hostDribblePhase = 0;
