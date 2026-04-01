@@ -23,6 +23,7 @@ import {
   GOAL_BOTTOM,
   GOAL_LINE_LEFT,
   GOAL_LINE_RIGHT,
+  GOAL_LINE_INSET,
   PLAYER_RADIUS,
   BALL_RADIUS,
   FIXED_DT,
@@ -899,14 +900,20 @@ export class GameScene extends Phaser.Scene {
       const mouthX       = left ? GOAL_LINE_LEFT  : GOAL_LINE_RIGHT;
       const cageBackX    = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
       const netFillX     = left ? cageBackX : mouthX;
-      // Crease extends from the goal mouth into the field
-      const creaseX      = left ? mouthX : mouthX - DZONE_DEPTH;
-      // House (goalkeeper area) sits right at the goal mouth, extends into the field
-      const houseX       = left ? mouthX : mouthX - HOUSE_DEPTH;
       const midGoalY     = (GOAL_TOP + GOAL_BOTTOM) / 2;
-      const houseTop     = midGoalY - HOUSE_W / 2;
 
       const teamColor    = left ? 0x00cc66 : 0xdd2244;
+
+      // Full zone spans: end-board side (GOAL_LINE_INSET px) + field side (DZONE_DEPTH px)
+      // This makes the crease and house symmetrical around the goal mouth.
+      const BACK_DEPTH   = GOAL_LINE_INSET; // px from mouth to end board (84 px = 3 m)
+      const totalCreaseW = BACK_DEPTH + DZONE_DEPTH;
+      const creaseX      = left ? mouthX - BACK_DEPTH : mouthX - DZONE_DEPTH;
+
+      // House straddles the goal mouth: 1 m each side
+      const totalHouseW  = HOUSE_DEPTH * 2;
+      const houseX       = mouthX - HOUSE_DEPTH;
+      const houseTop     = midGoalY - HOUSE_W / 2;
 
       // ── Net fill + crosshatch ────────────────────────────────────────────────
       g.fillStyle(0x0a1210, 1);
@@ -914,25 +921,25 @@ export class GameScene extends Phaser.Scene {
 
       g.lineStyle(1, 0xffffff, 0.18);
       const nx0 = netFillX;
-      const nx1 = left ? netFillX + GOAL_CAGE_DEPTH : netFillX + GOAL_CAGE_DEPTH;
+      const nx1 = netFillX + GOAL_CAGE_DEPTH;
       for (let yy = GOAL_TOP; yy <= GOAL_BOTTOM; yy += 8) {
         g.lineBetween(nx0, yy, nx1, yy);
       }
-      for (let xx = Math.min(nx0, nx1); xx <= Math.max(nx0, nx1); xx += 8) {
+      for (let xx = nx0; xx <= nx1; xx += 8) {
         g.lineBetween(xx, GOAL_TOP, xx, GOAL_BOTTOM);
       }
 
-      // ── Outer goal area (crease): 4 m × 5 m ────────────────────────────────
+      // ── Outer goal area (crease): spans end-board → 4 m into field ─────────
       g.fillStyle(teamColor, 0.06);
-      g.fillRect(creaseX, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
+      g.fillRect(creaseX, DZONE_TOP, totalCreaseW, DZONE_BOTTOM - DZONE_TOP);
       g.lineStyle(2, teamColor, 0.55);
-      g.strokeRect(creaseX, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
+      g.strokeRect(creaseX, DZONE_TOP, totalCreaseW, DZONE_BOTTOM - DZONE_TOP);
 
-      // ── Inner goalkeeper area (house): 1 m × 2.5 m ─────────────────────────
+      // ── Inner goalkeeper area (house): 1 m each side of goal mouth ──────────
       g.fillStyle(teamColor, 0.18);
-      g.fillRect(houseX, houseTop, HOUSE_DEPTH, HOUSE_W);
+      g.fillRect(houseX, houseTop, totalHouseW, HOUSE_W);
       g.lineStyle(2, teamColor, 0.9);
-      g.strokeRect(houseX, houseTop, HOUSE_DEPTH, HOUSE_W);
+      g.strokeRect(houseX, houseTop, totalHouseW, HOUSE_W);
 
       // ── Goal cage frame ──────────────────────────────────────────────────────
       g.lineStyle(3, 0xffffff, 0.9);
