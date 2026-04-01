@@ -8,14 +8,19 @@ const CONTACT_DIST = PLAYER_RADIUS + BALL_RADIUS;
 // 0.6 feels like a solid stick push without being unrealistically bouncy.
 const TRANSFER = 0.6;
 
-// Bounciness of player-player collisions: 0 = perfectly inelastic (stick together),
-// 1 = perfectly elastic (full speed exchange). 0.4 gives a solid-feeling bump.
+// Bounciness of player-player collisions.
 const PLAYER_RESTITUTION = 0.4;
+// How much each px/s of approach speed adds to a player's effective mass.
+// At PLAYER_MAX_SPEED (700 px/s) this gives effective mass ≈ 7× base,
+// so a full-speed player barely slows while pushing a stationary opponent away.
+const MASS_SCALE = 0.015;
 
 /**
  * Resolve a collision between two players.
  * - Separates them so they no longer overlap.
- * - Exchanges the velocity components along the collision normal (equal mass).
+ * - Applies an impulse weighted by each player's effective mass:
+ *   a player pressing hard into the contact acts as a heavier body and is
+ *   knocked back less, pushing the slower/lighter opponent away instead.
  */
 export function resolvePlayerPlayerCollision(
   a: PlayerExtended,
@@ -28,6 +33,7 @@ export function resolvePlayerPlayerCollision(
 
   if (dist >= minDist) return;
 
+  // n points from a toward b
   const nx = dist > 0 ? dx / dist : 1;
   const ny = dist > 0 ? dy / dist : 0;
 
@@ -44,20 +50,22 @@ export function resolvePlayerPlayerCollision(
   b.x = Math.max(FIELD_LEFT + PLAYER_RADIUS, Math.min(FIELD_RIGHT  - PLAYER_RADIUS, b.x));
   b.y = Math.max(FIELD_TOP  + PLAYER_RADIUS, Math.min(FIELD_BOTTOM - PLAYER_RADIUS, b.y));
 
-  // Relative velocity of b with respect to a, projected onto collision normal
-  const relVx = b.vx - a.vx;
-  const relVy = b.vy - a.vy;
-  const dot = relVx * nx + relVy * ny;
-
-  // Only resolve if approaching (dot < 0 means converging)
+  // Relative velocity along normal (negative = approaching)
+  const dot = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
   if (dot >= 0) return;
 
-  // Equal-mass impulse: j = -(1 + e) * dot / 2
-  const j = -(1 + PLAYER_RESTITUTION) * dot / 2;
-  a.vx -= nx * j;
-  a.vy -= ny * j;
-  b.vx += nx * j;
-  b.vy += ny * j;
+  // Effective mass: boosted by how hard each player is pressing into the contact.
+  // Only the component directed toward the opponent counts.
+  const aPress = a.vx * nx + a.vy * ny;           // +ve = a pressing toward b
+  const bPress = -(b.vx * nx + b.vy * ny);         // +ve = b pressing toward a
+  const massA = 1 + Math.max(0, aPress) * MASS_SCALE;
+  const massB = 1 + Math.max(0, bPress) * MASS_SCALE;
+
+  const j = -(1 + PLAYER_RESTITUTION) * dot / (1 / massA + 1 / massB);
+  a.vx -= (j / massA) * nx;
+  a.vy -= (j / massA) * ny;
+  b.vx += (j / massB) * nx;
+  b.vy += (j / massB) * ny;
 }
 
 /**
