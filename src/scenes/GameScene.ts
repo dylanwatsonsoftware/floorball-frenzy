@@ -175,8 +175,8 @@ export class GameScene extends Phaser.Scene {
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
-    this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(0.15).setOrigin(0.5, 0.56);
-    this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(0.15).setOrigin(0.5, 0.56);
+    this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56);
+    this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56);
 
     // Charge bars (shown above each player when charging slap)
     const BAR_W = 40;
@@ -277,45 +277,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   private _createAnimations(): void {
-    if (!this.anims.exists("idle_host")) {
-      // Row 1 (frames 0–7): idle dribbling
+    if (!this.anims.exists("dribble_host")) {
+      // Row 1 (frames 0–7): dribbling (used when player has ball)
       this.anims.create({
-        key: "idle_host",
+        key: "dribble_host",
         frames: this.anims.generateFrameNumbers("char_host", { start: 0, end: 7 }),
         frameRate: 8,
         repeat: -1,
       });
       this.anims.create({
-        key: "idle_client",
+        key: "dribble_client",
         frames: this.anims.generateFrameNumbers("char_client", { start: 0, end: 7 }),
         frameRate: 8,
         repeat: -1,
-      });
-      // Row 3 (frames 16–23): running & dribbling
-      this.anims.create({
-        key: "run_host",
-        frames: this.anims.generateFrameNumbers("char_host", { start: 16, end: 23 }),
-        frameRate: 12,
-        repeat: -1,
-      });
-      this.anims.create({
-        key: "run_client",
-        frames: this.anims.generateFrameNumbers("char_client", { start: 16, end: 23 }),
-        frameRate: 12,
-        repeat: -1,
-      });
-      // Row 4 (frames 24–31): shooting
-      this.anims.create({
-        key: "shoot_host",
-        frames: this.anims.generateFrameNumbers("char_host", { start: 24, end: 31 }),
-        frameRate: 24,
-        repeat: 0,
-      });
-      this.anims.create({
-        key: "shoot_client",
-        frames: this.anims.generateFrameNumbers("char_client", { start: 24, end: 31 }),
-        frameRate: 24,
-        repeat: 0,
       });
     }
   }
@@ -586,24 +560,33 @@ export class GameScene extends Phaser.Scene {
     const shadowAlpha = Math.max(0, 0.45 - this.ball.z * 0.002);
     this._ballShadow.setPosition(this.ball.x, this.ball.y).setScale(shadowScale).setAlpha(shadowAlpha);
 
+    const POSSESSION_RANGE = BALL_RADIUS + 28;
+    const hostHasBall = Math.hypot(this.ball.x - this.host.x, this.ball.y - this.host.y) <= POSSESSION_RANGE;
+    const clientHasBall = Math.hypot(this.ball.x - this.client.x, this.ball.y - this.client.y) <= POSSESSION_RANGE;
+    const toggleFrame = Math.floor(this.time.now / 200) % 2;
+
     this._hostSprite.setPosition(this.host.x, this.host.y);
     this._hostSprite.setRotation(Math.atan2(this._hostAimSmooth.y, this._hostAimSmooth.x) + Math.PI / 2);
-    if (this._hostShotAnimMs > 0) {
-      this._hostSprite.anims.play("shoot_host", true);
+    if (hostHasBall) {
+      this._hostSprite.anims.play("dribble_host", true);
     } else if (Math.abs(this.host.vx) > 10 || Math.abs(this.host.vy) > 10) {
-      this._hostSprite.anims.play("run_host", true);
+      this._hostSprite.anims.stop();
+      this._hostSprite.setFrame(toggleFrame);
     } else {
-      this._hostSprite.anims.play("idle_host", true);
+      this._hostSprite.anims.stop();
+      this._hostSprite.setFrame(1);
     }
 
     this._clientSprite.setPosition(this.client.x, this.client.y);
     this._clientSprite.setRotation(Math.atan2(this._clientAimSmooth.y, this._clientAimSmooth.x) + Math.PI / 2);
-    if (this._clientShotAnimMs > 0) {
-      this._clientSprite.anims.play("shoot_client", true);
+    if (clientHasBall) {
+      this._clientSprite.anims.play("dribble_client", true);
     } else if (Math.abs(this.client.vx) > 10 || Math.abs(this.client.vy) > 10) {
-      this._clientSprite.anims.play("run_client", true);
+      this._clientSprite.anims.stop();
+      this._clientSprite.setFrame(toggleFrame);
     } else {
-      this._clientSprite.anims.play("idle_client", true);
+      this._clientSprite.anims.stop();
+      this._clientSprite.setFrame(1);
     }
 
     // Draw sticks
