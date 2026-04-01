@@ -28,6 +28,9 @@ export class OnlineGameScene extends GameScene {
   private _waitingBallGfx!: Phaser.GameObjects.Graphics;
   private _waitingBallQuat: [number, number, number, number] = [1, 0, 0, 0];
 
+  private _countdownMs = 0;
+  private _countdownText!: Phaser.GameObjects.Text;
+
   private _onlineClientSlapWasDown = false;
   private _pendingWristShot = false;      // client → host: latched on key-down
   private _pendingClientWrist = false;    // host side: set when any input msg has wrist:true
@@ -55,7 +58,10 @@ export class OnlineGameScene extends GameScene {
       this._connected = true;
       this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
       this._statusText?.setText("");
-      if (this._isHost) this._peer.send({ type: "start" });
+      if (this._isHost) {
+        this._peer.send({ type: "start" });
+        this._startCountdown();
+      }
     };
     this._peer.onReconnecting = () => {
       this._connected = false;
@@ -103,6 +109,18 @@ export class OnlineGameScene extends GameScene {
       .text(10, 50, "", { fontSize: "12px", color: "#ffff00" })
       .setDepth(20);
 
+    this._countdownText = this.add
+      .text(640, 360, "", {
+        fontSize: "120px",
+        color: "#ffffff",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 8,
+      })
+      .setOrigin(0.5)
+      .setDepth(22)
+      .setVisible(false);
+
     this._buildSharePanel();
 
     // GameScene.create() binds Q→host and comma→client for local 2-player.
@@ -134,20 +152,32 @@ export class OnlineGameScene extends GameScene {
       this._waitingBallQuat = [
         dw * qw - dx * qx,
         dw * qx + dx * qw,
-        dw * qy + dx * qz,   // note: dy=0, dz=0 simplifies the full product
+        dw * qy + dx * qz,
         dw * qz - dx * qy,
       ];
       const len = Math.hypot(...this._waitingBallQuat);
       this._waitingBallQuat = this._waitingBallQuat.map(v => v / len) as [number, number, number, number];
 
-      const cx = 640, cy = 360;
-      const ballX = cx + 158, ballY = cy - 120;
+      const ballX = 640 + 155, ballY = 360 - 120;
       this._waitingBallGfx.clear();
       this._waitingBallGfx.setPosition(ballX, ballY);
       this._drawBallAt(this._waitingBallGfx, 0, 0, 16, this._waitingBallQuat);
     }
 
     if (!this._connected) return;
+
+    // 3-2-1 countdown after peer connects — physics is frozen during this time
+    if (this._countdownMs > 0) {
+      this._countdownMs -= delta;
+      const label = this._countdownMs > 3000 ? "3"
+        : this._countdownMs > 2000 ? "2"
+        : this._countdownMs > 1000 ? "1" : "GO!";
+      this._countdownText.setText(label).setVisible(true);
+      if (this._countdownMs <= 0) {
+        this._countdownText.setVisible(false);
+      }
+      return; // freeze physics during countdown
+    }
 
     // Ping HUD
     this._pingTimer += delta;
@@ -315,6 +345,7 @@ export class OnlineGameScene extends GameScene {
         this._connected = true;
         this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
         this._statusText?.setText("");
+        this._startCountdown();
         break;
       }
       case "ping": {
@@ -337,14 +368,14 @@ export class OnlineGameScene extends GameScene {
 
     const overlay = this.add.rectangle(cx, cy, 560, 340, 0x000000, 0.8).setDepth(18);
 
-    const title = this.add.text(cx - 20, cy - 120, "Waiting for opponent…", {
-      fontSize: "28px", color: "#ffffff", fontStyle: "bold",
+    // "Waiting for opponent" text — left of rolling ball
+    const title = this.add.text(cx - 30, cy - 120, "Waiting for opponent", {
+      fontSize: "24px", color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
 
-    // Rolling ball loading icon
+    // Rolling ball loading icon — sits to the right of title
     this._waitingBallQuat = [1, 0, 0, 0];
     this._waitingBallGfx = this.add.graphics().setDepth(19);
-    this._sharePanelObjects.push(this._waitingBallGfx);
 
     const roomLabel = this.add.text(cx, cy - 72, `Room code: ${this._roomId}`, {
       fontSize: "22px", color: "#aaaaff",
@@ -376,7 +407,13 @@ export class OnlineGameScene extends GameScene {
       fontSize: "15px", color: "#556688",
     }).setOrigin(0.5).setDepth(19);
 
-    this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint];
+    // Include _waitingBallGfx so it gets hidden when opponent connects
+    this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint, this._waitingBallGfx];
+  }
+
+  private _startCountdown(): void {
+    this._countdownMs = 4000; // 3…2…1… then GO! for 1s
+    this._countdownText.setVisible(true);
   }
 
   /** Full-screen overlay shown when reconnection gives up. */

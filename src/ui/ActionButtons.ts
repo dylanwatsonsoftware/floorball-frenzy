@@ -95,17 +95,17 @@ export class ActionButtons {
     const dashBtn  = makeBtn(scene, dashX,   smallY, SM_W,   SM_H,   "D", "DASH",      false);
 
     scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      if (this._wristPtr === null && wristBtn.bounds.contains(p.x, p.y)) {
+      if (this._wristPtr === null && wristBtn.bounds.contains(p.worldX, p.worldY)) {
         this._wristPtr    = p.id;
         this._wristTapped = true;
         wristBtn.setActive();
       }
-      if (this._slapPtr === null && slapBtn.bounds.contains(p.x, p.y)) {
+      if (this._slapPtr === null && slapBtn.bounds.contains(p.worldX, p.worldY)) {
         this._slapPtr  = p.id;
         this._slapDown = true;
         slapBtn.setActive();
       }
-      if (this._dashPtr === null && dashBtn.bounds.contains(p.x, p.y)) {
+      if (this._dashPtr === null && dashBtn.bounds.contains(p.worldX, p.worldY)) {
         this._dashPtr    = p.id;
         this._dashTapped = true;
         dashBtn.setActive();

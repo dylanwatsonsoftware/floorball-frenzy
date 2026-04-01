@@ -335,8 +335,15 @@ export class GameScene extends Phaser.Scene {
     backBg.on("pointerout", () => { backLabel.setColor("#8888aa"); backBg.setStrokeStyle(1, 0x00e5ff, 0.35); });
     backBg.on("pointerup", () => this._confirmLeave());
 
-    // Touch UI — joystick anywhere in the left 60%, buttons on the far right
-    this._hostJoy = new VirtualJoystick(this, 0, 0, 768, 720);
+    // Center the 1280×720 game world in the available canvas on wider screens.
+    // Camera scroll shifts rendering so world x=0 aligns with screen center offset.
+    const extraW = Math.max(0, this.scale.width - 1280);
+    const offsetX = Math.floor(extraW / 2);
+    if (offsetX > 0) this.cameras.main.scrollX = -offsetX;
+
+    // Touch UI — joystick zone in world coordinates covers left 60% from screen left edge.
+    // Ghost indicator shows at bottom-left so players know the joystick exists before touching.
+    this._hostJoy = new VirtualJoystick(this, -offsetX, 0, 768 + offsetX, 720, 55, 150, 580);
     this._hostButtons = new ActionButtons(this, 1210, 360);
 
     // Initialize Animations

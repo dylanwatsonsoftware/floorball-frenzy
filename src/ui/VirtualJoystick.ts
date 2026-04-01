@@ -10,11 +10,13 @@ export class VirtualJoystick {
 
   private _base: Phaser.GameObjects.Arc;
   private _knob: Phaser.GameObjects.Arc;
+  private _ghostBase: Phaser.GameObjects.Arc | null = null;
+  private _ghostKnob: Phaser.GameObjects.Arc | null = null;
   private _pointer: Phaser.Input.Pointer | null = null;
   private _originX = 0;
   private _originY = 0;
   private readonly _radius: number;
-  /** Touch zone: only activate if touch starts within this rectangle. */
+  /** Touch zone in world coordinates: only activate if touch starts within this rectangle. */
   private readonly _zone: Phaser.Geom.Rectangle;
 
   constructor(
@@ -23,12 +25,26 @@ export class VirtualJoystick {
     zoneY: number,
     zoneW: number,
     zoneH: number,
-    radius = 55
+    radius = 55,
+    /** Default ghost position in world coordinates — shown when joystick is idle. */
+    defaultX?: number,
+    defaultY?: number,
   ) {
     this._radius = radius;
     this._zone = new Phaser.Geom.Rectangle(zoneX, zoneY, zoneW, zoneH);
 
-    // Visuals — hidden until touch starts
+    // Ghost indicator at default position (always visible when joystick is idle)
+    if (defaultX !== undefined && defaultY !== undefined) {
+      this._ghostBase = scene.add
+        .circle(defaultX, defaultY, radius, 0x000000, 0.18)
+        .setStrokeStyle(2, 0xffffff, 0.25)
+        .setDepth(19);
+      this._ghostKnob = scene.add
+        .circle(defaultX, defaultY, radius * 0.42, 0xffffff, 0.22)
+        .setDepth(20);
+    }
+
+    // Active visuals — hidden until touch starts
     this._base = scene.add
       .circle(0, 0, radius, 0x000000, 0.25)
       .setStrokeStyle(2, 0xffffff, 0.4)
@@ -48,20 +64,22 @@ export class VirtualJoystick {
 
   private _onDown(p: Phaser.Input.Pointer): void {
     if (this._pointer !== null) return; // already tracking a finger
-    if (!this._zone.contains(p.x, p.y)) return;
+    if (!this._zone.contains(p.worldX, p.worldY)) return;
 
     this._pointer = p;
-    this._originX = p.x;
-    this._originY = p.y;
+    this._originX = p.worldX;
+    this._originY = p.worldY;
 
-    this._base.setPosition(p.x, p.y).setVisible(true);
-    this._knob.setPosition(p.x, p.y).setVisible(true);
+    this._ghostBase?.setVisible(false);
+    this._ghostKnob?.setVisible(false);
+    this._base.setPosition(p.worldX, p.worldY).setVisible(true);
+    this._knob.setPosition(p.worldX, p.worldY).setVisible(true);
   }
 
   private _onMove(p: Phaser.Input.Pointer): void {
     if (this._pointer?.id !== p.id) return;
 
-    const v = normaliseJoystick(this._originX, this._originY, p.x, p.y, this._radius);
+    const v = normaliseJoystick(this._originX, this._originY, p.worldX, p.worldY, this._radius);
     this.value.x = deadZone(v.x, DEAD);
     this.value.y = deadZone(v.y, DEAD);
 
@@ -77,6 +95,8 @@ export class VirtualJoystick {
     this.value.y = 0;
     this._base.setVisible(false);
     this._knob.setVisible(false);
+    this._ghostBase?.setVisible(true);
+    this._ghostKnob?.setVisible(true);
   }
 
   isActive(): boolean {
