@@ -23,7 +23,6 @@ export class OnlineGameScene extends GameScene {
   private _statusText!: Phaser.GameObjects.Text;
   private _pingText!: Phaser.GameObjects.Text;
   private _sharePanelObjects: Phaser.GameObjects.GameObject[] = [];
-  private _debugInputText!: Phaser.GameObjects.Text;
 
   private _waitingBallGfx!: Phaser.GameObjects.Graphics;
   private _waitingBallQuat: [number, number, number, number] = [1, 0, 0, 0];
@@ -104,11 +103,6 @@ export class OnlineGameScene extends GameScene {
       .setOrigin(0.5, 1)
       .setDepth(15);
 
-    // Debug HUD: shows received client input on host (helps diagnose input sync)
-    this._debugInputText = this.add
-      .text(10, 50, "", { fontSize: "12px", color: "#ffff00" })
-      .setDepth(20);
-
     this._countdownText = this.add
       .text(640, 360, "", {
         fontSize: "120px",
@@ -187,13 +181,6 @@ export class OnlineGameScene extends GameScene {
     }
     if (this._pingMs > 0) this._pingText.setText(`${this._pingMs} ms`);
 
-    // Debug: show received client input on host's screen
-    if (this._isHost) {
-      const ci = this.client.input;
-      this._debugInputText.setText(
-        `P2 net input: ${ci.moveX.toFixed(1)},${ci.moveY.toFixed(1)} slap:${ci.slap}`
-      );
-    }
 
     super.update(time, delta);
   }
