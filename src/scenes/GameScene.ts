@@ -98,7 +98,7 @@ export class GameScene extends Phaser.Scene {
 
   protected static readonly DRIBBLE_AMP  = 50;          // px half-sweep width
   protected static readonly DRIBBLE_FREQ = 3.2;         // tic-tacs per second
-  protected static readonly DRIBBLE_DIST = STICK_REACH * 1.9; // how far in front
+  protected static readonly DRIBBLE_DIST = STICK_REACH * 1.14; // how far in front
 
   // 16 dot positions on a unit sphere (Fibonacci spiral — evenly spread, ~8 visible per frame)
   protected static readonly BALL_DOTS: [number, number, number][] = (() => {
@@ -879,8 +879,8 @@ export class GameScene extends Phaser.Scene {
         const dLen = Math.hypot(dirX, dirY) || 1;
         const nx = dirX / dLen;
         const ny = dirY / dLen;
-        const baseX = player.x + nx * (PLAYER_RADIUS * 1.82) + aNx * (PLAYER_RADIUS * 0.84);
-        const baseY = player.y + ny * (PLAYER_RADIUS * 1.82) + aNy * (PLAYER_RADIUS * 0.84);
+        const baseX = player.x + nx * (PLAYER_RADIUS * 1.09) + aNx * (PLAYER_RADIUS * 0.50);
+        const baseY = player.y + ny * (PLAYER_RADIUS * 1.09) + aNy * (PLAYER_RADIUS * 0.50);
         sprite.setPosition(baseX, baseY);
         sprite.setRotation(Math.atan2(ny, nx));
         sprite.setFrame(6);
