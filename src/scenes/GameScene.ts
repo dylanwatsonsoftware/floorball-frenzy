@@ -96,6 +96,10 @@ export class GameScene extends Phaser.Scene {
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
+  protected static readonly DRIBBLE_AMP  = 50;          // px half-sweep width
+  protected static readonly DRIBBLE_FREQ = 3.2;         // tic-tacs per second
+  protected static readonly DRIBBLE_DIST = STICK_REACH * 1.9; // how far in front
+
   // 16 dot positions on a unit sphere (Fibonacci spiral — evenly spread, ~8 visible per frame)
   protected static readonly BALL_DOTS: [number, number, number][] = (() => {
     const n = 26;
@@ -480,11 +484,10 @@ export class GameScene extends Phaser.Scene {
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
-    const DRIBBLE_FREQ = 4.5; // tic-tacs per second
     this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging, this._hostShotCooldownMs > 0);
-    if (this._hostHasPossession) this._hostDribblePhase += dt * 2 * Math.PI * DRIBBLE_FREQ;
+    if (this._hostHasPossession) this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
     this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
-    if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * DRIBBLE_FREQ;
+    if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
 
     this._updateLastTouch();
 
@@ -548,16 +551,15 @@ export class GameScene extends Phaser.Scene {
     const aNy = -stickDir.x;
 
     // Dribble target: oscillates side-to-side in front of the player
-    const DRIBBLE_AMP = 30;   // px, half-sweep width
-    const FORWARD_DIST = STICK_REACH * 0.95;
+    const { DRIBBLE_AMP, DRIBBLE_DIST } = GameScene;
     const side = Math.sin(dribblePhase) * DRIBBLE_AMP;
-    const targetX = player.x + aNx * FORWARD_DIST + stickDir.x * side;
-    const targetY = player.y + aNy * FORWARD_DIST + stickDir.y * side;
+    const targetX = player.x + aNx * DRIBBLE_DIST + stickDir.x * side;
+    const targetY = player.y + aNy * DRIBBLE_DIST + stickDir.y * side;
 
     // Possession zone: centred in front of player, wide enough to cover the full sweep
-    const zoneRadius = DRIBBLE_AMP + STICK_REACH * 0.7 + BALL_RADIUS;
-    const zoneCX = player.x + aNx * FORWARD_DIST;
-    const zoneCY = player.y + aNy * FORWARD_DIST;
+    const zoneRadius = DRIBBLE_AMP + DRIBBLE_DIST * 0.6 + BALL_RADIUS;
+    const zoneCX = player.x + aNx * DRIBBLE_DIST;
+    const zoneCY = player.y + aNy * DRIBBLE_DIST;
     if (Math.hypot(this.ball.x - zoneCX, this.ball.y - zoneCY) > zoneRadius) return false;
 
     const relSpeedCap = isCharging ? 600 : 480;
@@ -836,11 +838,10 @@ export class GameScene extends Phaser.Scene {
 
       // While dribbling with no shot animation, point stick toward the ball's dribble position
       if (hasPossession && animMs === 0 && chargeMs === 0) {
-        const DRIBBLE_AMP = 30;
-        const FORWARD_DIST = STICK_REACH * 0.95;
+        const { DRIBBLE_AMP, DRIBBLE_DIST } = GameScene;
         const side = Math.sin(dribblePhase) * DRIBBLE_AMP;
-        const dirX = aNx * FORWARD_DIST + sd.x * side;
-        const dirY = aNy * FORWARD_DIST + sd.y * side;
+        const dirX = aNx * DRIBBLE_DIST + sd.x * side;
+        const dirY = aNy * DRIBBLE_DIST + sd.y * side;
         const dLen = Math.hypot(dirX, dirY) || 1;
         const nx = dirX / dLen;
         const ny = dirY / dLen;

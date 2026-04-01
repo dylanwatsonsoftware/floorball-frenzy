@@ -220,7 +220,7 @@ export class OnlineGameScene extends GameScene {
       resolvePlayerBallCollision(this.client, this.ball);
       resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
       this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging);
-      if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * 4.5;
+      if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
       stepBall(this.ball, dt);
 
       this._peer.send({ type: "input", seq: ++this._inputSeq, input });
