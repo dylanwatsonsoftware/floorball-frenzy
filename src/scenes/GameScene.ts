@@ -209,27 +209,45 @@ export class GameScene extends Phaser.Scene {
 
     // ── Top HUD bar ────────────────────────────────────────────────────────────
     const HUD_H = 95;
-    this.add.rectangle(640, HUD_H / 2, 1280, HUD_H, 0x06060e, 1).setDepth(14);
-    // subtle bottom edge
-    this.add.rectangle(640, HUD_H, 1280, 1, 0xffffff, 0.08).setDepth(14);
+    const hudGfx = this.add.graphics().setDepth(14);
 
-    // "SCOREBOARD" eyebrow
+    // Left team panel (green tint)
+    hudGfx.fillGradientStyle(0x0a2a18, 0x0a2a18, 0x06060e, 0x06060e, 1);
+    hudGfx.fillRect(0, 0, 640, HUD_H);
+    // Right team panel (red/dark tint)
+    hudGfx.fillGradientStyle(0x06060e, 0x06060e, 0x2a0a10, 0x2a0a10, 1);
+    hudGfx.fillRect(640, 0, 640, HUD_H);
+    // Bottom separator
+    hudGfx.lineStyle(1, 0xffffff, 0.12);
+    hudGfx.lineBetween(0, HUD_H, 1280, HUD_H);
+    // Team color accent lines along the top
+    hudGfx.lineStyle(3, 0x00cc66, 1);
+    hudGfx.lineBetween(0, 0, 560, 0);
+    hudGfx.lineStyle(3, 0xdd2244, 1);
+    hudGfx.lineBetween(720, 0, 1280, 0);
+    // Center score zone pill
+    hudGfx.fillStyle(0x08080f, 0.9);
+    hudGfx.fillRoundedRect(480, 8, 320, HUD_H - 16, 12);
+    hudGfx.lineStyle(1, 0xffffff, 0.12);
+    hudGfx.strokeRoundedRect(480, 8, 320, HUD_H - 16, 12);
+
+    // Team labels with color
+    this.add.text(200, HUD_H / 2, "HOME", { fontSize: "14px", color: "#00cc66", fontStyle: "bold", letterSpacing: 3 })
+      .setOrigin(0.5).setDepth(15);
+    this.add.text(1080, HUD_H / 2, "AWAY", { fontSize: "14px", color: "#dd2244", fontStyle: "bold", letterSpacing: 3 })
+      .setOrigin(0.5).setDepth(15);
+
+    // "SCORE" eyebrow inside pill
     this.add
-      .text(640, 10, "SCOREBOARD", {
-        fontSize: "10px", color: "#555577", fontStyle: "bold",
+      .text(640, 14, "SCORE", {
+        fontSize: "9px", color: "#555577", fontStyle: "bold", letterSpacing: 2,
       })
       .setOrigin(0.5, 0)
       .setDepth(15);
 
-    // Side labels
-    this.add.text(430, 52, "HOME", { fontSize: "18px", color: "#aaaacc", fontStyle: "bold" })
-      .setOrigin(1, 0.5).setDepth(15);
-    this.add.text(850, 52, "AWAY", { fontSize: "18px", color: "#aaaacc", fontStyle: "bold" })
-      .setOrigin(0, 0.5).setDepth(15);
-
     // Score — updated every frame
     this._scoreText = this.add
-      .text(640, 52, "0  —  0", { fontSize: "34px", color: "#ffffff", fontStyle: "bold" })
+      .text(640, 55, "0  —  0", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" })
       .setOrigin(0.5)
       .setDepth(15);
 
@@ -411,8 +429,16 @@ export class GameScene extends Phaser.Scene {
     this._hostAimSmooth = this._lerpAim(this._hostAimSmooth, this._hostAim);
     this._clientAimSmooth = this._lerpAim(this._clientAimSmooth, this._clientAim);
 
-    stepPlayer(this.host, hostInput, dt, elapsedMs);
-    stepPlayer(this.client, clientInput, dt, elapsedMs);
+    // Inject aim direction so dash fires forward even when standing still
+    const hostInputActual = (hostInput.dash && hostInput.moveX === 0 && hostInput.moveY === 0)
+      ? { ...hostInput, moveX: this._hostAimSmooth.x, moveY: this._hostAimSmooth.y }
+      : hostInput;
+    const clientInputActual = (clientInput.dash && clientInput.moveX === 0 && clientInput.moveY === 0)
+      ? { ...clientInput, moveX: this._clientAimSmooth.x, moveY: this._clientAimSmooth.y }
+      : clientInput;
+
+    stepPlayer(this.host, hostInputActual, dt, elapsedMs);
+    stepPlayer(this.client, clientInputActual, dt, elapsedMs);
 
     if (this._hostSlapWasDown && !hostInput.slap) {
       if (this._hostShoot.chargeMs > 0) this._doSlapShot("host");
@@ -860,32 +886,58 @@ export class GameScene extends Phaser.Scene {
       g.lineBetween(cx, cy - cs, cx, cy + cs);
     }
 
-    // ── Goals — floating cage with open space behind (IFF spec) ──────────────
-    // Structure (left goal example):
-    //  FIELD_LEFT ··· [open space] ··· [back wall] ··· [cage] ··· [mouth = GOAL_LINE_LEFT] ··· [crease] ··· field
+    // ── Goals — stylized cage with net hatching and colored posts ───────────────
     const drawGoal = (left: boolean): void => {
-      const mouthX = left ? GOAL_LINE_LEFT : GOAL_LINE_RIGHT;
-      // Back of the goal cage (floats away from end wall)
+      const mouthX    = left ? GOAL_LINE_LEFT  : GOAL_LINE_RIGHT;
       const cageBackX = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
-      // Crease starts at mouth and extends into the field
       const creaseFieldX = left ? mouthX : mouthX - DZONE_DEPTH;
+      const netFillX  = left ? cageBackX : mouthX;
+      const teamColor = left ? 0x00cc66 : 0xdd2244;
 
-      // Net fill (darker teal inside the cage)
-      g.fillStyle(0x1a7060, 1);
-      const netFillX = left ? cageBackX : mouthX;
+      // Net shadow (dark fill with slight team tint)
+      g.fillStyle(0x0a1210, 1);
       g.fillRect(netFillX, GOAL_TOP, GOAL_CAGE_DEPTH, goalH);
 
-      // Crease box (white outline) — in front of goal, open on field side
-      g.lineStyle(2, 0xffffff, 0.6);
+      // Net crosshatch lines
+      g.lineStyle(1, 0xffffff, 0.18);
+      const netSpacingX = 8;
+      const netSpacingY = 8;
+      const nx0 = netFillX;
+      const nx1 = netFillX + GOAL_CAGE_DEPTH;
+      // Horizontal grid lines
+      for (let yy = GOAL_TOP; yy <= GOAL_BOTTOM; yy += netSpacingY) {
+        g.lineBetween(nx0, yy, nx1, yy);
+      }
+      // Vertical grid lines
+      for (let xx = nx0; xx <= nx1; xx += netSpacingX) {
+        g.lineBetween(xx, GOAL_TOP, xx, GOAL_BOTTOM);
+      }
+
+      // Crease box (team-color outline)
+      g.lineStyle(2, teamColor, 0.45);
       g.strokeRect(creaseFieldX, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
 
-      // Goal cage frame (thicker white) — back wall + two side rails + mouth posts
-      g.lineStyle(3, 0xffffff, 1);
+      // Goal cage frame — back wall + rails (white)
+      g.lineStyle(3, 0xffffff, 0.9);
       g.strokeRect(netFillX, GOAL_TOP, GOAL_CAGE_DEPTH, goalH);
+
+      // Mouth posts — bright team-colored thick marks at goal line corners
+      const postR = 5;
+      g.fillStyle(teamColor, 1);
+      g.fillCircle(mouthX, GOAL_TOP,    postR);
+      g.fillCircle(mouthX, GOAL_BOTTOM, postR);
+      // Post highlight ring
+      g.lineStyle(2, 0xffffff, 0.8);
+      g.strokeCircle(mouthX, GOAL_TOP,    postR);
+      g.strokeCircle(mouthX, GOAL_BOTTOM, postR);
+
+      // Goal line (vertical, team color)
+      g.lineStyle(3, teamColor, 0.9);
+      g.lineBetween(mouthX, GOAL_TOP, mouthX, GOAL_BOTTOM);
     };
 
-    drawGoal(true);   // left goal (green defends)
-    drawGoal(false);  // right goal (black defends)
+    drawGoal(true);   // left goal (green)
+    drawGoal(false);  // right goal (red)
 
     // ── Rink border (drawn last, on top of everything) ────────────────────────
     g.lineStyle(4, 0xffffff, 1);

@@ -31,7 +31,7 @@ export function stepPlayer(
     player.dashCooldownMs = Math.max(0, player.dashCooldownMs - elapsedMs);
   }
 
-  // Dash impulse
+  // Dash impulse — direction is move input; caller injects aim when standing still
   if (input.dash && player.dashCooldownMs === 0) {
     const len = Math.hypot(input.moveX, input.moveY);
     if (len > 0) {

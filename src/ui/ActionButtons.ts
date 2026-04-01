@@ -7,28 +7,42 @@ export interface ActionState {
 }
 
 const GLOW   = 0x00e5ff;
-const DARK   = 0x07070f;
 const ACTIVE = 0x1af0ff;
+const DARK   = 0x07070f;
+const RADIUS = 18;
+
+interface Btn {
+  bounds: Phaser.Geom.Rectangle;
+  setNormal(): void;
+  setActive(): void;
+}
 
 function makeBtn(
   scene: Phaser.Scene,
-  x: number,
-  y: number,
+  cx: number,
+  cy: number,
   w: number,
   h: number,
   label: string,
   sublabel: string,
-): Phaser.GameObjects.Rectangle {
-  // Button body
-  const btn = scene.add
-    .rectangle(x, y, w, h, DARK, 1)
-    .setStrokeStyle(2, GLOW, 0.7)
-    .setInteractive({ useHandCursor: false })
-    .setDepth(20);
+  slapSize: boolean,
+): Btn {
+  const gfx = scene.add.graphics().setDepth(20);
+  const bounds = new Phaser.Geom.Rectangle(cx - w / 2, cy - h / 2, w, h);
+
+  const draw = (borderColor: number, borderAlpha: number, borderW: number) => {
+    gfx.clear();
+    gfx.fillStyle(DARK, 0.9);
+    gfx.fillRoundedRect(cx - w / 2, cy - h / 2, w, h, RADIUS);
+    gfx.lineStyle(borderW, borderColor, borderAlpha);
+    gfx.strokeRoundedRect(cx - w / 2, cy - h / 2, w, h, RADIUS);
+  };
+
+  draw(GLOW, 0.7, 2);
 
   // Caption above button
   scene.add
-    .text(x, y - h / 2 - 4, sublabel, {
+    .text(cx, cy - h / 2 - 5, sublabel, {
       fontSize: "10px",
       color: "#00e5ff",
       fontStyle: "bold",
@@ -38,7 +52,7 @@ function makeBtn(
 
   // Letter inside button
   scene.add
-    .text(x, y, label, {
+    .text(cx, cy, label, {
       fontSize: `${Math.round(h * 0.32)}px`,
       color: "#ffffff",
       fontStyle: "bold",
@@ -46,11 +60,15 @@ function makeBtn(
     .setOrigin(0.5)
     .setDepth(21);
 
-  return btn;
+  return {
+    bounds,
+    setNormal() { draw(GLOW, 0.7, 2); },
+    setActive()  { draw(ACTIVE, 1, slapSize ? 4 : 3); },
+  };
 }
 
 /**
- * Three styled square touch buttons: SLAP (large, top), WRIST + DASH (small, bottom row).
+ * Three styled rounded touch buttons: SLAP (large, top), WRIST + DASH (small, bottom row).
  */
 export class ActionButtons {
   private _slapDown = false;
@@ -65,48 +83,39 @@ export class ActionButtons {
     const SLAP_H = 120;
     const SM_W   = 85;
     const SM_H   = 85;
-    const GAP    = 10; // gap between small buttons
+    const GAP    = 10;
 
     const slapY  = panelCY - 80;
     const smallY = panelCY + 100;
     const wristX = panelCX - (SM_W + GAP) / 2;
     const dashX  = panelCX + (SM_W + GAP) / 2;
 
-    // Panel background
-    const panelW = SLAP_W + 40;
-    const panelH = (smallY + SM_H / 2) - (slapY - SLAP_H / 2) + 50;
-    const panelTop = slapY - SLAP_H / 2 - 30;
-    scene.add
-      .rectangle(panelCX, panelTop + panelH / 2, panelW, panelH, 0x04040c, 0.85)
-      .setStrokeStyle(1, 0xffffff, 0.06)
-      .setDepth(19);
-
-    const slapBtn  = makeBtn(scene, panelCX, slapY,  SLAP_W, SLAP_H, "S", "SLAP SHOT");
-    const wristBtn = makeBtn(scene, wristX,  smallY, SM_W,   SM_H,   "W", "WRIST");
-    const dashBtn  = makeBtn(scene, dashX,   smallY, SM_W,   SM_H,   "D", "DASH");
+    const slapBtn  = makeBtn(scene, panelCX, slapY,  SLAP_W, SLAP_H, "S", "SLAP SHOT", true);
+    const wristBtn = makeBtn(scene, wristX,  smallY, SM_W,   SM_H,   "W", "WRIST",     false);
+    const dashBtn  = makeBtn(scene, dashX,   smallY, SM_W,   SM_H,   "D", "DASH",      false);
 
     scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      if (this._wristPtr === null && wristBtn.getBounds().contains(p.x, p.y)) {
-        this._wristPtr  = p.id;
+      if (this._wristPtr === null && wristBtn.bounds.contains(p.x, p.y)) {
+        this._wristPtr    = p.id;
         this._wristTapped = true;
-        wristBtn.setStrokeStyle(3, ACTIVE, 1);
+        wristBtn.setActive();
       }
-      if (this._slapPtr === null && slapBtn.getBounds().contains(p.x, p.y)) {
+      if (this._slapPtr === null && slapBtn.bounds.contains(p.x, p.y)) {
         this._slapPtr  = p.id;
         this._slapDown = true;
-        slapBtn.setStrokeStyle(4, ACTIVE, 1);
+        slapBtn.setActive();
       }
-      if (this._dashPtr === null && dashBtn.getBounds().contains(p.x, p.y)) {
-        this._dashPtr  = p.id;
+      if (this._dashPtr === null && dashBtn.bounds.contains(p.x, p.y)) {
+        this._dashPtr    = p.id;
         this._dashTapped = true;
-        dashBtn.setStrokeStyle(3, ACTIVE, 1);
+        dashBtn.setActive();
       }
     });
 
     scene.input.on("pointerup", (p: Phaser.Input.Pointer) => {
-      if (this._wristPtr === p.id) { this._wristPtr = null; wristBtn.setStrokeStyle(2, GLOW, 0.7); }
-      if (this._slapPtr  === p.id) { this._slapPtr  = null; this._slapDown = false; slapBtn.setStrokeStyle(2, GLOW, 0.7); }
-      if (this._dashPtr  === p.id) { this._dashPtr  = null; dashBtn.setStrokeStyle(2, GLOW, 0.7); }
+      if (this._wristPtr === p.id) { this._wristPtr = null; wristBtn.setNormal(); }
+      if (this._slapPtr  === p.id) { this._slapPtr  = null; this._slapDown = false; slapBtn.setNormal(); }
+      if (this._dashPtr  === p.id) { this._dashPtr  = null; dashBtn.setNormal(); }
     });
 
     scene.input.on("pointerupoutside", (p: Phaser.Input.Pointer) => {
