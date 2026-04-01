@@ -400,6 +400,7 @@ export class OnlineGameScene extends GameScene {
   }
 
   private _startCountdown(): void {
+    this._resetRound();
     this._countdownMs = 4000; // 3…2…1… then GO! for 1s
     this._countdownText.setVisible(true);
   }
