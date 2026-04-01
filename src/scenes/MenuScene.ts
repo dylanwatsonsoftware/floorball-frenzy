@@ -26,9 +26,17 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
-    // Center the 1280px menu in the available canvas on wider screens
-    const extraW = Math.max(0, this.scale.width - W);
-    if (extraW > 0) this.cameras.main.scrollX = -Math.floor(extraW / 2);
+    // Center the 1280px menu whenever the canvas size changes.
+    // We apply immediately AND re-apply on every resize because the EXPAND scale
+    // mode (and mobile browser chrome appearing/disappearing) can update the
+    // viewport after create() has already run.
+    const centerCamera = () => {
+      const extraW = Math.max(0, this.scale.width - W);
+      this.cameras.main.scrollX = -Math.floor(extraW / 2);
+    };
+    centerCamera();
+    this.scale.on("resize", centerCamera);
+    this.events.once("shutdown", () => this.scale.off("resize", centerCamera));
 
     this._drawBackground();
     this._drawTitle();

@@ -340,14 +340,19 @@ export class GameScene extends Phaser.Scene {
     backBg.on("pointerup", () => this._confirmLeave());
 
     // Center the 1280×720 game world in the available canvas on wider screens.
-    // Camera scroll shifts rendering so world x=0 aligns with screen center offset.
-    const extraW = Math.max(0, this.scale.width - 1280);
-    const offsetX = Math.floor(extraW / 2);
-    if (offsetX > 0) this.cameras.main.scrollX = -offsetX;
+    // Re-apply on every resize so mobile browser-chrome changes don't break it.
+    const applyScroll = () => {
+      const extra = Math.max(0, this.scale.width - 1280);
+      this.cameras.main.scrollX = -Math.floor(extra / 2);
+    };
+    applyScroll();
+    this.scale.on("resize", applyScroll);
+    this.events.once("shutdown", () => this.scale.off("resize", applyScroll));
 
     // Touch UI — joystick zone in world coordinates covers left 60% from screen left edge.
     // Ghost indicator shows at bottom-left so players know the joystick exists before touching.
-    this._hostJoy = new VirtualJoystick(this, -offsetX, 0, 768 + offsetX, 720, 55, 150, 580);
+    const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
+    this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 55, 150, 580);
     this._hostButtons = new ActionButtons(this, 1210, 360);
 
     // Initialize Animations
