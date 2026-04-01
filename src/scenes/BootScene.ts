@@ -9,8 +9,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image("logo", "lambs-logo.png");
     this.load.spritesheet("char_host", "assets/male-player.png", { frameWidth: 84, frameHeight: 92 });
     this.load.spritesheet("char_client", "assets/female-player.png", { frameWidth: 84, frameHeight: 92 });
-    this.load.spritesheet("stick_host", "assets/stick_black.png", { frameWidth: 160, frameHeight: 160 });
-    this.load.spritesheet("stick_client", "assets/stick_white.png", { frameWidth: 160, frameHeight: 160 });
+    this.load.spritesheet("stick", "assets/stick_white.png", { frameWidth: 160, frameHeight: 160 });
   }
 
   create(): void {
