@@ -23,7 +23,6 @@ import {
   GOAL_BOTTOM,
   GOAL_LINE_LEFT,
   GOAL_LINE_RIGHT,
-  GOAL_LINE_INSET,
   PLAYER_RADIUS,
   BALL_RADIUS,
   FIXED_DT,
@@ -316,7 +315,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(16);
     backLabel.disableInteractive();
     backBg.on("pointerover", () => { backLabel.setColor("#ffffff"); backBg.setStrokeStyle(1, 0x00e5ff, 0.9); });
-    backBg.on("pointerout",  () => { backLabel.setColor("#8888aa"); backBg.setStrokeStyle(1, 0x00e5ff, 0.35); });
+    backBg.on("pointerout", () => { backLabel.setColor("#8888aa"); backBg.setStrokeStyle(1, 0x00e5ff, 0.35); });
     backBg.on("pointerup", () => this._confirmLeave());
 
     // Touch UI — joystick anywhere in the left 60%, buttons on the far right
@@ -377,7 +376,7 @@ export class GameScene extends Phaser.Scene {
     if (ballSpeed > 5) {
       // Rolling axis: perpendicular to travel direction in the ground plane
       const ax = -this.ball.vy / ballSpeed;
-      const ay =  this.ball.vx / ballSpeed;
+      const ay = this.ball.vx / ballSpeed;
       const angle = (ballSpeed * Math.min(delta, 200) / 1000) / BALL_RADIUS;
       const ha = angle / 2;
       const s = Math.sin(ha);
@@ -385,10 +384,10 @@ export class GameScene extends Phaser.Scene {
       // Compose: _ballQuat = dq * _ballQuat
       const [qw, qx, qy, qz] = this._ballQuat;
       this._ballQuat = [
-        dw*qw - dx*qx - dy*qy - dz*qz,
-        dw*qx + dx*qw + dy*qz - dz*qy,
-        dw*qy - dx*qz + dy*qw + dz*qx,
-        dw*qz + dx*qy - dy*qx + dz*qw,
+        dw * qw - dx * qx - dy * qy - dz * qz,
+        dw * qx + dx * qw + dy * qz - dz * qy,
+        dw * qy - dx * qz + dy * qw + dz * qx,
+        dw * qz + dx * qy - dy * qx + dz * qw,
       ];
       // Normalize to prevent numerical drift
       const len = Math.hypot(...this._ballQuat);
@@ -457,7 +456,7 @@ export class GameScene extends Phaser.Scene {
     updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
 
     // Tick down shot cooldowns
-    this._hostShotCooldownMs   = Math.max(0, this._hostShotCooldownMs   - elapsedMs);
+    this._hostShotCooldownMs = Math.max(0, this._hostShotCooldownMs - elapsedMs);
     this._clientShotCooldownMs = Math.max(0, this._clientShotCooldownMs - elapsedMs);
 
     // Use smoothed aim for stick direction so stick doesn't teleport on direction change
@@ -820,7 +819,7 @@ export class GameScene extends Phaser.Scene {
       sprite.setFrame(0); // no sprite-sheet animation — geometry only
     };
 
-    drawStick(this.host,   this._hostAimSmooth,   this._hostStickSprite,   this._hostShotAnimMs,   280, this._hostShoot.chargeMs,   this._hostShotAnimMs === 280);
+    drawStick(this.host, this._hostAimSmooth, this._hostStickSprite, this._hostShotAnimMs, 280, this._hostShoot.chargeMs, this._hostShotAnimMs === 280);
     drawStick(this.client, this._clientAimSmooth, this._clientStickSprite, this._clientShotAnimMs, 280, this._clientShoot.chargeMs, this._clientShotAnimMs === 280);
   }
 
@@ -893,21 +892,21 @@ export class GameScene extends Phaser.Scene {
     // Inner goalkeeper area (house): 1 m deep × 2.5 m wide, directly at goal mouth
     // Cage: 1.5 m deep behind goal mouth, 2 m tall (arcade scaled from 1.6 m)
     //
-    const HOUSE_DEPTH = Math.round(1   * PX_PER_M); // 28 px — goalkeeper area depth
-    const HOUSE_W     = Math.round(2.5 * PX_PER_M); // 70 px — goalkeeper area width
+    const HOUSE_DEPTH = Math.round(1 * PX_PER_M); // 28 px — goalkeeper area depth
+    const HOUSE_W = Math.round(2.5 * PX_PER_M); // 70 px — goalkeeper area width
 
     const drawGoal = (left: boolean): void => {
-      const mouthX       = left ? GOAL_LINE_LEFT  : GOAL_LINE_RIGHT;
-      const cageBackX    = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
-      const netFillX     = left ? cageBackX : mouthX;
-      const midGoalY     = (GOAL_TOP + GOAL_BOTTOM) / 2;
+      const mouthX = left ? GOAL_LINE_LEFT : GOAL_LINE_RIGHT;
+      const cageBackX = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
+      const netFillX = left ? cageBackX : mouthX;
+      const midGoalY = (GOAL_TOP + GOAL_BOTTOM) / 2;
 
-      const teamColor    = left ? 0x00cc66 : 0xdd2244;
+      const teamColor = left ? 0x004422 : 0xdd2244;
 
       // Crease extends into the field from the goal mouth (field side only, per IFF rules)
-      const creaseX  = left ? mouthX : mouthX - DZONE_DEPTH;
+      const creaseX = left ? mouthX : mouthX - DZONE_DEPTH;
       // House extends into the field from the goal mouth (field side only, per IFF rules)
-      const houseX   = left ? mouthX : mouthX - HOUSE_DEPTH;
+      const houseX = left ? mouthX : mouthX - HOUSE_DEPTH;
       const houseTop = midGoalY - HOUSE_W / 2;
 
       // ── Net fill + crosshatch ────────────────────────────────────────────────
@@ -943,10 +942,10 @@ export class GameScene extends Phaser.Scene {
       // ── Mouth posts (team-colored circles at goal line corners) ──────────────
       const postR = 5;
       g.fillStyle(teamColor, 1);
-      g.fillCircle(mouthX, GOAL_TOP,    postR);
+      g.fillCircle(mouthX, GOAL_TOP, postR);
       g.fillCircle(mouthX, GOAL_BOTTOM, postR);
       g.lineStyle(2, 0xffffff, 0.8);
-      g.strokeCircle(mouthX, GOAL_TOP,    postR);
+      g.strokeCircle(mouthX, GOAL_TOP, postR);
       g.strokeCircle(mouthX, GOAL_BOTTOM, postR);
 
       // ── Goal line (team color, only across mouth opening) ────────────────────
