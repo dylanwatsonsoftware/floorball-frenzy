@@ -24,6 +24,7 @@ const GREEN = 0x36b346;
 export class MenuScene extends Phaser.Scene {
   private _mainMenuObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyObjs: Phaser.GameObjects.GameObject[] = [];
+  private _lobbyAutoRefresh: Phaser.Time.TimerEvent | null = null;
 
   constructor() {
     super({ key: "MenuScene" });
@@ -251,9 +252,13 @@ export class MenuScene extends Phaser.Scene {
     };
 
     await loadGames();
+
+    const autoRefresh = this.time.addEvent({ delay: 5000, loop: true, callback: () => { void loadGames(); } });
+    this._lobbyAutoRefresh = autoRefresh;
   }
 
   private _hideLobby(): void {
+    if (this._lobbyAutoRefresh) { this._lobbyAutoRefresh.destroy(); this._lobbyAutoRefresh = null; }
     this._lobbyObjs.forEach(o => o.destroy());
     this._lobbyObjs = [];
     this._mainMenuObjs.forEach(o => (o as unknown as { setVisible(v: boolean): void }).setVisible(true));
