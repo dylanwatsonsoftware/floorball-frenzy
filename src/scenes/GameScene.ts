@@ -524,8 +524,10 @@ export class GameScene extends Phaser.Scene {
     shotCooldownActive = false
   ): void {
     if (shotCooldownActive) return;
-    const tipX = player.x + stickDir.x * STICK_REACH;
-    const tipY = player.y + stickDir.y * STICK_REACH;
+    const fwdX = stickDir.y * PLAYER_RADIUS * 0.84;
+    const fwdY = -stickDir.x * PLAYER_RADIUS * 0.84;
+    const tipX = player.x + stickDir.x * STICK_REACH + fwdX;
+    const tipY = player.y + stickDir.y * STICK_REACH + fwdY;
     const dx = this.ball.x - tipX;
     const dy = this.ball.y - tipY;
     const dist = Math.hypot(dx, dy);
@@ -674,13 +676,17 @@ export class GameScene extends Phaser.Scene {
 
     const POSSESSION_RANGE = BALL_RADIUS + 28;
     const hostStickDir = this._stickDir(this.host, this._hostAimSmooth);
-    const hostTipX = this.host.x + hostStickDir.x * STICK_REACH;
-    const hostTipY = this.host.y + hostStickDir.y * STICK_REACH;
+    const hostFwdX = hostStickDir.y * PLAYER_RADIUS * 0.84;
+    const hostFwdY = -hostStickDir.x * PLAYER_RADIUS * 0.84;
+    const hostTipX = this.host.x + hostStickDir.x * STICK_REACH + hostFwdX;
+    const hostTipY = this.host.y + hostStickDir.y * STICK_REACH + hostFwdY;
     const hostHasBall = Math.hypot(this.ball.x - hostTipX, this.ball.y - hostTipY) <= POSSESSION_RANGE;
 
     const clientStickDir = this._stickDir(this.client, this._clientAimSmooth);
-    const clientTipX = this.client.x + clientStickDir.x * STICK_REACH;
-    const clientTipY = this.client.y + clientStickDir.y * STICK_REACH;
+    const clientFwdX = clientStickDir.y * PLAYER_RADIUS * 0.84;
+    const clientFwdY = -clientStickDir.x * PLAYER_RADIUS * 0.84;
+    const clientTipX = this.client.x + clientStickDir.x * STICK_REACH + clientFwdX;
+    const clientTipY = this.client.y + clientStickDir.y * STICK_REACH + clientFwdY;
     const clientHasBall = Math.hypot(this.ball.x - clientTipX, this.ball.y - clientTipY) <= POSSESSION_RANGE;
     const toggleFrame = Math.floor(this.time.now / 200) % 2;
 

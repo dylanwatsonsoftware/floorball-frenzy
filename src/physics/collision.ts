@@ -61,9 +61,11 @@ export function resolveStickTipCollision(
   const nax = aimX / aimLen;
   const nay = aimY / aimLen;
 
-  // Stick tip position
-  const tipX = player.x + nax * (PLAYER_RADIUS + STICK_LENGTH);
-  const tipY = player.y + nay * (PLAYER_RADIUS + STICK_LENGTH);
+  // Stick tip position (forward offset matches visual: +0.84 * PLAYER_RADIUS in aim direction)
+  const fwdX = nay * PLAYER_RADIUS * 0.84;
+  const fwdY = -nax * PLAYER_RADIUS * 0.84;
+  const tipX = player.x + nax * (PLAYER_RADIUS + STICK_LENGTH) + fwdX;
+  const tipY = player.y + nay * (PLAYER_RADIUS + STICK_LENGTH) + fwdY;
 
   const dx = ball.x - tipX;
   const dy = ball.y - tipY;

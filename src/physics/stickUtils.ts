@@ -28,8 +28,11 @@ export function ballInRange(
   aimDir: { x: number; y: number }
 ): boolean {
   const sd = stickDir(aimDir);
-  const tipX = player.x + sd.x * STICK_REACH;
-  const tipY = player.y + sd.y * STICK_REACH;
+  const aimLen = Math.hypot(aimDir.x, aimDir.y) || 1;
+  const fwdX = (aimDir.x / aimLen) * PLAYER_RADIUS * 0.84;
+  const fwdY = (aimDir.y / aimLen) * PLAYER_RADIUS * 0.84;
+  const tipX = player.x + sd.x * STICK_REACH + fwdX;
+  const tipY = player.y + sd.y * STICK_REACH + fwdY;
   const distToTip  = Math.hypot(ball.x - tipX,    ball.y - tipY);
   const distToBody = Math.hypot(ball.x - player.x, ball.y - player.y);
   return distToTip < BALL_RADIUS + 18 || distToBody < PLAYER_RADIUS + BALL_RADIUS + 10;
