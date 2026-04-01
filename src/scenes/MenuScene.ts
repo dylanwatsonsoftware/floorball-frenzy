@@ -30,7 +30,6 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Auto-join if a room code is in the URL hash (e.g. #ABC123)
     const hashCode = window.location.hash.slice(1).toUpperCase();
     if (hashCode.length > 0) {
       this.scene.start("OnlineGameScene", { mode: "online", roomId: hashCode, role: "client" });
@@ -87,48 +86,17 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private _drawButtons(): void {
-    const cy = H / 2 + 50;
-
-    this._makeButton(W / 2, cy - 80, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", GREEN, 0x1e7a29, () => {
-      this.scene.start("GameScene", { mode: "local" });
-    });
-
-    this.add.text(W / 2, cy - 18, "Green: WASD · Shift · Q · E          Black: Arrows · Space · , · .", {
-      fontSize: "13px", color: "#3a5040",
-    }).setOrigin(0.5);
-
-    const gfx = this.add.graphics();
-    gfx.lineStyle(1, 0x1e3322, 1);
-    gfx.lineBetween(W / 2 - 240, cy + 14, W / 2 + 240, cy + 14);
-    this.add.text(W / 2, cy + 14, " ONLINE ", {
-      fontSize: "12px", color: "#2a4a32", backgroundColor: "#061208",
-    }).setOrigin(0.5);
-
-    // ── Host: prompts for name, registers in lobby ───────────────────────────
-    this._makeButton(W / 2, cy + 70, "🌐  Host Game", "CREATE A ROOM  ·  SHARE THE LINK", GREEN, 0x1e7a29, () => {
-      const saved = localStorage.getItem("floorball:playerName") ?? "";
-      const raw = window.prompt("Your name:", saved);
-      if (raw === null) return; // cancelled
-      const hostName = raw.trim() || "Player";
-      localStorage.setItem("floorball:playerName", hostName);
-      const roomId = randomRoomId();
-      window.location.hash = roomId;
-      // Register in lobby — best-effort, game starts regardless
-      void fetch("/api/lobby", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "register", roomId, hostName }),
-      }).catch(() => undefined);
-      this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
-    });
-
-    // ── Join: opens the lobby browser ────────────────────────────────────────
-    this._makeButton(W / 2, cy + 160, "🔗  Join Game", "BROWSE OPEN GAMES", 0x333333, 0x1a1a1a, () => {
+    // Two buttons: Play Online (green) + Local Match
+    this._makeButton(W / 2, H / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       void this._showLobby();
     });
 
-    this.add.text(W / 2, cy + 218, "Or paste a friend's link directly into your browser", {
-      fontSize: "13px", color: "#2a4a32",
+    this._makeButton(W / 2, H / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
+      this.scene.start("GameScene", { mode: "local" });
+    });
+
+    this.add.text(W / 2, H / 2 + 210, "Green: WASD · Shift · Q · E          Black: Arrows · Space · , · .", {
+      fontSize: "13px", color: "#3a5040",
     }).setOrigin(0.5);
 
     this._drawCommitInfo();
@@ -137,59 +105,79 @@ export class MenuScene extends Phaser.Scene {
   private _drawCommitInfo(): void {
     const diffMs = Date.now() - Number(__GIT_DATE__) * 1000;
     const m = Math.floor(diffMs / 60000);
-    const ago = m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m/60)}h ago` : `${Math.floor(m/1440)}d ago`;
+    const ago = m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`;
     this.add.text(W / 2, H - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
       fontSize: "15px", color: "#3a6644",
     }).setOrigin(0.5, 1);
   }
 
-  // ─── Lobby browser ──────────────────────────────────────────────────────────
+  // ─── Lobby (full-screen) ────────────────────────────────────────────────────
 
   private async _showLobby(): Promise<void> {
     this._mainMenuObjs.forEach(o => (o as unknown as { setVisible(v: boolean): void }).setVisible(false));
 
-    const cx = W / 2, cy = H / 2;
-    const PW = 560, PH = 390;
+    const cx = W / 2;
 
-    // Panel
-    const panel   = this.add.rectangle(cx, cy, PW, PH, 0x06060e, 0.95).setStrokeStyle(1, 0x224433, 1).setDepth(10);
-    const titleTxt = this.add.text(cx, cy - PH / 2 + 30, "JOIN A GAME", {
-      fontSize: "22px", color: "#00cc66", fontStyle: "bold", letterSpacing: 3,
+    // Full-screen background
+    const bg = this.add.graphics().setDepth(9);
+    bg.fillGradientStyle(0x0a0f0a, 0x0a0f0a, 0x061208, 0x061208, 1);
+    bg.fillRect(0, 0, W, H);
+    bg.lineStyle(1, 0x36b346, 0.1);
+    bg.strokeRoundedRect(30, 30, W - 60, H - 60, 50);
+
+    // Title
+    const titleTxt = this.add.text(cx, 68, "JOIN A GAME", {
+      fontSize: "30px", color: "#00cc66", fontStyle: "bold", letterSpacing: 4,
+    }).setOrigin(0.5).setDepth(10);
+
+    const divGfx = this.add.graphics().setDepth(10);
+    divGfx.lineStyle(1, 0x224433, 0.7);
+    divGfx.lineBetween(80, 108, W - 80, 108);
+
+    const statusTxt = this.add.text(cx, H / 2, "Loading…", {
+      fontSize: "20px", color: "#556688", align: "center",
+    }).setOrigin(0.5).setDepth(10);
+
+    // ── Bottom action bar ──────────────────────────────────────────────────────
+    const BAR_Y = H - 52;
+
+    const backBg = this.add.rectangle(cx - 370, BAR_Y, 180, 48, 0x111111, 1)
+      .setStrokeStyle(1, 0x444444, 1).setInteractive({ useHandCursor: true }).setDepth(10);
+    const backTxt = this.add.text(cx - 370, BAR_Y, "‹  BACK", {
+      fontSize: "16px", color: "#888888", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
-    const divGfx  = this.add.graphics().setDepth(10);
-    divGfx.lineStyle(1, 0x224433, 0.6);
-    divGfx.lineBetween(cx - PW / 2 + 24, cy - PH / 2 + 55, cx + PW / 2 - 24, cy - PH / 2 + 55);
-
-    const statusTxt = this.add.text(cx, cy, "Loading…", {
-      fontSize: "18px", color: "#556688",
-    }).setOrigin(0.5).setDepth(11);
-
-    // Back button
-    const backBg  = this.add.rectangle(cx - 120, cy + PH / 2 - 30, 160, 42, 0x111111, 1)
-      .setStrokeStyle(1, 0x444444, 1).setInteractive({ useHandCursor: true }).setDepth(11);
-    const backTxt = this.add.text(cx - 120, cy + PH / 2 - 30, "‹ BACK", {
-      fontSize: "15px", color: "#888888", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(12);
     backTxt.disableInteractive();
 
-    // Refresh button
-    const refreshBg  = this.add.rectangle(cx + 120, cy + PH / 2 - 30, 160, 42, 0x1a44bb, 1)
-      .setStrokeStyle(1, 0x6699ff, 0.7).setInteractive({ useHandCursor: true }).setDepth(11);
-    const refreshTxt = this.add.text(cx + 120, cy + PH / 2 - 30, "↻  REFRESH", {
-      fontSize: "15px", color: "#ffffff", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(12);
+    const refreshBg = this.add.rectangle(cx, BAR_Y, 180, 48, 0x1a44bb, 1)
+      .setStrokeStyle(1, 0x6699ff, 0.7).setInteractive({ useHandCursor: true }).setDepth(10);
+    const refreshTxt = this.add.text(cx, BAR_Y, "↻  REFRESH", {
+      fontSize: "16px", color: "#ffffff", fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(11);
     refreshTxt.disableInteractive();
 
-    this._lobbyObjs = [panel, titleTxt, divGfx, statusTxt, backBg, backTxt, refreshBg, refreshTxt];
+    const newGameBg = this.add.rectangle(cx + 370, BAR_Y, 240, 48, GREEN, 1)
+      .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(10);
+    const newGameTxt = this.add.text(cx + 370, BAR_Y, "✚  CREATE NEW GAME", {
+      fontSize: "15px", color: "#000000", fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(11);
+    newGameTxt.disableInteractive();
 
-    backBg.on("pointerover",  () => backBg.setStrokeStyle(1, 0x888888, 1));
-    backBg.on("pointerout",   () => backBg.setStrokeStyle(1, 0x444444, 1));
-    backBg.on("pointerup",    () => this._hideLobby());
-    refreshBg.on("pointerover",  () => refreshBg.setStrokeStyle(1, 0xaaccff, 1));
-    refreshBg.on("pointerout",   () => refreshBg.setStrokeStyle(1, 0x6699ff, 0.7));
-    refreshBg.on("pointerup",    () => { void loadGames(); });
+    this._lobbyObjs = [bg, titleTxt, divGfx, statusTxt, backBg, backTxt, refreshBg, refreshTxt, newGameBg, newGameTxt];
 
-    // Rows area: remove old rows and repopulate
+    // ── Button interactions ───────────────────────────────────────────────────
+    backBg.on("pointerover",    () => backBg.setStrokeStyle(1, 0x888888, 1));
+    backBg.on("pointerout",     () => backBg.setStrokeStyle(1, 0x444444, 1));
+    backBg.on("pointerup",      () => this._hideLobby());
+
+    refreshBg.on("pointerover", () => refreshBg.setStrokeStyle(1, 0xaaccff, 1));
+    refreshBg.on("pointerout",  () => refreshBg.setStrokeStyle(1, 0x6699ff, 0.7));
+    refreshBg.on("pointerup",   () => { void loadGames(); });
+
+    newGameBg.on("pointerover", () => newGameBg.setFillStyle(0x55dd77));
+    newGameBg.on("pointerout",  () => newGameBg.setFillStyle(GREEN));
+    newGameBg.on("pointerup",   () => this._startHosting());
+
+    // ── Game rows (rebuilt on every refresh) ──────────────────────────────────
     let rowObjs: Phaser.GameObjects.GameObject[] = [];
 
     const loadGames = async (): Promise<void> => {
@@ -203,45 +191,50 @@ export class MenuScene extends Phaser.Scene {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         games = (await res.json()) as LobbyEntry[];
       } catch {
-        statusTxt.setText("Could not load games — check your connection.");
+        statusTxt.setText("Could not load games.\nCheck your connection.");
         return;
       }
 
       if (games.length === 0) {
-        statusTxt.setText("No open games right now.\nAsk a friend to host one!");
+        statusTxt.setText("No open games right now.\nPress CREATE NEW GAME to start one!");
         return;
       }
-
       statusTxt.setVisible(false);
-      const rowsTop = cy - PH / 2 + 75;
-      const maxGames = Math.min(games.length, 5);
 
-      for (let i = 0; i < maxGames; i++) {
+      const ROW_H   = 70;
+      const ROW_W   = W - 160;
+      const rowsTop = 130;
+      const max     = Math.min(games.length, 7);
+
+      for (let i = 0; i < max; i++) {
         const game = games[i];
-        const rowY = rowsTop + i * 54;
+        const rowY = rowsTop + i * ROW_H + ROW_H / 2;
+        const isEven = i % 2 === 0;
 
-        const rowBg = this.add.rectangle(cx, rowY, PW - 40, 46, 0x0d0d1a, 1)
-          .setStrokeStyle(1, 0x1a2233, 1).setDepth(11);
+        const rowBg = this.add.rectangle(cx, rowY, ROW_W, ROW_H - 6, isEven ? 0x0d0d1a : 0x0a0a14, 1)
+          .setStrokeStyle(1, 0x1a2233, 1).setDepth(10);
 
-        const nameTxt = this.add.text(cx - PW / 2 + 50, rowY, game.hostName, {
-          fontSize: "17px", color: "#ffffff", fontStyle: "bold",
-        }).setOrigin(0, 0.5).setDepth(12);
+        // Coloured dot
+        const dot = this.add.circle(cx - ROW_W / 2 + 30, rowY, 10, GREEN, 0.7).setDepth(11);
 
-        const ageTxt = this.add.text(cx + 30, rowY, timeAgo(Date.now() - game.createdAt), {
-          fontSize: "14px", color: "#556688",
-        }).setOrigin(0.5, 0.5).setDepth(12);
+        const nameTxt = this.add.text(cx - ROW_W / 2 + 56, rowY, game.hostName, {
+          fontSize: "20px", color: "#ffffff", fontStyle: "bold",
+        }).setOrigin(0, 0.5).setDepth(11);
 
-        const joinBg = this.add.rectangle(cx + PW / 2 - 55, rowY, 88, 34, GREEN, 1)
-          .setInteractive({ useHandCursor: true }).setDepth(12);
-        const joinTxt = this.add.text(cx + PW / 2 - 55, rowY, "JOIN", {
-          fontSize: "14px", color: "#000000", fontStyle: "bold",
-        }).setOrigin(0.5).setDepth(13);
+        const ageTxt = this.add.text(cx + 80, rowY, timeAgo(Date.now() - game.createdAt), {
+          fontSize: "15px", color: "#556688",
+        }).setOrigin(0.5, 0.5).setDepth(11);
+
+        const joinBg = this.add.rectangle(cx + ROW_W / 2 - 70, rowY, 120, 44, GREEN, 1)
+          .setInteractive({ useHandCursor: true }).setDepth(11);
+        const joinTxt = this.add.text(cx + ROW_W / 2 - 70, rowY, "JOIN", {
+          fontSize: "17px", color: "#000000", fontStyle: "bold",
+        }).setOrigin(0.5).setDepth(12);
         joinTxt.disableInteractive();
 
         joinBg.on("pointerover", () => joinBg.setFillStyle(0x55dd77));
         joinBg.on("pointerout",  () => joinBg.setFillStyle(GREEN));
         joinBg.on("pointerup", () => {
-          // Remove from lobby then navigate
           void fetch("/api/lobby", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -251,10 +244,9 @@ export class MenuScene extends Phaser.Scene {
           this.scene.start("OnlineGameScene", { mode: "online", roomId: game.roomId, role: "client" });
         });
 
-        rowObjs.push(rowBg, nameTxt, ageTxt, joinBg, joinTxt);
+        rowObjs.push(rowBg, dot, nameTxt, ageTxt, joinBg, joinTxt);
       }
 
-      // Add row objects to lobbyObjs so they're cleaned up on _hideLobby
       this._lobbyObjs.push(...rowObjs);
     };
 
@@ -265,6 +257,22 @@ export class MenuScene extends Phaser.Scene {
     this._lobbyObjs.forEach(o => o.destroy());
     this._lobbyObjs = [];
     this._mainMenuObjs.forEach(o => (o as unknown as { setVisible(v: boolean): void }).setVisible(true));
+  }
+
+  private _startHosting(): void {
+    const saved = localStorage.getItem("floorball:playerName") ?? "";
+    const raw = window.prompt("Your name:", saved);
+    if (raw === null) return;
+    const hostName = raw.trim() || "Player";
+    localStorage.setItem("floorball:playerName", hostName);
+    const roomId = randomRoomId();
+    window.location.hash = roomId;
+    void fetch("/api/lobby", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "register", roomId, hostName }),
+    }).catch(() => undefined);
+    this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
   }
 
   // ─── Button factory ─────────────────────────────────────────────────────────
