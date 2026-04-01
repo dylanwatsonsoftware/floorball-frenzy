@@ -532,10 +532,10 @@ export class GameScene extends Phaser.Scene {
     shotCooldownActive = false
   ): void {
     if (shotCooldownActive) return;
-    const fwdX = stickDir.y * PLAYER_RADIUS * 0.84;
-    const fwdY = -stickDir.x * PLAYER_RADIUS * 0.84;
-    const tipX = player.x + stickDir.x * STICK_REACH + fwdX;
-    const tipY = player.y + stickDir.y * STICK_REACH + fwdY;
+    const fwdX = stickDir.y * PLAYER_RADIUS * 0.84 * 1.1;
+    const fwdY = -stickDir.x * PLAYER_RADIUS * 0.84 * 1.1;
+    const tipX = player.x + stickDir.x * STICK_REACH * 1.3 + fwdX;
+    const tipY = player.y + stickDir.y * STICK_REACH * 1.3 + fwdY;
     const dx = this.ball.x - tipX;
     const dy = this.ball.y - tipY;
     const dist = Math.hypot(dx, dy);
