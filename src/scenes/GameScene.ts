@@ -93,10 +93,20 @@ export class GameScene extends Phaser.Scene {
   private _hostSprite!: Phaser.GameObjects.Sprite;
   private _clientSprite!: Phaser.GameObjects.Sprite;
   private _ballGraphics!: Phaser.GameObjects.Graphics;
-  protected _ballRotation = 0;
-  // Unit travel direction — dots project along this axis + screen-y for 3D rolling illusion
-  private _ballTravelX = 1;
-  private _ballTravelY = 0;
+  // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
+  protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
+
+  // 16 dot positions on a unit sphere (Fibonacci spiral — evenly spread, ~8 visible per frame)
+  private static readonly BALL_DOTS: [number, number, number][] = (() => {
+    const n = 16;
+    const φ = Math.PI * (3 - Math.sqrt(5)); // golden angle
+    return Array.from({ length: n }, (_, i) => {
+      const z = 1 - (i / (n - 1)) * 2;
+      const r = Math.sqrt(Math.max(0, 1 - z * z));
+      const θ = φ * i;
+      return [Math.cos(θ) * r, Math.sin(θ) * r, z] as [number, number, number];
+    });
+  })();
   private _ballShadow!: Phaser.GameObjects.Arc;
   private _hostChargeBar!: Phaser.GameObjects.Rectangle;
   private _clientChargeBar!: Phaser.GameObjects.Rectangle;
@@ -322,12 +332,27 @@ export class GameScene extends Phaser.Scene {
     this._hostShotAnimMs = Math.max(0, this._hostShotAnimMs - delta);
     this._clientShotAnimMs = Math.max(0, this._clientShotAnimMs - delta);
 
-    // Accumulate ball rotation and track perpendicular-to-travel axis for rolling projection
+    // Update ball orientation quaternion from rolling this frame
     const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
-    this._ballRotation -= (ballSpeed * Math.min(delta, 200) / 1000) / BALL_RADIUS;
     if (ballSpeed > 5) {
-      this._ballTravelX = this.ball.vx / ballSpeed;
-      this._ballTravelY = this.ball.vy / ballSpeed;
+      // Rolling axis: perpendicular to travel direction in the ground plane
+      const ax = -this.ball.vy / ballSpeed;
+      const ay =  this.ball.vx / ballSpeed;
+      const angle = (ballSpeed * Math.min(delta, 200) / 1000) / BALL_RADIUS;
+      const ha = angle / 2;
+      const s = Math.sin(ha);
+      const [dw, dx, dy, dz] = [Math.cos(ha), ax * s, ay * s, 0];
+      // Compose: _ballQuat = dq * _ballQuat
+      const [qw, qx, qy, qz] = this._ballQuat;
+      this._ballQuat = [
+        dw*qw - dx*qx - dy*qy - dz*qz,
+        dw*qx + dx*qw + dy*qz - dz*qy,
+        dw*qy - dx*qz + dy*qw + dz*qx,
+        dw*qz + dx*qy - dy*qx + dz*qw,
+      ];
+      // Normalize to prevent numerical drift
+      const len = Math.hypot(...this._ballQuat);
+      this._ballQuat = this._ballQuat.map(v => v / len) as [number, number, number, number];
     }
 
     this._syncSprites();
@@ -572,23 +597,23 @@ export class GameScene extends Phaser.Scene {
     this._ballGraphics.fillStyle(0xffffff, 1);
     this._ballGraphics.fillCircle(0, 0, displayR);
 
-    // 3 dots rolling across the ball face.
-    // cos(a) moves the dot along the travel direction on screen;
-    // sin(a) is the "up" component — mapped to screen-y using the same 0.6
-    // perspective factor the game uses for ball height, so dots trace an ellipse.
-    // Only draw dots in the upper hemisphere (sin > 0) so they appear/disappear
-    // at the leading/trailing edge, giving the rolling illusion.
-    const dotBaseR = Math.max(1, displayR * 0.25);
-    const orbitR = displayR * 0.7;
+    // Rotate each dot by the ball's orientation quaternion and project to screen.
+    // wz > 0 = visible upper hemisphere; wz maps to screen-y via the scene's 0.6 perspective factor.
+    const [qw, qx, qy, qz] = this._ballQuat;
+    const dotBaseR = Math.max(1, displayR * 0.22);
     this._ballGraphics.fillStyle(0x777777, 1);
-    for (let i = 0; i < 14; i++) {
-      const a = this._ballRotation + (i / 14) * Math.PI * 2;
-      const cosA = Math.cos(a);
-      const sinA = Math.sin(a);
-      if (sinA <= 0) continue; // lower hemisphere — hidden by ball surface
-      const dotX = cosA * this._ballTravelX * orbitR;
-      const dotY = cosA * this._ballTravelY * orbitR - sinA * orbitR * 0.6;
-      this._ballGraphics.fillCircle(dotX, dotY, dotBaseR * sinA);
+    for (const [bx, by, bz] of GameScene.BALL_DOTS) {
+      // Rotate dot position by quaternion: v' = q * v * q^-1 (Rodrigues via quaternion)
+      const tx = 2 * (qy * bz - qz * by);
+      const ty = 2 * (qz * bx - qx * bz);
+      const tz = 2 * (qx * by - qy * bx);
+      const wx = bx + qw * tx + qy * tz - qz * ty;
+      const wy = by + qw * ty + qz * tx - qx * tz;
+      const wz = bz + qw * tz + qx * ty - qy * tx;
+      if (wz <= 0) continue; // lower hemisphere — occluded by ball
+      const screenX = wx * displayR;
+      const screenY = wy * displayR - wz * displayR * 0.6;
+      this._ballGraphics.fillCircle(screenX, screenY, dotBaseR * wz);
     }
 
     // Shadow stays at ground position, shrinks and fades as ball rises
