@@ -166,17 +166,17 @@ export class MenuScene extends Phaser.Scene {
     this._lobbyObjs = [bg, titleTxt, divGfx, statusTxt, backBg, backTxt, refreshBg, refreshTxt, newGameBg, newGameTxt];
 
     // ── Button interactions ───────────────────────────────────────────────────
-    backBg.on("pointerover",    () => backBg.setStrokeStyle(1, 0x888888, 1));
-    backBg.on("pointerout",     () => backBg.setStrokeStyle(1, 0x444444, 1));
-    backBg.on("pointerup",      () => this._hideLobby());
+    backBg.on("pointerover", () => backBg.setStrokeStyle(1, 0x888888, 1));
+    backBg.on("pointerout", () => backBg.setStrokeStyle(1, 0x444444, 1));
+    backBg.on("pointerup", () => this._hideLobby());
 
     refreshBg.on("pointerover", () => refreshBg.setStrokeStyle(1, 0xaaccff, 1));
-    refreshBg.on("pointerout",  () => refreshBg.setStrokeStyle(1, 0x6699ff, 0.7));
-    refreshBg.on("pointerup",   () => { void loadGames(); });
+    refreshBg.on("pointerout", () => refreshBg.setStrokeStyle(1, 0x6699ff, 0.7));
+    refreshBg.on("pointerup", () => { void loadGames(); });
 
     newGameBg.on("pointerover", () => newGameBg.setFillStyle(0x55dd77));
-    newGameBg.on("pointerout",  () => newGameBg.setFillStyle(GREEN));
-    newGameBg.on("pointerup",   () => this._startHosting());
+    newGameBg.on("pointerout", () => newGameBg.setFillStyle(GREEN));
+    newGameBg.on("pointerup", () => this._startHosting());
 
     // ── Game rows (rebuilt on every refresh) ──────────────────────────────────
     let rowObjs: Phaser.GameObjects.GameObject[] = [];
@@ -202,10 +202,10 @@ export class MenuScene extends Phaser.Scene {
       }
       statusTxt.setVisible(false);
 
-      const ROW_H   = 70;
-      const ROW_W   = W - 160;
+      const ROW_H = 70;
+      const ROW_W = W - 160;
       const rowsTop = 130;
-      const max     = Math.min(games.length, 7);
+      const max = Math.min(games.length, 7);
 
       for (let i = 0; i < max; i++) {
         const game = games[i];
@@ -234,7 +234,7 @@ export class MenuScene extends Phaser.Scene {
         joinTxt.disableInteractive();
 
         joinBg.on("pointerover", () => joinBg.setFillStyle(0x55dd77));
-        joinBg.on("pointerout",  () => joinBg.setFillStyle(GREEN));
+        joinBg.on("pointerout", () => joinBg.setFillStyle(GREEN));
         joinBg.on("pointerup", () => {
           void fetch("/api/lobby", {
             method: "POST",
@@ -266,18 +266,77 @@ export class MenuScene extends Phaser.Scene {
 
   private _startHosting(): void {
     const saved = localStorage.getItem("floorball:playerName") ?? "";
-    const raw = window.prompt("Your name:", saved);
-    if (raw === null) return;
-    const hostName = raw.trim() || "Player";
-    localStorage.setItem("floorball:playerName", hostName);
-    const roomId = randomRoomId();
-    window.location.hash = roomId;
-    void fetch("/api/lobby", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "register", roomId, hostName }),
-    }).catch(() => undefined);
-    this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
+    const cx = W / 2;
+    const cy = H / 2;
+    const MW = 480, MH = 220;
+
+    const overlay = this.add.rectangle(cx, cy, W, H, 0x000000, 0.75).setDepth(20).setInteractive();
+
+    const modalGfx = this.add.graphics().setDepth(21);
+    modalGfx.fillStyle(0x0d1a12, 1);
+    modalGfx.fillRoundedRect(cx - MW / 2, cy - MH / 2, MW, MH, 16);
+    modalGfx.lineStyle(1, 0x36b346, 0.7);
+    modalGfx.strokeRoundedRect(cx - MW / 2, cy - MH / 2, MW, MH, 16);
+
+    const titleTxt = this.add.text(cx, cy - MH / 2 + 36, "ENTER YOUR NAME", {
+      fontSize: "20px", color: "#00cc66", fontStyle: "bold", letterSpacing: 3,
+    }).setOrigin(0.5).setDepth(22);
+
+    const inputDom = this.add.dom(cx, cy - 14, "input").setDepth(22);
+    const el = inputDom.node as HTMLInputElement;
+    Object.assign(el.style, {
+      width: "340px", height: "44px", background: "#0a0f0a",
+      border: "1px solid #36b346", borderRadius: "8px",
+      color: "#ffffff", fontSize: "20px", padding: "0 12px",
+      outline: "none", fontFamily: "monospace", textAlign: "center",
+    });
+    el.maxLength = 30;
+    el.value = saved;
+    setTimeout(() => { el.focus(); el.select(); }, 50);
+
+    const okBg = this.add.rectangle(cx + 90, cy + MH / 2 - 40, 140, 44, GREEN, 1)
+      .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(22);
+    const okTxt = this.add.text(cx + 90, cy + MH / 2 - 40, "OK", {
+      fontSize: "17px", color: "#000000", fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(23);
+
+    const cancelBg = this.add.rectangle(cx - 90, cy + MH / 2 - 40, 140, 44, 0x111111, 1)
+      .setStrokeStyle(1, 0x555555, 1).setInteractive({ useHandCursor: true }).setDepth(22);
+    const cancelTxt = this.add.text(cx - 90, cy + MH / 2 - 40, "CANCEL", {
+      fontSize: "17px", color: "#888888", fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(23);
+    okTxt.disableInteractive();
+    cancelTxt.disableInteractive();
+
+    const promptObjs = [overlay, modalGfx, titleTxt, inputDom, okBg, okTxt, cancelBg, cancelTxt];
+    const destroy = () => promptObjs.forEach(o => o.destroy());
+
+    const confirm = () => {
+      const hostName = el.value.trim() || "Player";
+      destroy();
+      localStorage.setItem("floorball:playerName", hostName);
+      const roomId = randomRoomId();
+      window.location.hash = roomId;
+      void fetch("/api/lobby", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "register", roomId, hostName }),
+      }).catch(() => undefined);
+      this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
+    };
+
+    okBg.on("pointerover", () => okBg.setFillStyle(0x55dd77));
+    okBg.on("pointerout",  () => okBg.setFillStyle(GREEN));
+    okBg.on("pointerup", confirm);
+
+    cancelBg.on("pointerover", () => cancelBg.setStrokeStyle(1, 0x888888, 1));
+    cancelBg.on("pointerout",  () => cancelBg.setStrokeStyle(1, 0x555555, 1));
+    cancelBg.on("pointerup", destroy);
+
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") confirm();
+      if (e.key === "Escape") destroy();
+    });
   }
 
   // ─── Button factory ─────────────────────────────────────────────────────────
@@ -315,7 +374,7 @@ export class MenuScene extends Phaser.Scene {
     sub.disableInteractive();
 
     border.on("pointerover", () => { drawGrad(0.35); glow.setStrokeStyle(3, color, 0.55); title.setShadow(0, 0, colorHex, 16, false, true); });
-    border.on("pointerout",  () => { drawGrad(0.18); glow.setStrokeStyle(3, color, 0.25); title.setShadow(0, 1, colorHex, 8,  false, true); });
+    border.on("pointerout", () => { drawGrad(0.18); glow.setStrokeStyle(3, color, 0.25); title.setShadow(0, 1, colorHex, 8, false, true); });
     border.on("pointerup", onClick);
   }
 }

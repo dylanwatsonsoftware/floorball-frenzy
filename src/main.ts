@@ -19,6 +19,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
+  dom: { createContainer: true },
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
 };
 
