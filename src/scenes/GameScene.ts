@@ -626,8 +626,15 @@ export class GameScene extends Phaser.Scene {
     this._ballShadow.setPosition(this.ball.x, this.ball.y).setScale(shadowScale).setAlpha(shadowAlpha);
 
     const POSSESSION_RANGE = BALL_RADIUS + 28;
-    const hostHasBall = Math.hypot(this.ball.x - this.host.x, this.ball.y - this.host.y) <= POSSESSION_RANGE;
-    const clientHasBall = Math.hypot(this.ball.x - this.client.x, this.ball.y - this.client.y) <= POSSESSION_RANGE;
+    const hostStickDir = this._stickDir(this.host, this._hostAimSmooth);
+    const hostTipX = this.host.x + hostStickDir.x * STICK_REACH;
+    const hostTipY = this.host.y + hostStickDir.y * STICK_REACH;
+    const hostHasBall = Math.hypot(this.ball.x - hostTipX, this.ball.y - hostTipY) <= POSSESSION_RANGE;
+
+    const clientStickDir = this._stickDir(this.client, this._clientAimSmooth);
+    const clientTipX = this.client.x + clientStickDir.x * STICK_REACH;
+    const clientTipY = this.client.y + clientStickDir.y * STICK_REACH;
+    const clientHasBall = Math.hypot(this.ball.x - clientTipX, this.ball.y - clientTipY) <= POSSESSION_RANGE;
     const toggleFrame = Math.floor(this.time.now / 200) % 2;
 
     this._hostSprite.setPosition(this.host.x, this.host.y);
