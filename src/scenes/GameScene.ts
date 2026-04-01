@@ -94,9 +94,9 @@ export class GameScene extends Phaser.Scene {
   private _clientSprite!: Phaser.GameObjects.Sprite;
   private _ballGraphics!: Phaser.GameObjects.Graphics;
   protected _ballRotation = 0;
-  // Perpendicular-to-travel axis used to project rolling dots (unit vector)
-  private _ballPerpX = 0;
-  private _ballPerpY = 1;
+  // Unit travel direction — dots project along this axis + screen-y for 3D rolling illusion
+  private _ballTravelX = 1;
+  private _ballTravelY = 0;
   private _ballShadow!: Phaser.GameObjects.Arc;
   private _hostChargeBar!: Phaser.GameObjects.Rectangle;
   private _clientChargeBar!: Phaser.GameObjects.Rectangle;
@@ -326,8 +326,8 @@ export class GameScene extends Phaser.Scene {
     const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
     this._ballRotation += (ballSpeed * Math.min(delta, 200) / 1000) / BALL_RADIUS;
     if (ballSpeed > 5) {
-      this._ballPerpX = -this.ball.vy / ballSpeed;
-      this._ballPerpY =  this.ball.vx / ballSpeed;
+      this._ballTravelX = this.ball.vx / ballSpeed;
+      this._ballTravelY = this.ball.vy / ballSpeed;
     }
 
     this._syncSprites();
@@ -572,18 +572,23 @@ export class GameScene extends Phaser.Scene {
     this._ballGraphics.fillStyle(0xffffff, 1);
     this._ballGraphics.fillCircle(0, 0, displayR);
 
-    // 3 dots projected onto the equatorial plane perpendicular to travel direction.
-    // sin(angle) gives the lateral offset — positive = front hemisphere, negative = back (hidden).
-    const dotBaseR = Math.max(1, displayR * 0.22);
-    const orbitR = displayR * 0.62;
-    this._ballGraphics.fillStyle(0x888888, 0.9);
+    // 3 dots rolling across the ball face.
+    // cos(a) moves the dot along the travel direction on screen;
+    // sin(a) is the "up" component — mapped to screen-y using the same 0.6
+    // perspective factor the game uses for ball height, so dots trace an ellipse.
+    // Only draw dots in the upper hemisphere (sin > 0) so they appear/disappear
+    // at the leading/trailing edge, giving the rolling illusion.
+    const dotBaseR = Math.max(1, displayR * 0.25);
+    const orbitR = displayR * 0.7;
+    this._ballGraphics.fillStyle(0x777777, 1);
     for (let i = 0; i < 3; i++) {
       const a = this._ballRotation + (i / 3) * Math.PI * 2;
-      const s = Math.sin(a);
-      if (s <= 0) continue; // back hemisphere — don't draw
-      const dotX = this._ballPerpX * s * orbitR;
-      const dotY = this._ballPerpY * s * orbitR;
-      this._ballGraphics.fillCircle(dotX, dotY, dotBaseR * (0.4 + 0.6 * s));
+      const cosA = Math.cos(a);
+      const sinA = Math.sin(a);
+      if (sinA <= 0) continue; // lower hemisphere — hidden by ball surface
+      const dotX = cosA * this._ballTravelX * orbitR;
+      const dotY = cosA * this._ballTravelY * orbitR - sinA * orbitR * 0.6;
+      this._ballGraphics.fillCircle(dotX, dotY, dotBaseR * sinA);
     }
 
     // Shadow stays at ground position, shrinks and fades as ball rises
