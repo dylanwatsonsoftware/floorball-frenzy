@@ -97,7 +97,7 @@ export class GameScene extends Phaser.Scene {
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
   // 16 dot positions on a unit sphere (Fibonacci spiral — evenly spread, ~8 visible per frame)
-  private static readonly BALL_DOTS: [number, number, number][] = (() => {
+  protected static readonly BALL_DOTS: [number, number, number][] = (() => {
     const n = 26;
     const φ = Math.PI * (3 - Math.sqrt(5)); // golden angle
     return Array.from({ length: n }, (_, i) => {
@@ -691,6 +691,34 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /** Draw a floorball at local coords (cx, cy) into gfx with given radius and quaternion. */
+  protected _drawBallAt(
+    gfx: Phaser.GameObjects.Graphics,
+    cx: number, cy: number,
+    radius: number,
+    quat: [number, number, number, number]
+  ): void {
+    gfx.fillStyle(0xffffff, 1);
+    gfx.fillCircle(cx, cy, radius);
+    const [qw, qx, qy, qz] = quat;
+    const dotBaseR = Math.max(1, radius * 0.22);
+    gfx.fillStyle(0xcccccc, 1);
+    for (const [bx, by, bz] of GameScene.BALL_DOTS) {
+      const tx = 2 * (qy * bz - qz * by);
+      const ty = 2 * (qz * bx - qx * bz);
+      const tz = 2 * (qx * by - qy * bx);
+      const wx = bx + qw * tx + qy * tz - qz * ty;
+      const wy = by + qw * ty + qz * tx - qx * tz;
+      const wz = bz + qw * tz + qx * ty - qy * tx;
+      if (wz <= 0) continue;
+      const sx = cx + wx * radius;
+      const sy = cy + wy * radius - wz * radius * 0.6;
+      const dotR = dotBaseR * wz;
+      if (Math.hypot(sx - cx, sy - cy) + dotR > radius) continue;
+      gfx.fillCircle(sx, sy, dotR);
+    }
+  }
+
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
@@ -698,31 +726,7 @@ export class GameScene extends Phaser.Scene {
     const depth = 6 + this.ball.z * 0.01;
     this._ballGraphics.clear().setPosition(this.ball.x, visualY).setDepth(depth);
 
-    // White ball body
-    this._ballGraphics.fillStyle(0xffffff, 1);
-    this._ballGraphics.fillCircle(0, 0, displayR);
-
-    // Rotate each dot by the ball's orientation quaternion and project to screen.
-    // wz > 0 = visible upper hemisphere; wz maps to screen-y via the scene's 0.6 perspective factor.
-    const [qw, qx, qy, qz] = this._ballQuat;
-    const dotBaseR = Math.max(1, displayR * 0.22);
-    this._ballGraphics.fillStyle(0xcccccc, 1);
-    for (const [bx, by, bz] of GameScene.BALL_DOTS) {
-      // Rotate dot position by quaternion: v' = q * v * q^-1 (Rodrigues via quaternion)
-      const tx = 2 * (qy * bz - qz * by);
-      const ty = 2 * (qz * bx - qx * bz);
-      const tz = 2 * (qx * by - qy * bx);
-      const wx = bx + qw * tx + qy * tz - qz * ty;
-      const wy = by + qw * ty + qz * tx - qx * tz;
-      const wz = bz + qw * tz + qx * ty - qy * tx;
-      if (wz <= 0) continue; // lower hemisphere — occluded by ball
-      const screenX = wx * displayR;
-      const screenY = wy * displayR - wz * displayR * 0.6;
-      const dotR = dotBaseR * wz;
-      const distFromCenter = Math.sqrt(screenX * screenX + screenY * screenY);
-      if (distFromCenter + dotR > displayR) continue; // would bleed outside ball edge
-      this._ballGraphics.fillCircle(screenX, screenY, dotR);
-    }
+    this._drawBallAt(this._ballGraphics, 0, 0, displayR, this._ballQuat);
 
     // Shadow stays at ground position, shrinks and fades as ball rises
     const shadowScale = Math.max(0.3, 1 - this.ball.z * 0.004);

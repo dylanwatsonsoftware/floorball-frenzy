@@ -25,6 +25,9 @@ export class OnlineGameScene extends GameScene {
   private _sharePanelObjects: Phaser.GameObjects.GameObject[] = [];
   private _debugInputText!: Phaser.GameObjects.Text;
 
+  private _waitingBallGfx!: Phaser.GameObjects.Graphics;
+  private _waitingBallQuat: [number, number, number, number] = [1, 0, 0, 0];
+
   private _onlineClientSlapWasDown = false;
   private _pendingWristShot = false;      // client → host: latched on key-down
   private _pendingClientWrist = false;    // host side: set when any input msg has wrist:true
@@ -121,6 +124,29 @@ export class OnlineGameScene extends GameScene {
   }
 
   update(time: number, delta: number): void {
+    // Animate waiting ball even before connection is established
+    if (this._waitingBallGfx?.visible) {
+      const angle = 3 * (delta / 1000); // 3 rad/s rolling speed
+      const halfAngle = angle / 2;
+      // Rotate around X axis (rolls forward)
+      const dw = Math.cos(halfAngle), dx = Math.sin(halfAngle);
+      const [qw, qx, qy, qz] = this._waitingBallQuat;
+      this._waitingBallQuat = [
+        dw * qw - dx * qx,
+        dw * qx + dx * qw,
+        dw * qy + dx * qz,   // note: dy=0, dz=0 simplifies the full product
+        dw * qz - dx * qy,
+      ];
+      const len = Math.hypot(...this._waitingBallQuat);
+      this._waitingBallQuat = this._waitingBallQuat.map(v => v / len) as [number, number, number, number];
+
+      const cx = 640, cy = 360;
+      const ballX = cx + 158, ballY = cy - 120;
+      this._waitingBallGfx.clear();
+      this._waitingBallGfx.setPosition(ballX, ballY);
+      this._drawBallAt(this._waitingBallGfx, 0, 0, 16, this._waitingBallQuat);
+    }
+
     if (!this._connected) return;
 
     // Ping HUD
@@ -310,9 +336,14 @@ export class OnlineGameScene extends GameScene {
 
     const overlay = this.add.rectangle(cx, cy, 560, 340, 0x000000, 0.8).setDepth(18);
 
-    const title = this.add.text(cx, cy - 120, "Waiting for opponent…", {
+    const title = this.add.text(cx - 20, cy - 120, "Waiting for opponent…", {
       fontSize: "28px", color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
+
+    // Rolling ball loading icon
+    this._waitingBallQuat = [1, 0, 0, 0];
+    this._waitingBallGfx = this.add.graphics().setDepth(19);
+    this._sharePanelObjects.push(this._waitingBallGfx);
 
     const roomLabel = this.add.text(cx, cy - 72, `Room code: ${this._roomId}`, {
       fontSize: "22px", color: "#aaaaff",
