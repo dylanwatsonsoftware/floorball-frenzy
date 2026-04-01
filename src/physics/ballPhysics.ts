@@ -14,6 +14,7 @@ import {
   GOAL_Z_THRESHOLD,
   GOAL_LINE_LEFT,
   GOAL_LINE_RIGHT,
+  GOAL_CAGE_DEPTH,
   CORNER_RADIUS,
 } from "./constants";
 
@@ -47,19 +48,45 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
   const goal = checkGoal(ball);
   if (goal) return goal;
 
-  // Goal post side walls — goal line is solid in the flat sections above/below
-  // the goal mouth. The rounded corner areas are left to resolveCorners().
-  const inGoalMouth = ball.y + BALL_RADIUS > GOAL_TOP && ball.y - BALL_RADIUS < GOAL_BOTTOM;
-  const inFlatSideWall =
-    (ball.y < GOAL_TOP   && ball.y > FIELD_TOP    + CORNER_RADIUS) ||
-    (ball.y > GOAL_BOTTOM && ball.y < FIELD_BOTTOM - CORNER_RADIUS);
-  if (!inGoalMouth && inFlatSideWall) {
-    if (ball.x - BALL_RADIUS < GOAL_LINE_LEFT) {
-      ball.x = GOAL_LINE_LEFT + BALL_RADIUS;
-      ball.vx = Math.abs(ball.vx) * BALL_BOUNCE;
-    } else if (ball.x + BALL_RADIUS > GOAL_LINE_RIGHT) {
-      ball.x = GOAL_LINE_RIGHT - BALL_RADIUS;
+  // ── Goal cage physics ──────────────────────────────────────────────────────
+  // The cage box is open at the front (goal mouth). Ball enters only through
+  // the mouth. Side walls and back wall block all other entry.
+  const LEFT_CAGE_BACK  = GOAL_LINE_LEFT  - GOAL_CAGE_DEPTH;
+  const RIGHT_CAGE_BACK = GOAL_LINE_RIGHT + GOAL_CAGE_DEPTH;
+
+  const inLeftCageX  = ball.x < GOAL_LINE_LEFT  && ball.x > LEFT_CAGE_BACK;
+  const inRightCageX = ball.x > GOAL_LINE_RIGHT && ball.x < RIGHT_CAGE_BACK;
+
+  // Cage side walls (top: y = GOAL_TOP, bottom: y = GOAL_BOTTOM)
+  if (inLeftCageX || inRightCageX) {
+    // Top wall — bounce approaching ball back above, or escaping ball back inside
+    if (ball.y < GOAL_TOP && ball.y + BALL_RADIUS > GOAL_TOP && ball.vy > 0) {
+      ball.y = GOAL_TOP - BALL_RADIUS;
+      ball.vy = -Math.abs(ball.vy) * BALL_BOUNCE;
+    } else if (ball.y > GOAL_TOP && ball.y - BALL_RADIUS < GOAL_TOP && ball.vy < 0) {
+      ball.y = GOAL_TOP + BALL_RADIUS;
+      ball.vy = Math.abs(ball.vy) * BALL_BOUNCE;
+    }
+    // Bottom wall
+    if (ball.y > GOAL_BOTTOM && ball.y - BALL_RADIUS < GOAL_BOTTOM && ball.vy < 0) {
+      ball.y = GOAL_BOTTOM + BALL_RADIUS;
+      ball.vy = Math.abs(ball.vy) * BALL_BOUNCE;
+    } else if (ball.y < GOAL_BOTTOM && ball.y + BALL_RADIUS > GOAL_BOTTOM && ball.vy > 0) {
+      ball.y = GOAL_BOTTOM - BALL_RADIUS;
+      ball.vy = -Math.abs(ball.vy) * BALL_BOUNCE;
+    }
+  }
+
+  // Cage back walls — prevent ball entering cage from the open space behind goal
+  const inGoalMouthY = ball.y + BALL_RADIUS > GOAL_TOP && ball.y - BALL_RADIUS < GOAL_BOTTOM;
+  if (inGoalMouthY) {
+    if (ball.x < LEFT_CAGE_BACK && ball.x + BALL_RADIUS > LEFT_CAGE_BACK && ball.vx > 0) {
+      ball.x = LEFT_CAGE_BACK - BALL_RADIUS;
       ball.vx = -Math.abs(ball.vx) * BALL_BOUNCE;
+    }
+    if (ball.x > RIGHT_CAGE_BACK && ball.x - BALL_RADIUS < RIGHT_CAGE_BACK && ball.vx < 0) {
+      ball.x = RIGHT_CAGE_BACK + BALL_RADIUS;
+      ball.vx = Math.abs(ball.vx) * BALL_BOUNCE;
     }
   }
 
@@ -92,10 +119,15 @@ function checkGoal(ball: Ball): GoalEvent {
   const inMouth = ball.y >= GOAL_TOP && ball.y <= GOAL_BOTTOM;
   if (!inMouth || ball.z >= GOAL_Z_THRESHOLD) return null;
 
-  // Left goal (blue/host net): red scores
-  if (ball.x - BALL_RADIUS < GOAL_LINE_LEFT && ball.vx < 0) return "client";
-  // Right goal (red/client net): blue scores
-  if (ball.x + BALL_RADIUS > GOAL_LINE_RIGHT && ball.vx > 0) return "host";
+  // Only score when ball center is within the cage depth — not in the open
+  // space behind the cage that the ball can reach by going around the goal.
+  const LEFT_CAGE_BACK  = GOAL_LINE_LEFT  - GOAL_CAGE_DEPTH;
+  const RIGHT_CAGE_BACK = GOAL_LINE_RIGHT + GOAL_CAGE_DEPTH;
+
+  // Left goal (blue/host net): client scores
+  if (ball.x - BALL_RADIUS < GOAL_LINE_LEFT && ball.x > LEFT_CAGE_BACK && ball.vx < 0) return "client";
+  // Right goal (red/client net): host scores
+  if (ball.x + BALL_RADIUS > GOAL_LINE_RIGHT && ball.x < RIGHT_CAGE_BACK && ball.vx > 0) return "host";
   return null;
 }
 
