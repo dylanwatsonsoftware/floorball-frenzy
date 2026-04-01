@@ -98,7 +98,7 @@ export class GameScene extends Phaser.Scene {
 
   // 16 dot positions on a unit sphere (Fibonacci spiral — evenly spread, ~8 visible per frame)
   private static readonly BALL_DOTS: [number, number, number][] = (() => {
-    const n = 16;
+    const n = 26;
     const φ = Math.PI * (3 - Math.sqrt(5)); // golden angle
     return Array.from({ length: n }, (_, i) => {
       const z = 1 - (i / (n - 1)) * 2;
@@ -601,7 +601,7 @@ export class GameScene extends Phaser.Scene {
     // wz > 0 = visible upper hemisphere; wz maps to screen-y via the scene's 0.6 perspective factor.
     const [qw, qx, qy, qz] = this._ballQuat;
     const dotBaseR = Math.max(1, displayR * 0.22);
-    this._ballGraphics.fillStyle(0x777777, 1);
+    this._ballGraphics.fillStyle(0xcccccc, 1);
     for (const [bx, by, bz] of GameScene.BALL_DOTS) {
       // Rotate dot position by quaternion: v' = q * v * q^-1 (Rodrigues via quaternion)
       const tx = 2 * (qy * bz - qz * by);
