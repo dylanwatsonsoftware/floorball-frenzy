@@ -178,9 +178,9 @@ export class GameScene extends Phaser.Scene {
     this._field = this.add.graphics();
     this._drawField();
 
-    // Stick sprites (depth 3, below players)
-    this._hostStickSprite = this.add.sprite(0, 0, "stick_black").setDepth(3).setScale(0.9);
-    this._clientStickSprite = this.add.sprite(0, 0, "stick_black").setDepth(3).setScale(0.9);
+    // Stick sprites (depth 6, above players)
+    this._hostStickSprite = this.add.sprite(0, 0, "stick_black").setDepth(6).setScale(0.9);
+    this._clientStickSprite = this.add.sprite(0, 0, "stick_black").setDepth(6).setScale(0.9);
 
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
@@ -811,8 +811,8 @@ export class GameScene extends Phaser.Scene {
       const nx = dirX / dLen;
       const ny = dirY / dLen;
 
-      const baseX = player.x + nx * (PLAYER_RADIUS * 1.4);
-      const baseY = player.y + ny * (PLAYER_RADIUS * 1.4);
+      const baseX = player.x + nx * (PLAYER_RADIUS * 1.82);
+      const baseY = player.y + ny * (PLAYER_RADIUS * 1.82);
 
       sprite.setPosition(baseX, baseY);
       sprite.setRotation(Math.atan2(ny, nx));
