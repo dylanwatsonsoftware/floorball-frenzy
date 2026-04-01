@@ -48,8 +48,14 @@
       document.getElementById("fs-btn").addEventListener("click", function () {
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(function () {});
+          if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock("landscape").catch(function () {});
+          }
         } else {
           document.exitFullscreen();
+          if (screen.orientation && screen.orientation.unlock) {
+            screen.orientation.unlock();
+          }
         }
       });
     </script>
