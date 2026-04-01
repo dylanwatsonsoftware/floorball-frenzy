@@ -613,7 +613,10 @@ export class GameScene extends Phaser.Scene {
       if (wz <= 0) continue; // lower hemisphere — occluded by ball
       const screenX = wx * displayR;
       const screenY = wy * displayR - wz * displayR * 0.6;
-      this._ballGraphics.fillCircle(screenX, screenY, dotBaseR * wz);
+      const dotR = dotBaseR * wz;
+      const distFromCenter = Math.sqrt(screenX * screenX + screenY * screenY);
+      if (distFromCenter + dotR > displayR) continue; // would bleed outside ball edge
+      this._ballGraphics.fillCircle(screenX, screenY, dotR);
     }
 
     // Shadow stays at ground position, shrinks and fades as ball rises
