@@ -551,6 +551,23 @@ export class GameScene extends Phaser.Scene {
     const aNy = -stickDir.x;
 
     // Dribble target: oscillates side-to-side in front of the player
+    // Blade tip — used as target during charging and for shot snapping
+    const bladeTipX = player.x + stickDir.x * STICK_REACH + aNx * PLAYER_RADIUS * 0.84;
+    const bladeTipY = player.y + stickDir.y * STICK_REACH + aNy * PLAYER_RADIUS * 0.84;
+
+    // During slap-shot charge, pull ball back to blade so it's ready to hit
+    if (isCharging) {
+      const distToBlade = Math.hypot(this.ball.x - bladeTipX, this.ball.y - bladeTipY);
+      if (distToBlade > STICK_REACH * 2 + BALL_RADIUS) return false;
+      if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
+      applyPossessionAssist(this.ball, player.vx, player.vy);
+      this.ball.vx += (player.vx - this.ball.vx) * 0.22;
+      this.ball.vy += (player.vy - this.ball.vy) * 0.22;
+      this.ball.x += (bladeTipX - this.ball.x) * 0.35;
+      this.ball.y += (bladeTipY - this.ball.y) * 0.35;
+      return true;
+    }
+
     const { DRIBBLE_AMP, DRIBBLE_DIST } = GameScene;
     const side = Math.sin(dribblePhase) * DRIBBLE_AMP;
     const targetX = player.x + aNx * DRIBBLE_DIST + stickDir.x * side;
@@ -562,8 +579,7 @@ export class GameScene extends Phaser.Scene {
     const zoneCY = player.y + aNy * DRIBBLE_DIST;
     if (Math.hypot(this.ball.x - zoneCX, this.ball.y - zoneCY) > zoneRadius) return false;
 
-    const relSpeedCap = isCharging ? 600 : 480;
-    if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > relSpeedCap) return false;
+    if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 480) return false;
 
     // Velocity coupling
     applyPossessionAssist(this.ball, player.vx, player.vy);
@@ -577,13 +593,27 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  /** Snap ball to the static blade tip so shots always connect when possessed. */
+  protected _snapBallToBlade(who: "host" | "client"): void {
+    const player = who === "host" ? this.host : this.client;
+    const aim   = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
+    const stick = this._stickDir(player, aim);
+    const aNx = stick.y, aNy = -stick.x;
+    this.ball.x = player.x + stick.x * STICK_REACH + aNx * PLAYER_RADIUS * 0.84;
+    this.ball.y = player.y + stick.y * STICK_REACH + aNy * PLAYER_RADIUS * 0.84;
+  }
+
   protected _doWristShot(who: "host" | "client"): void {
     if (this._frozenMs > 0) return;
     // Always play the swing animation on button press
     if (who === "host") this._hostShotAnimMs = 180;
     else this._clientShotAnimMs = 180;
-    // Only apply ball physics when in range
-    if (!this._ballInRange(who)) return;
+    const hasPossession = who === "host" ? this._hostHasPossession : this._clientHasPossession;
+    if (hasPossession) {
+      this._snapBallToBlade(who);
+    } else if (!this._ballInRange(who)) {
+      return;
+    }
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const player = who === "host" ? this.host : this.client;
     wristShot(this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
@@ -596,8 +626,12 @@ export class GameScene extends Phaser.Scene {
     // Always play the swing animation on release
     if (who === "host") this._hostShotAnimMs = 280;
     else this._clientShotAnimMs = 280;
-    // Only apply ball physics when in range
-    if (!this._ballInRange(who)) return;
+    const hasPossession = who === "host" ? this._hostHasPossession : this._clientHasPossession;
+    if (hasPossession) {
+      this._snapBallToBlade(who);
+    } else if (!this._ballInRange(who)) {
+      return;
+    }
     const state = who === "host" ? this._hostShoot : this._clientShoot;
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const player = who === "host" ? this.host : this.client;
