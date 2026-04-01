@@ -324,7 +324,7 @@ export class GameScene extends Phaser.Scene {
 
     // Accumulate ball rotation and track perpendicular-to-travel axis for rolling projection
     const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
-    this._ballRotation += (ballSpeed * Math.min(delta, 200) / 1000) / BALL_RADIUS;
+    this._ballRotation -= (ballSpeed * Math.min(delta, 200) / 1000) / BALL_RADIUS;
     if (ballSpeed > 5) {
       this._ballTravelX = this.ball.vx / ballSpeed;
       this._ballTravelY = this.ball.vy / ballSpeed;
@@ -581,8 +581,8 @@ export class GameScene extends Phaser.Scene {
     const dotBaseR = Math.max(1, displayR * 0.25);
     const orbitR = displayR * 0.7;
     this._ballGraphics.fillStyle(0x777777, 1);
-    for (let i = 0; i < 3; i++) {
-      const a = this._ballRotation + (i / 3) * Math.PI * 2;
+    for (let i = 0; i < 6; i++) {
+      const a = this._ballRotation + (i / 6) * Math.PI * 2;
       const cosA = Math.cos(a);
       const sinA = Math.sin(a);
       if (sinA <= 0) continue; // lower hemisphere — hidden by ball surface
