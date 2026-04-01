@@ -92,7 +92,8 @@ export class GameScene extends Phaser.Scene {
   private _clientStickSprite!: Phaser.GameObjects.Sprite;
   private _hostSprite!: Phaser.GameObjects.Sprite;
   private _clientSprite!: Phaser.GameObjects.Sprite;
-  private _ballSprite!: Phaser.GameObjects.Arc;
+  private _ballSprite!: Phaser.GameObjects.Image;
+  protected _ballRotation = 0;
   private _ballShadow!: Phaser.GameObjects.Arc;
   private _hostChargeBar!: Phaser.GameObjects.Rectangle;
   private _clientChargeBar!: Phaser.GameObjects.Rectangle;
@@ -170,13 +171,13 @@ export class GameScene extends Phaser.Scene {
 
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
-    // Ball
-    this._ballSprite = this.add.circle(midX, midY, BALL_RADIUS, 0xffffff).setDepth(6);
+    // Ball (procedurally generated texture from BootScene; 64px → scaled to BALL_RADIUS*2)
+    this._ballSprite = this.add.image(midX, midY, "ball").setDepth(6).setScale((BALL_RADIUS * 2) / 64);
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
-    this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56);
-    this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56);
+    this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56).setAlpha(0.7);
+    this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(0.30).setOrigin(0.5, 0.56).setAlpha(0.7);
 
     // Charge bars (shown above each player when charging slap)
     const BAR_W = 40;
@@ -317,6 +318,10 @@ export class GameScene extends Phaser.Scene {
     // Decay shot animation timers
     this._hostShotAnimMs = Math.max(0, this._hostShotAnimMs - delta);
     this._clientShotAnimMs = Math.max(0, this._clientShotAnimMs - delta);
+
+    // Accumulate ball rotation based on distance travelled this frame
+    const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
+    this._ballRotation += (ballSpeed * Math.min(delta, 200) / 1000) / BALL_RADIUS;
 
     this._syncSprites();
   }
@@ -552,8 +557,8 @@ export class GameScene extends Phaser.Scene {
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
-    const scale = 1 + this.ball.z * 0.003;
-    this._ballSprite.setPosition(this.ball.x, visualY).setScale(scale).setDepth(6 + this.ball.z * 0.01);
+    const scale = ((BALL_RADIUS * 2) / 64) * (1 + this.ball.z * 0.003);
+    this._ballSprite.setPosition(this.ball.x, visualY).setScale(scale).setDepth(6 + this.ball.z * 0.01).setRotation(this._ballRotation);
 
     // Shadow stays at ground position, shrinks and fades as ball rises
     const shadowScale = Math.max(0.3, 1 - this.ball.z * 0.004);
