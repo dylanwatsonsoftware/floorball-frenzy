@@ -134,6 +134,11 @@ export class GameScene extends Phaser.Scene {
   protected _hostShotAnimMs = 0;
   protected _clientShotAnimMs = 0;
 
+  // Pending wrist shot: counts down after key-down, fires when it hits 0
+  protected _hostPendingWristMs = 0;
+  protected _clientPendingWristMs = 0;
+  private static readonly WRIST_DELAY_MS = 80;
+
   // Dribble state
   protected _hostDribblePhase = 0;
   protected _clientDribblePhase = 0;
@@ -452,6 +457,16 @@ export class GameScene extends Phaser.Scene {
     dt: number,
     elapsedMs: number
   ): void {
+    // Tick pending wrist shot timers; fire when they expire
+    if (this._hostPendingWristMs > 0) {
+      this._hostPendingWristMs -= elapsedMs;
+      if (this._hostPendingWristMs <= 0) this._executeWristShot("host");
+    }
+    if (this._clientPendingWristMs > 0) {
+      this._clientPendingWristMs -= elapsedMs;
+      if (this._clientPendingWristMs <= 0) this._executeWristShot("client");
+    }
+
     if (hostInput.moveX !== 0 || hostInput.moveY !== 0) {
       this._hostAim = { x: hostInput.moveX, y: hostInput.moveY };
     }
@@ -620,19 +635,25 @@ export class GameScene extends Phaser.Scene {
     this.ball.y = player.y + stick.y * STICK_REACH + aNy * PLAYER_RADIUS * 0.84;
   }
 
+  /** Called on key-down: plays animation immediately, arms the pending timer. */
   protected _doWristShot(who: "host" | "client"): void {
     if (this._frozenMs > 0) return;
-    if (who === "host") this._hostShotAnimMs = 180;
-    else this._clientShotAnimMs = 180;
+    if (who === "host") {
+      this._hostShotAnimMs = 180;
+      this._hostPendingWristMs = GameScene.WRIST_DELAY_MS;
+    } else {
+      this._clientShotAnimMs = 180;
+      this._clientPendingWristMs = GameScene.WRIST_DELAY_MS;
+    }
+  }
 
-    // Use a generous reach so wrist shot works throughout the dribble cycle and
-    // on loose balls nearby. The possession flag is stale (set last physics frame,
-    // before this key-event fires), so we just check raw distance instead.
+  /** Called from the physics loop after the delay expires: actually fires the shot. */
+  protected _executeWristShot(who: "host" | "client"): void {
+    if (this._frozenMs > 0) return;
     const player = who === "host" ? this.host : this.client;
     const distToBall = Math.hypot(this.ball.x - player.x, this.ball.y - player.y);
-    if (distToBall > STICK_REACH * 2.2) return; // ball too far away
+    if (distToBall > STICK_REACH * 2.2) return;
 
-    // Always snap ball to blade tip so the shot always connects cleanly
     this._snapBallToBlade(who);
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     wristShot(this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
