@@ -108,6 +108,11 @@ export class GameScene extends Phaser.Scene {
     });
   })();
   private _ballShadow!: Phaser.GameObjects.Arc;
+  private _fireGraphics!: Phaser.GameObjects.Graphics;
+  private _fireParticles: Array<{
+    x: number; y: number; vx: number; vy: number;
+    life: number; maxLife: number; size: number;
+  }> = [];
   private _hostChargeBar!: Phaser.GameObjects.Rectangle;
   private _clientChargeBar!: Phaser.GameObjects.Rectangle;
   private _scoreText!: Phaser.GameObjects.Text;
@@ -184,6 +189,8 @@ export class GameScene extends Phaser.Scene {
 
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
+    // Fire trail — drawn behind the ball
+    this._fireGraphics = this.add.graphics().setDepth(5.5);
     // Ball drawn each frame via Graphics for physically correct rolling animation
     this._ballGraphics = this.add.graphics().setDepth(6);
 
@@ -395,6 +402,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._syncSprites();
+    this._updateFire(delta);
   }
 
   protected _confirmLeave(): void {
@@ -634,6 +642,53 @@ export class GameScene extends Phaser.Scene {
       this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
       this._frozenMs = 1500;
     }
+  }
+
+  protected _updateFire(deltaMs: number): void {
+    const speed = Math.hypot(this.ball.vx, this.ball.vy);
+    const FIRE_THRESHOLD = 350; // px/s — below this, no fire
+    const visualY = this.ball.y - this.ball.z * 0.6;
+
+    // Spawn particles proportional to how fast the ball is going
+    if (speed > FIRE_THRESHOLD) {
+      const excess = speed - FIRE_THRESHOLD;
+      const spawnCount = Math.random() < (excess / 400) ? 2 : 1;
+      const invSpeed = 1 / speed;
+      const dvx = -this.ball.vx * invSpeed; // direction behind ball
+      const dvy = -this.ball.vy * invSpeed;
+
+      for (let i = 0; i < spawnCount; i++) {
+        const maxLife = 180 + Math.random() * 120;
+        this._fireParticles.push({
+          x: this.ball.x + dvx * BALL_RADIUS * 0.5,
+          y: visualY + dvy * BALL_RADIUS * 0.5,
+          vx: dvx * (60 + Math.random() * 80) + (Math.random() - 0.5) * 70,
+          vy: dvy * (60 + Math.random() * 80) + (Math.random() - 0.5) * 70,
+          life: maxLife,
+          maxLife,
+          size: 3 + Math.random() * 5,
+        });
+      }
+    }
+
+    // Update and draw
+    const dt = deltaMs / 1000;
+    this._fireGraphics.clear();
+    this._fireParticles = this._fireParticles.filter(p => {
+      p.life -= deltaMs;
+      if (p.life <= 0) return false;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+
+      const t = p.life / p.maxLife; // 1=fresh, 0=dead
+      // yellow (t=1) → orange (t=0.5) → red (t=0)
+      const r = 0xff;
+      const g = Math.round(t * 180);
+      const color = (r << 16) | (g << 8);
+      this._fireGraphics.fillStyle(color, t * 0.85);
+      this._fireGraphics.fillCircle(p.x, p.y, p.size * t);
+      return true;
+    });
   }
 
   protected _syncSprites(): void {
