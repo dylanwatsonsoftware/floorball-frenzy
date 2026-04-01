@@ -10,7 +10,7 @@ export class BootScene extends Phaser.Scene {
     this.load.spritesheet("char_host", "assets/male-player.png", { frameWidth: 84, frameHeight: 92 });
     this.load.spritesheet("char_client", "assets/female-player.png", { frameWidth: 84, frameHeight: 92 });
     this.load.spritesheet("stick", "assets/stick_white.png", { frameWidth: 160, frameHeight: 160 });
-    this.load.spritesheet("stick_black", "assets/1775037767822.png", { frameWidth: 160, frameHeight: 160 });
+    this.load.spritesheet("stick_black", "assets/stick_black_v2.png", { frameWidth: 160, frameHeight: 160 });
   }
 
   create(): void {
