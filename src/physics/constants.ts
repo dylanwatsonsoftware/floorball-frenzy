@@ -16,7 +16,7 @@ export const CORNER_RADIUS = Math.round(1.5 * PX_PER_M); // 42
 
 // ─── Goals ────────────────────────────────────────────────────────────────────
 // IFF goal mouth: 1.6 m wide (our y-span). Scaled to 2 m for arcade playability.
-export const GOAL_MOUTH_M = 2.0;
+export const GOAL_MOUTH_M = 4.0;
 export const GOAL_HEIGHT_PX = Math.round(GOAL_MOUTH_M * PX_PER_M); // 56 px
 
 // Goal line sits 3 m from the end wall — leaves visible open space behind goal
