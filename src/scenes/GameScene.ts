@@ -904,16 +904,11 @@ export class GameScene extends Phaser.Scene {
 
       const teamColor    = left ? 0x00cc66 : 0xdd2244;
 
-      // Full zone spans: end-board side (GOAL_LINE_INSET px) + field side (DZONE_DEPTH px)
-      // This makes the crease and house symmetrical around the goal mouth.
-      const BACK_DEPTH   = GOAL_LINE_INSET; // px from mouth to end board (84 px = 3 m)
-      const totalCreaseW = BACK_DEPTH + DZONE_DEPTH;
-      const creaseX      = left ? mouthX - BACK_DEPTH : mouthX - DZONE_DEPTH;
-
-      // House straddles the goal mouth: 1 m each side
-      const totalHouseW  = HOUSE_DEPTH * 2;
-      const houseX       = mouthX - HOUSE_DEPTH;
-      const houseTop     = midGoalY - HOUSE_W / 2;
+      // Crease extends into the field from the goal mouth (field side only, per IFF rules)
+      const creaseX  = left ? mouthX : mouthX - DZONE_DEPTH;
+      // House extends into the field from the goal mouth (field side only, per IFF rules)
+      const houseX   = left ? mouthX : mouthX - HOUSE_DEPTH;
+      const houseTop = midGoalY - HOUSE_W / 2;
 
       // ── Net fill + crosshatch ────────────────────────────────────────────────
       g.fillStyle(0x0a1210, 1);
@@ -929,17 +924,17 @@ export class GameScene extends Phaser.Scene {
         g.lineBetween(xx, GOAL_TOP, xx, GOAL_BOTTOM);
       }
 
-      // ── Outer goal area (crease): spans end-board → 4 m into field ─────────
+      // ── Outer goal area (crease): 4 m × 5 m, field side only ───────────────
       g.fillStyle(teamColor, 0.06);
-      g.fillRect(creaseX, DZONE_TOP, totalCreaseW, DZONE_BOTTOM - DZONE_TOP);
+      g.fillRect(creaseX, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
       g.lineStyle(2, teamColor, 0.55);
-      g.strokeRect(creaseX, DZONE_TOP, totalCreaseW, DZONE_BOTTOM - DZONE_TOP);
+      g.strokeRect(creaseX, DZONE_TOP, DZONE_DEPTH, DZONE_BOTTOM - DZONE_TOP);
 
-      // ── Inner goalkeeper area (house): 1 m each side of goal mouth ──────────
+      // ── Inner goalkeeper area (house): 1 m × 2.5 m, field side only ─────────
       g.fillStyle(teamColor, 0.18);
-      g.fillRect(houseX, houseTop, totalHouseW, HOUSE_W);
+      g.fillRect(houseX, houseTop, HOUSE_DEPTH, HOUSE_W);
       g.lineStyle(2, teamColor, 0.9);
-      g.strokeRect(houseX, houseTop, totalHouseW, HOUSE_W);
+      g.strokeRect(houseX, houseTop, HOUSE_DEPTH, HOUSE_W);
 
       // ── Goal cage frame ──────────────────────────────────────────────────────
       g.lineStyle(3, 0xffffff, 0.9);
