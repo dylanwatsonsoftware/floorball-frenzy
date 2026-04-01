@@ -76,6 +76,7 @@ export class OnlineGameScene extends GameScene {
 
   create(): void {
     super.create();
+    this.events.once("shutdown", this.shutdown, this);
 
     this._pingText = this.add
       .text(1270, 10, "", { fontSize: "13px", color: "#888888" })
@@ -89,8 +90,8 @@ export class OnlineGameScene extends GameScene {
 
     this.add.text(640, 708,
       `Room: ${this._roomId} · ${this._isHost ? "Host (Green)" : "Client (Black)"}`, {
-        fontSize: "13px", color: "#888888",
-      })
+      fontSize: "13px", color: "#888888",
+    })
       .setOrigin(0.5, 1)
       .setDepth(15);
 
@@ -114,7 +115,7 @@ export class OnlineGameScene extends GameScene {
       // Client controls the black player; either Q or comma works.
       // Also latch _pendingWristShot so the host sees the rising edge even if
       // the key is pressed and released within a single fixed-step interval.
-      this._wasd.wrist.on("down",   () => { this._doWristShot("client"); this._pendingWristShot = true; });
+      this._wasd.wrist.on("down", () => { this._doWristShot("client"); this._pendingWristShot = true; });
       this._arrows.wrist.on("down", () => { this._doWristShot("client"); this._pendingWristShot = true; });
     }
   }
@@ -210,10 +211,10 @@ export class OnlineGameScene extends GameScene {
     const w = this._wasd;
     const a = this._arrows;
     let mx = 0, my = 0;
-    if (w.left.isDown  || a.left.isDown)  mx -= 1;
+    if (w.left.isDown || a.left.isDown) mx -= 1;
     if (w.right.isDown || a.right.isDown) mx += 1;
-    if (w.up.isDown    || a.up.isDown)    my -= 1;
-    if (w.down.isDown  || a.down.isDown)  my += 1;
+    if (w.up.isDown || a.up.isDown) my -= 1;
+    if (w.down.isDown || a.down.isDown) my += 1;
 
     if (this._hostJoy.isActive()) {
       mx = this._hostJoy.value.x;
@@ -372,8 +373,8 @@ export class OnlineGameScene extends GameScene {
     btnLabel.disableInteractive();
 
     btnBg.on("pointerover", () => btnBg.setFillStyle(0x2255cc, 1));
-    btnBg.on("pointerout",  () => btnBg.setFillStyle(0x1a44bb, 1));
-    btnBg.on("pointerup",   () => this.scene.start("MenuScene"));
+    btnBg.on("pointerout", () => btnBg.setFillStyle(0x1a44bb, 1));
+    btnBg.on("pointerup", () => this.scene.start("MenuScene"));
   }
 
   shutdown(): void {
