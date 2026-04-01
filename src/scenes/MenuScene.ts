@@ -26,6 +26,10 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
+    // Center the 1280px menu in the available canvas on wider screens
+    const extraW = Math.max(0, this.scale.width - W);
+    if (extraW > 0) this.cameras.main.scrollX = -Math.floor(extraW / 2);
+
     this._drawBackground();
     this._drawTitle();
     this._drawButtons();
