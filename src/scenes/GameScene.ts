@@ -571,7 +571,7 @@ export class GameScene extends Phaser.Scene {
     const toggleFrame = Math.floor(this.time.now / 200) % 2;
 
     this._hostSprite.setPosition(this.host.x, this.host.y);
-    this._hostSprite.setRotation(Math.atan2(this._hostAimSmooth.y, this._hostAimSmooth.x) + Math.PI / 2);
+    this._hostSprite.setRotation(Math.atan2(this._hostAimSmooth.y, this._hostAimSmooth.x) - Math.PI / 2);
     if (hostHasBall) {
       this._hostSprite.anims.play("dribble_host", true);
     } else if (Math.abs(this.host.vx) > 10 || Math.abs(this.host.vy) > 10) {
@@ -583,7 +583,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._clientSprite.setPosition(this.client.x, this.client.y);
-    this._clientSprite.setRotation(Math.atan2(this._clientAimSmooth.y, this._clientAimSmooth.x) + Math.PI / 2);
+    this._clientSprite.setRotation(Math.atan2(this._clientAimSmooth.y, this._clientAimSmooth.x) - Math.PI / 2);
     if (clientHasBall) {
       this._clientSprite.anims.play("dribble_client", true);
     } else if (Math.abs(this.client.vx) > 10 || Math.abs(this.client.vy) > 10) {
