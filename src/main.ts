@@ -1,4 +1,7 @@
+import LogRocket from "logrocket";
 import Phaser from "phaser";
+
+LogRocket.init("floorball/floorball-frenzy");
 import { BootScene } from "./scenes/BootScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { GameScene } from "./scenes/GameScene";
