@@ -811,8 +811,8 @@ export class GameScene extends Phaser.Scene {
       const nx = dirX / dLen;
       const ny = dirY / dLen;
 
-      const baseX = player.x + nx * (PLAYER_RADIUS * 1.82) + aNx * (PLAYER_RADIUS * 0.80);
-      const baseY = player.y + ny * (PLAYER_RADIUS * 1.82) + aNy * (PLAYER_RADIUS * 0.80);
+      const baseX = player.x + nx * (PLAYER_RADIUS * 1.82) + aNx * (PLAYER_RADIUS * 0.84);
+      const baseY = player.y + ny * (PLAYER_RADIUS * 1.82) + aNy * (PLAYER_RADIUS * 0.84);
 
       sprite.setPosition(baseX, baseY);
       sprite.setRotation(Math.atan2(ny, nx));
