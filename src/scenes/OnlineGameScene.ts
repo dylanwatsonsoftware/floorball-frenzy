@@ -27,6 +27,7 @@ export class OnlineGameScene extends GameScene {
 
   private _waitingBallGfx!: Phaser.GameObjects.Graphics;
   private _waitingBallQuat: [number, number, number, number] = [1, 0, 0, 0];
+  private _waitingTitleText: Phaser.GameObjects.Text | null = null;
 
   private _countdownMs = 0;
   private _countdownText!: Phaser.GameObjects.Text;
@@ -63,6 +64,11 @@ export class OnlineGameScene extends GameScene {
         this._playDing();
         this._peer.send({ type: "start" });
         this._startCountdown();
+      }
+    };
+    this._peer.onAnswerReceived = () => {
+      if (this._waitingTitleText) {
+        this._waitingTitleText.setText("Connecting to opponent…");
       }
     };
     this._peer.onReconnecting = () => {
@@ -390,6 +396,7 @@ export class OnlineGameScene extends GameScene {
     const title = this.add.text(cx - 30, cy - 120, "Waiting for opponent", {
       fontSize: "24px", color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
+    this._waitingTitleText = title;
 
     const gameName = localStorage.getItem("floorball:gameName") || this._roomId;
     const roomLabel = this.add.text(cx, cy - 72, gameName, {

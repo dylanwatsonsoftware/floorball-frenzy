@@ -44,6 +44,7 @@ export class PeerConnection {
   onMessage: OnMessageCb = () => undefined;
   onStateChange: OnStateCb = () => undefined;
   onChannelOpen: () => void = () => undefined;
+  onAnswerReceived: () => void = () => undefined;
   onReconnecting: () => void = () => undefined;
   onGiveUp: () => void = () => undefined;
 
@@ -250,6 +251,7 @@ export class PeerConnection {
       log(this._role, "answer sent");
     } else if (msg.type === "answer" && this._role === "host") {
       log(this._role, "handling answer — setting remote description");
+      this.onAnswerReceived();
       await this._pc.setRemoteDescription({ type: "answer", sdp: msg.sdp });
       log(this._role, "remote description set ✓");
     } else {
