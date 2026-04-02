@@ -58,6 +58,7 @@ export class OnlineGameScene extends GameScene {
       this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
       this._statusText?.setText("");
       if (this._isHost) {
+        this._playDing();
         this._peer.send({ type: "start" });
         this._startCountdown();
       }
@@ -397,6 +398,23 @@ export class OnlineGameScene extends GameScene {
 
     // Include _waitingBallGfx so it gets hidden when opponent connects
     this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint, this._waitingBallGfx];
+  }
+
+  private _playDing(): void {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(1046, ctx.currentTime);       // C6
+      osc.frequency.setValueAtTime(1318, ctx.currentTime + 0.1); // E6
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 1.2);
+    } catch { /* audio not available */ }
   }
 
   private _startCountdown(): void {
