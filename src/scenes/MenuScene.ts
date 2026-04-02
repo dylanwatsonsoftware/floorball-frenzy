@@ -180,6 +180,7 @@ export class MenuScene extends Phaser.Scene {
 
     // ── Game rows (rebuilt on every refresh) ──────────────────────────────────
     let rowObjs: Phaser.GameObjects.GameObject[] = [];
+    let knownRoomIds: Set<string> | null = null; // null = first load, no ding
 
     const loadGames = async (): Promise<void> => {
       rowObjs.forEach(o => o.destroy());
@@ -195,6 +196,12 @@ export class MenuScene extends Phaser.Scene {
         statusTxt.setText("Could not load games.\nCheck your connection.");
         return;
       }
+
+      if (knownRoomIds !== null) {
+        const hasNew = games.some(g => !knownRoomIds!.has(g.roomId));
+        if (hasNew) this._playLobbyDing();
+      }
+      knownRoomIds = new Set(games.map(g => g.roomId));
 
       if (games.length === 0) {
         statusTxt.setText("No open games right now.\nPress CREATE NEW GAME to start one!");
@@ -346,6 +353,23 @@ export class MenuScene extends Phaser.Scene {
   }
 
   // ─── Button factory ─────────────────────────────────────────────────────────
+
+  private _playLobbyDing(): void {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1108, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.9);
+    } catch { /* audio not available */ }
+  }
 
   private _makeButton(
     x: number, y: number,
