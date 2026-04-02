@@ -16,7 +16,7 @@ export const CORNER_RADIUS = Math.round(1.5 * PX_PER_M); // 42
 
 // ─── Goals ────────────────────────────────────────────────────────────────────
 // IFF goal mouth: 1.6 m wide (our y-span). Scaled to 2 m for arcade playability.
-export const GOAL_MOUTH_M = 8.0;
+export const GOAL_MOUTH_M = 4.0;
 export const GOAL_HEIGHT_PX = Math.round(GOAL_MOUTH_M * PX_PER_M); // 56 px
 
 // Goal line sits 3 m from the end wall — leaves visible open space behind goal
@@ -28,7 +28,7 @@ export const GOAL_LINE_RIGHT = FIELD_RIGHT - GOAL_LINE_INSET; // 1086
 // The remaining space (GOAL_LINE_INSET - GOAL_CAGE_DEPTH = 1.5 m) is open
 // space behind the goal that players and the ball can freely enter.
 export const GOAL_CAGE_DEPTH = Math.round(1.5 * PX_PER_M); // 42 px
-export const GOAL_Z_THRESHOLD = 120; // ball.z must be below this to score (px)
+export const GOAL_Z_THRESHOLD = 240; // ball.z must be below this to score (px)
 export const GOAL_TOP    = (FIELD_TOP + FIELD_BOTTOM) / 2 - GOAL_HEIGHT_PX / 2;
 export const GOAL_BOTTOM = GOAL_TOP + GOAL_HEIGHT_PX;
 
