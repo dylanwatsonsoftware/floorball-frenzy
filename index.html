@@ -30,6 +30,13 @@
         overflow: hidden;
         background: #1a1a2e;
       }
+      /* iOS Safari: dvh can still overlap the persistent bottom toolbar;
+         -webkit-fill-available is the actual usable height on iOS */
+      @supports (-webkit-touch-callout: none) {
+        html, body {
+          height: -webkit-fill-available;
+        }
+      }
 
       /* Fullscreen toggle — always in real viewport corner, above canvas */
       #fs-btn {
