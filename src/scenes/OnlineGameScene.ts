@@ -371,8 +371,9 @@ export class OnlineGameScene extends GameScene {
     this._waitingBallQuat = [1, 0, 0, 0];
     this._waitingBallGfx = this.add.graphics().setDepth(19);
 
-    const roomLabel = this.add.text(cx, cy - 72, `Room code: ${this._roomId}`, {
-      fontSize: "22px", color: "#aaaaff",
+    const gameName = localStorage.getItem("floorball:gameName") || this._roomId;
+    const roomLabel = this.add.text(cx, cy - 72, gameName, {
+      fontSize: "26px", color: "#aaaaff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
 
     // Large share button — direct children on scene (no Container) so input works first tap
