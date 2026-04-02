@@ -292,10 +292,12 @@ export class MenuScene extends Phaser.Scene {
       outline: "none", fontFamily: "monospace", textAlign: "center",
       zIndex: "9999", boxSizing: "border-box",
     });
-    el.maxLength = 30;
+    el.maxLength = 50;
     el.value = saved;
     el.placeholder = "Game name…";
     document.body.appendChild(el);
+    el.addEventListener("focus", () => this.input.keyboard?.disableGlobalCapture());
+    el.addEventListener("blur",  () => this.input.keyboard?.enableGlobalCapture());
     setTimeout(() => { el.focus(); el.select(); }, 50);
 
     const okBg = this.add.rectangle(cx + 90, cy + MH / 2 - 40, 140, 44, GREEN, 1)
