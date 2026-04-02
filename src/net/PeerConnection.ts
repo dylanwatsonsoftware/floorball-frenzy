@@ -6,20 +6,21 @@ export type Role = "host" | "client";
 type OnMessageCb = (msg: GameMessage) => void;
 type OnStateCb = (state: RTCPeerConnectionState) => void;
 
-const ICE_SERVERS: RTCIceServer[] = [
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
-  {
-    urls: [
-      "turn:openrelay.metered.ca:80",
-      "turn:openrelay.metered.ca:80?transport=tcp",
-      "turn:openrelay.metered.ca:443",
-      "turns:openrelay.metered.ca:443",
-    ],
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
+  { urls: "stun:stun.cloudflare.com:3478" },
 ];
+
+async function fetchIceServers(): Promise<RTCIceServer[]> {
+  try {
+    const res = await fetch("/api/ice-servers");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as RTCIceServer[];
+  } catch {
+    return FALLBACK_ICE_SERVERS;
+  }
+}
 
 const SIGNAL_POLL_MS = 500;
 const ICE_GATHER_TIMEOUT_MS = 5000;
@@ -35,6 +36,7 @@ export class PeerConnection {
   private _channel: RTCDataChannel | null = null;
   private _role: Role;
   private _roomId: string;
+  private _iceServers: RTCIceServer[] = FALLBACK_ICE_SERVERS;
   private _pollTimer: ReturnType<typeof setInterval> | null = null;
   private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _reconnectAttempts = 0;
@@ -48,12 +50,15 @@ export class PeerConnection {
   constructor(role: Role, roomId: string) {
     this._role = role;
     this._roomId = roomId;
-    log(role, "creating RTCPeerConnection, room:", roomId);
-    this._initPC();
+    log(role, "PeerConnection created, room:", roomId);
   }
 
   async startAsHost(): Promise<void> {
-    log(this._role, "startAsHost — creating offer");
+    log(this._role, "startAsHost — fetching ICE config");
+    this._iceServers = await fetchIceServers();
+    log(this._role, "ICE servers:", this._iceServers.length, "entries");
+    this._initPC();
+    log(this._role, "creating offer");
     const offer = await this._pc.createOffer();
     const iceComplete = this._waitForICE();
     await this._pc.setLocalDescription(offer);
@@ -66,7 +71,11 @@ export class PeerConnection {
   }
 
   async startAsClient(): Promise<void> {
-    log(this._role, "startAsClient — starting poll");
+    log(this._role, "startAsClient — fetching ICE config");
+    this._iceServers = await fetchIceServers();
+    log(this._role, "ICE servers:", this._iceServers.length, "entries");
+    this._initPC();
+    log(this._role, "starting poll");
     this._startPolling();
   }
 
@@ -89,7 +98,7 @@ export class PeerConnection {
   // ─── Private ────────────────────────────────────────────────────────────────
 
   private _initPC(): void {
-    this._pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    this._pc = new RTCPeerConnection({ iceServers: this._iceServers });
 
     this._pc.onconnectionstatechange = () => {
       const state = this._pc.connectionState;
@@ -162,12 +171,19 @@ export class PeerConnection {
     // Fire callback so the scene can show "Reconnecting…" and pause game
     this.onReconnecting();
 
-    // Build fresh PC and re-run signaling
+    // Build fresh PC and re-run signaling (reuse already-fetched ICE config)
     this._initPC();
     if (this._role === "host") {
-      void this.startAsHost();
+      log(this._role, "reconnect — creating offer");
+      void this._pc.createOffer().then(async (offer) => {
+        const iceComplete = this._waitForICE();
+        await this._pc.setLocalDescription(offer);
+        const finalDesc = await iceComplete;
+        await this._signal({ type: "offer", sdp: finalDesc.sdp!, roomId: this._roomId });
+        this._startPolling();
+      });
     } else {
-      void this.startAsClient();
+      this._startPolling();
     }
   }
 
