@@ -241,14 +241,6 @@ export class PeerConnection {
 
   private async _handleSignal(msg: SignalMessage): Promise<void> {
     if (msg.type === "offer" && this._role === "client") {
-      // If the PC is already failed/closed, rebuild it before handling the new offer
-      const s = this._pc.signalingState;
-      if (s !== "stable" && s !== "have-remote-offer") {
-        log(this._role, "PC in bad state, rebuilding before handling new offer");
-        this._channel?.close();
-        this._pc.close();
-        this._initPC();
-      }
       log(this._role, "handling offer — setting remote description");
       await this._pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
       log(this._role, "creating answer");
