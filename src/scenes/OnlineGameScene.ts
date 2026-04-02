@@ -29,6 +29,7 @@ export class OnlineGameScene extends GameScene {
 
   private _countdownMs = 0;
   private _countdownText!: Phaser.GameObjects.Text;
+  private _lastCountdownLabel = "";
 
   private _onlineClientSlapWasDown = false;
   private _pendingWristShot = false;      // client → host: latched on key-down
@@ -167,6 +168,10 @@ export class OnlineGameScene extends GameScene {
       const label = this._countdownMs > 3000 ? "3"
         : this._countdownMs > 2000 ? "2"
         : this._countdownMs > 1000 ? "1" : "GO!";
+      if (label !== this._lastCountdownLabel) {
+        this._lastCountdownLabel = label;
+        this._playCountdownBeep(label);
+      }
       this._countdownText.setText(label).setVisible(true);
       if (this._countdownMs <= 0) {
         this._countdownText.setVisible(false);
@@ -400,6 +405,23 @@ export class OnlineGameScene extends GameScene {
     this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint, this._waitingBallGfx];
   }
 
+  private _playCountdownBeep(label: string): void {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      const isGo = label === "GO!";
+      osc.frequency.value = isGo ? 1046 : 440; // C6 for GO!, A4 for numbers
+      gain.gain.setValueAtTime(isGo ? 0.4 : 0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (isGo ? 0.8 : 0.15));
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + (isGo ? 0.8 : 0.15));
+    } catch { /* audio not available */ }
+  }
+
   private _playDing(): void {
     try {
       const ctx = new AudioContext();
@@ -420,6 +442,7 @@ export class OnlineGameScene extends GameScene {
   private _startCountdown(): void {
     this._resetRound();
     this._countdownMs = 4000; // 3…2…1… then GO! for 1s
+    this._lastCountdownLabel = "";
     this._countdownText.setVisible(true);
   }
 
