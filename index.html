@@ -29,17 +29,18 @@
         height: 100dvh;
         overflow: hidden;
         background: #1a1a2e;
-        /* Keep content inside safe areas (notch, status bar, home indicator) */
-        padding: env(safe-area-inset-top, 0px)
-                 env(safe-area-inset-right, 0px)
-                 env(safe-area-inset-bottom, 0px)
-                 env(safe-area-inset-left, 0px);
       }
       /* iOS Safari: dvh can still overlap the persistent bottom toolbar;
-         -webkit-fill-available is the actual usable height on iOS */
+         -webkit-fill-available is the actual usable height on iOS.
+         Safe-area padding is iOS-only so it doesn't shrink the canvas on desktop/fullscreen. */
       @supports (-webkit-touch-callout: none) {
         html, body {
           height: -webkit-fill-available;
+          /* Keep content inside safe areas (notch, status bar, home indicator) */
+          padding: env(safe-area-inset-top, 0px)
+                   env(safe-area-inset-right, 0px)
+                   env(safe-area-inset-bottom, 0px)
+                   env(safe-area-inset-left, 0px);
         }
       }
 
