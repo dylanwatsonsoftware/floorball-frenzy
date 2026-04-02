@@ -154,7 +154,8 @@ export class OnlineGameScene extends GameScene {
       const len = Math.hypot(...this._waitingBallQuat);
       this._waitingBallQuat = this._waitingBallQuat.map(v => v / len) as [number, number, number, number];
 
-      const ballX = 640 + 155, ballY = 360 - 120;
+      const ballX = this._isHost ? 640 + 155 : 640;
+      const ballY = this._isHost ? 360 - 120 : 360;
       this._waitingBallGfx.clear();
       this._waitingBallGfx.setPosition(ballX, ballY);
       this._drawBallAt(this._waitingBallGfx, 0, 0, 16, this._waitingBallQuat);
@@ -353,30 +354,38 @@ export class OnlineGameScene extends GameScene {
     }
   }
 
-  /** Big centered panel shown on host while waiting for opponent. */
+  /** Big centered panel shown while waiting to connect. Host sees share UI; client sees connecting UI. */
   private _buildSharePanel(): void {
-    if (!this._isHost) return;
+    const cx = 640, cy = 360;
+
+    this._waitingBallQuat = [1, 0, 0, 0];
+    this._waitingBallGfx = this.add.graphics().setDepth(19);
+
+    if (!this._isHost) {
+      const overlay = this.add.rectangle(cx, cy, 480, 240, 0x000000, 0.8).setDepth(18);
+      const title = this.add.text(cx, cy - 60, "Connecting…", {
+        fontSize: "28px", color: "#ffffff", fontStyle: "bold",
+      }).setOrigin(0.5).setDepth(19);
+      const sub = this.add.text(cx, cy + 60, "Getting you into the game", {
+        fontSize: "16px", color: "#556688",
+      }).setOrigin(0.5).setDepth(19);
+      this._sharePanelObjects = [overlay, title, sub, this._waitingBallGfx];
+      return;
+    }
 
     const shareUrl = `${window.location.origin}${window.location.pathname}#${this._roomId}`;
-    const cx = 640, cy = 360;
 
     const overlay = this.add.rectangle(cx, cy, 560, 340, 0x000000, 0.8).setDepth(18);
 
-    // "Waiting for opponent" text — left of rolling ball
     const title = this.add.text(cx - 30, cy - 120, "Waiting for opponent", {
       fontSize: "24px", color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
-
-    // Rolling ball loading icon — sits to the right of title
-    this._waitingBallQuat = [1, 0, 0, 0];
-    this._waitingBallGfx = this.add.graphics().setDepth(19);
 
     const gameName = localStorage.getItem("floorball:gameName") || this._roomId;
     const roomLabel = this.add.text(cx, cy - 72, gameName, {
       fontSize: "26px", color: "#aaaaff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
 
-    // Large share button — direct children on scene (no Container) so input works first tap
     const btnBg = this.add.rectangle(cx, cy, 440, 80, 0x1a44bb, 1)
       .setStrokeStyle(2, 0x6699ff, 1)
       .setInteractive({ useHandCursor: true })
@@ -386,14 +395,12 @@ export class OnlineGameScene extends GameScene {
       fontSize: "22px", color: "#ffffff",
     }).setOrigin(0.5).setDepth(19);
 
-    // Use pointerup (not pointerdown) — avoids first-tap-is-hover on mobile
     btnBg.on("pointerup", () => {
       if (navigator.share) {
         void navigator.share({ title: "Floorball Frenzy — join my game!", url: shareUrl })
           .then(() => btnLabel.setText("✓  Shared!"))
           .catch(() => { /* user cancelled */ });
       } else {
-        // Prompt is the most reliable cross-browser fallback; user can copy from dialog
         window.prompt("Copy this link and send to your friend:", shareUrl);
       }
     });
@@ -402,7 +409,6 @@ export class OnlineGameScene extends GameScene {
       fontSize: "15px", color: "#556688",
     }).setOrigin(0.5).setDepth(19);
 
-    // Include _waitingBallGfx so it gets hidden when opponent connects
     this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint, this._waitingBallGfx];
   }
 
