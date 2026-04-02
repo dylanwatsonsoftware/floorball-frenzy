@@ -289,15 +289,17 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(16);
 
-    // ── Bottom keyboard hints ───────────────────────────────────────────────────
-    this.add.text(FIELD_LEFT, FIELD_BOTTOM + 10,
-      "Green: WASD · Shift dash · Q wrist · E slap", {
-      fontSize: "13px", color: "#444466",
-    });
-    this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 10,
-      "Black: Arrows · Space dash · , wrist · . slap", {
-      fontSize: "13px", color: "#444466",
-    }).setOrigin(1, 0);
+    // ── Bottom keyboard hints (local only) ─────────────────────────────────────
+    if (this._mode === "local") {
+      this.add.text(FIELD_LEFT, FIELD_BOTTOM + 10,
+        "Green: WASD · Shift dash · Q wrist · E slap", {
+        fontSize: "13px", color: "#444466",
+      });
+      this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 10,
+        "Black: Arrows · Space dash · , wrist · . slap", {
+        fontSize: "13px", color: "#444466",
+      }).setOrigin(1, 0);
+    }
 
     // Keyboard bindings
     const kb = this.input.keyboard!;
