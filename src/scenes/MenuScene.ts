@@ -91,10 +91,10 @@ export class MenuScene extends Phaser.Scene {
     this._makeButton(W / 2, H / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       const el = document.documentElement;
       if (el.requestFullscreen) {
-        void el.requestFullscreen().catch(() => {});
+        void el.requestFullscreen().catch(() => { });
       }
       if (screen.orientation?.lock) {
-        void screen.orientation.lock("landscape").catch(() => {});
+        void screen.orientation.lock("landscape").catch(() => { });
       }
       void this._showLobby();
     });
@@ -102,10 +102,6 @@ export class MenuScene extends Phaser.Scene {
     this._makeButton(W / 2, H / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
       this.scene.start("GameScene", { mode: "local" });
     });
-
-    this.add.text(W / 2, H / 2 + 210, "Green: WASD · Shift · Q · E          Black: Arrows · Space · , · .", {
-      fontSize: "13px", color: "#ffffff",
-    }).setOrigin(0.5);
 
     this._drawCommitInfo();
   }
@@ -311,7 +307,7 @@ export class MenuScene extends Phaser.Scene {
     el.placeholder = "Game name…";
     document.body.appendChild(el);
     el.addEventListener("focus", () => this.input.keyboard?.disableGlobalCapture());
-    el.addEventListener("blur",  () => this.input.keyboard?.enableGlobalCapture());
+    el.addEventListener("blur", () => this.input.keyboard?.enableGlobalCapture());
     setTimeout(() => { el.focus(); el.select(); }, 50);
 
     const okBg = this.add.rectangle(cx + 90, cy + MH / 2 - 40, 140, 44, GREEN, 1)
@@ -346,11 +342,11 @@ export class MenuScene extends Phaser.Scene {
     };
 
     okBg.on("pointerover", () => okBg.setFillStyle(0x55dd77));
-    okBg.on("pointerout",  () => okBg.setFillStyle(GREEN));
+    okBg.on("pointerout", () => okBg.setFillStyle(GREEN));
     okBg.on("pointerup", confirm);
 
     cancelBg.on("pointerover", () => cancelBg.setStrokeStyle(1, 0x888888, 1));
-    cancelBg.on("pointerout",  () => cancelBg.setStrokeStyle(1, 0x555555, 1));
+    cancelBg.on("pointerout", () => cancelBg.setStrokeStyle(1, 0x555555, 1));
     cancelBg.on("pointerup", destroy);
 
     el.addEventListener("keydown", (e) => {
