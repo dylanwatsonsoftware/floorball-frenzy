@@ -265,7 +265,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private _startHosting(): void {
-    const saved = localStorage.getItem("floorball:playerName") ?? "";
+    const saved = localStorage.getItem("floorball:gameName") ?? "";
     const cx = W / 2;
     const cy = H / 2;
     const MW = 480, MH = 220;
@@ -278,7 +278,7 @@ export class MenuScene extends Phaser.Scene {
     modalGfx.lineStyle(1, 0x36b346, 0.7);
     modalGfx.strokeRoundedRect(cx - MW / 2, cy - MH / 2, MW, MH, 16);
 
-    const titleTxt = this.add.text(cx, cy - MH / 2 + 36, "ENTER YOUR NAME", {
+    const titleTxt = this.add.text(cx, cy - MH / 2 + 36, "ENTER GAME NAME", {
       fontSize: "20px", color: "#00cc66", fontStyle: "bold", letterSpacing: 3,
     }).setOrigin(0.5).setDepth(22);
 
@@ -312,9 +312,9 @@ export class MenuScene extends Phaser.Scene {
     const destroy = () => promptObjs.forEach(o => o.destroy());
 
     const confirm = () => {
-      const hostName = el.value.trim() || "Player";
+      const hostName = el.value.trim() || "Game";
       destroy();
-      localStorage.setItem("floorball:playerName", hostName);
+      localStorage.setItem("floorball:gameName", hostName);
       const roomId = randomRoomId();
       window.location.hash = roomId;
       void fetch("/api/lobby", {
