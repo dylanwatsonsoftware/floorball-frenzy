@@ -723,8 +723,9 @@ export class GameScene extends Phaser.Scene {
 
   protected _onGoal(scorer: "host" | "client"): void {
     this.score[scorer]++;
+    const isWin = this.score[scorer] >= WINNING_SCORE;
     const label = scorer === "host" ? "Green scores!" : "Black scores!";
-    if (this.score[scorer] >= WINNING_SCORE) {
+    if (isWin) {
       this._messageText.setText(`${scorer === "host" ? "Green" : "Black"} wins!`);
       this._frozenMs = 3000;
       this.time.delayedCall(3000, () => this.scene.start("MenuScene"));
@@ -732,6 +733,57 @@ export class GameScene extends Phaser.Scene {
       this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
       this._frozenMs = 1500;
     }
+    this._playGoalCheer(isWin);
+  }
+
+  private _playGoalCheer(isWin: boolean): void {
+    try {
+      const ctx = new AudioContext();
+      const duration = isWin ? 3.5 : 2.0;
+
+      // ── Crowd noise: filtered white noise ──────────────────────────────────
+      const bufLen = Math.ceil(ctx.sampleRate * duration);
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+      const crowd = ctx.createBufferSource();
+      crowd.buffer = buf;
+
+      // Band-pass: crowd cheer lives around 800–3 kHz
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = 1200;
+      bp.Q.value = 0.6;
+
+      const crowdGain = ctx.createGain();
+      crowdGain.gain.setValueAtTime(0, ctx.currentTime);
+      crowdGain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 0.12);
+      crowdGain.gain.setValueAtTime(0.35, ctx.currentTime + duration - 0.4);
+      crowdGain.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+
+      crowd.connect(bp);
+      bp.connect(crowdGain);
+      crowdGain.connect(ctx.destination);
+      crowd.start(ctx.currentTime);
+
+      // ── Goal horn: two blasts ───────────────────────────────────────────────
+      const hornFreqs = isWin ? [220, 277, 330, 440] : [220, 277];
+      hornFreqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.value = freq;
+        const t0 = ctx.currentTime + i * 0.28;
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(0.18, t0 + 0.03);
+        g.gain.setValueAtTime(0.18, t0 + 0.22);
+        g.gain.linearRampToValueAtTime(0, t0 + 0.28);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.3);
+      });
+    } catch { /* audio not available */ }
   }
 
   protected _updateFire(deltaMs: number): void {
