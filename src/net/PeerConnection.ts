@@ -22,8 +22,8 @@ async function fetchIceServers(): Promise<RTCIceServer[]> {
   }
 }
 
-const SIGNAL_POLL_MS = 500;
-const ICE_GATHER_TIMEOUT_MS = 5000;
+const SIGNAL_POLL_MS = 250;
+const ICE_GATHER_TIMEOUT_MS = 10000;
 // Delay before reconnecting after "disconnected" (transient drops often self-heal)
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECT_ATTEMPTS = 6;
@@ -241,6 +241,14 @@ export class PeerConnection {
 
   private async _handleSignal(msg: SignalMessage): Promise<void> {
     if (msg.type === "offer" && this._role === "client") {
+      // If the PC is already failed/closed, rebuild it before handling the new offer
+      const s = this._pc.signalingState;
+      if (s !== "stable" && s !== "have-remote-offer") {
+        log(this._role, "PC in bad state, rebuilding before handling new offer");
+        this._channel?.close();
+        this._pc.close();
+        this._initPC();
+      }
       log(this._role, "handling offer — setting remote description");
       await this._pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
       log(this._role, "creating answer");
