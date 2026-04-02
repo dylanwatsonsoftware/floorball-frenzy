@@ -282,16 +282,20 @@ export class MenuScene extends Phaser.Scene {
       fontSize: "20px", color: "#00cc66", fontStyle: "bold", letterSpacing: 3,
     }).setOrigin(0.5).setDepth(22);
 
-    const inputDom = this.add.dom(cx, cy - 14, "input").setDepth(22);
-    const el = inputDom.node as HTMLInputElement;
+    const el = document.createElement("input");
     Object.assign(el.style, {
+      position: "fixed", left: "50%", top: "50%",
+      transform: "translate(-50%, -50%)",
       width: "340px", height: "44px", background: "#0a0f0a",
       border: "1px solid #36b346", borderRadius: "8px",
       color: "#ffffff", fontSize: "20px", padding: "0 12px",
       outline: "none", fontFamily: "monospace", textAlign: "center",
+      zIndex: "9999", boxSizing: "border-box",
     });
     el.maxLength = 30;
     el.value = saved;
+    el.placeholder = "Game name…";
+    document.body.appendChild(el);
     setTimeout(() => { el.focus(); el.select(); }, 50);
 
     const okBg = this.add.rectangle(cx + 90, cy + MH / 2 - 40, 140, 44, GREEN, 1)
@@ -308,8 +312,8 @@ export class MenuScene extends Phaser.Scene {
     okTxt.disableInteractive();
     cancelTxt.disableInteractive();
 
-    const promptObjs = [overlay, modalGfx, titleTxt, inputDom, okBg, okTxt, cancelBg, cancelTxt];
-    const destroy = () => promptObjs.forEach(o => o.destroy());
+    const promptObjs = [overlay, modalGfx, titleTxt, okBg, okTxt, cancelBg, cancelTxt];
+    const destroy = () => { el.remove(); promptObjs.forEach(o => o.destroy()); };
 
     const confirm = () => {
       const hostName = el.value.trim() || "Game";
