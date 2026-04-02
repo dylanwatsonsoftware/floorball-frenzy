@@ -45,6 +45,7 @@ export class PeerConnection {
   onStateChange: OnStateCb = () => undefined;
   onChannelOpen: () => void = () => undefined;
   onAnswerReceived: () => void = () => undefined;
+  onIceStateChange: (state: RTCIceConnectionState) => void = () => undefined;
   onReconnecting: () => void = () => undefined;
   onGiveUp: () => void = () => undefined;
 
@@ -121,8 +122,10 @@ export class PeerConnection {
       }
     };
 
-    this._pc.oniceconnectionstatechange = () =>
+    this._pc.oniceconnectionstatechange = () => {
       log(this._role, "iceConnectionState →", this._pc.iceConnectionState);
+      this.onIceStateChange(this._pc.iceConnectionState);
+    };
     this._pc.onicegatheringstatechange = () =>
       log(this._role, "iceGatheringState →", this._pc.iceGatheringState);
     this._pc.onsignalingstatechange = () =>

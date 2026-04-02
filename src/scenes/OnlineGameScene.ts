@@ -28,6 +28,8 @@ export class OnlineGameScene extends GameScene {
   private _waitingBallGfx!: Phaser.GameObjects.Graphics;
   private _waitingBallQuat: [number, number, number, number] = [1, 0, 0, 0];
   private _waitingTitleText: Phaser.GameObjects.Text | null = null;
+  private _waitingSubText: Phaser.GameObjects.Text | null = null;
+  private _connectTimeoutTimer: Phaser.Time.TimerEvent | null = null;
 
   private _countdownMs = 0;
   private _countdownText!: Phaser.GameObjects.Text;
@@ -58,6 +60,7 @@ export class OnlineGameScene extends GameScene {
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
     this._peer.onChannelOpen = () => {
       this._connected = true;
+      if (this._connectTimeoutTimer) { this._connectTimeoutTimer.destroy(); this._connectTimeoutTimer = null; }
       this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
       this._statusText?.setText("");
       if (this._isHost) {
@@ -67,8 +70,25 @@ export class OnlineGameScene extends GameScene {
       }
     };
     this._peer.onAnswerReceived = () => {
-      if (this._waitingTitleText) {
-        this._waitingTitleText.setText("Connecting to opponent…");
+      if (this._waitingTitleText) this._waitingTitleText.setText("Connecting to opponent…");
+      // Start a timeout — if ICE hasn't connected after 12s, flag likely TURN issue
+      this._connectTimeoutTimer = this.time.delayedCall(12000, () => {
+        if (!this._connected && this._waitingSubText) {
+          this._waitingSubText.setText("Taking longer than expected…\nCheck your network connection.");
+        }
+      });
+    };
+    this._peer.onIceStateChange = (state) => {
+      if (this._connected) return;
+      const labels: Partial<Record<RTCIceConnectionState, string>> = {
+        checking:     "Checking connection…",
+        connected:    "Almost there…",
+        completed:    "Almost there…",
+        failed:       "Connection failed — retrying…",
+        disconnected: "Connection lost — retrying…",
+      };
+      if (labels[state] && this._waitingTitleText) {
+        this._waitingTitleText.setText(labels[state]!);
       }
     };
     this._peer.onReconnecting = () => {
@@ -378,13 +398,15 @@ export class OnlineGameScene extends GameScene {
     this._waitingBallGfx = this.add.graphics().setDepth(19);
 
     if (!this._isHost) {
-      const overlay = this.add.rectangle(cx, cy, 480, 240, 0x000000, 0.8).setDepth(18);
-      const title = this.add.text(cx, cy - 60, "Connecting…", {
+      const overlay = this.add.rectangle(cx, cy, 520, 260, 0x000000, 0.8).setDepth(18);
+      const title = this.add.text(cx, cy - 70, "Connecting…", {
         fontSize: "28px", color: "#ffffff", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(19);
       const sub = this.add.text(cx, cy + 60, "Getting you into the game", {
-        fontSize: "16px", color: "#556688",
+        fontSize: "16px", color: "#556688", align: "center",
       }).setOrigin(0.5).setDepth(19);
+      this._waitingTitleText = title;
+      this._waitingSubText = sub;
       this._sharePanelObjects = [overlay, title, sub, this._waitingBallGfx];
       return;
     }
