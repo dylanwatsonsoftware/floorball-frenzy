@@ -82,7 +82,7 @@ export class MenuScene extends Phaser.Scene {
       stroke: "#1e7a29", strokeThickness: 6,
     }).setOrigin(0.5);
     this.add.text(W / 2, titleY + 54, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
-      fontSize: "16px", color: "#36b346", letterSpacing: 2,
+      fontSize: "16px", color: "#ffffff", letterSpacing: 2,
     }).setOrigin(0.5);
   }
 
@@ -104,7 +104,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.add.text(W / 2, H / 2 + 210, "Green: WASD · Shift · Q · E          Black: Arrows · Space · , · .", {
-      fontSize: "13px", color: "#3a5040",
+      fontSize: "13px", color: "#ffffff",
     }).setOrigin(0.5);
 
     this._drawCommitInfo();
@@ -115,7 +115,7 @@ export class MenuScene extends Phaser.Scene {
     const m = Math.floor(diffMs / 60000);
     const ago = m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`;
     this.add.text(W / 2, H - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
-      fontSize: "15px", color: "#3a6644",
+      fontSize: "15px", color: "#ffffff",
     }).setOrigin(0.5, 1);
   }
 
@@ -405,7 +405,7 @@ export class MenuScene extends Phaser.Scene {
       shadow: { offsetX: 0, offsetY: 1, color: colorHex, blur: 8, stroke: false, fill: true },
     }).setOrigin(0.5);
     const sub = this.add.text(x, y + 18, sublabel, {
-      fontSize: "12px", color: colorHex, letterSpacing: 3,
+      fontSize: "12px", color: "#ffffff", letterSpacing: 3,
     }).setOrigin(0.5);
     title.disableInteractive();
     sub.disableInteractive();
