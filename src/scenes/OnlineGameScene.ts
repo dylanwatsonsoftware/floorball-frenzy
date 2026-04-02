@@ -1,3 +1,4 @@
+import LogRocket from "logrocket";
 import type { GameState } from "../types/game";
 import { GameScene } from "./GameScene";
 import { PeerConnection } from "../net/PeerConnection";
@@ -87,6 +88,15 @@ export class OnlineGameScene extends GameScene {
   create(): void {
     super.create();
     this.events.once("shutdown", this.shutdown, this);
+
+    if (this._isHost) {
+      const gameName = localStorage.getItem("floorball:gameName") || this._roomId;
+      LogRocket.identify(`host-${this._roomId}`, { name: gameName, role: "host" });
+      LogRocket.track("game_created", { gameName, roomId: this._roomId });
+    } else {
+      LogRocket.identify(`client-${this._roomId}`, { name: `Guest · ${this._roomId}`, role: "client" });
+      LogRocket.track("game_joined", { roomId: this._roomId });
+    }
 
     this._pingText = this.add
       .text(1270, 10, "", { fontSize: "13px", color: "#888888" })
