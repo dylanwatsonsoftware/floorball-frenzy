@@ -89,6 +89,13 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtons(): void {
     // Two buttons: Play Online (green) + Local Match
     this._makeButton(W / 2, H / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        void el.requestFullscreen().catch(() => {});
+      }
+      if (screen.orientation?.lock) {
+        void screen.orientation.lock("landscape").catch(() => {});
+      }
       void this._showLobby();
     });
 
