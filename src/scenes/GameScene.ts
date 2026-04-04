@@ -602,8 +602,16 @@ export class GameScene extends Phaser.Scene {
       applyPossessionAssist(this.ball, player.vx, player.vy);
       this.ball.vx += (player.vx - this.ball.vx) * 0.22;
       this.ball.vy += (player.vy - this.ball.vy) * 0.22;
-      this.ball.x += (bladeTipX - this.ball.x) * 0.35;
-      this.ball.y += (bladeTipY - this.ball.y) * 0.35;
+
+      // Distance-capped pull toward blade tip to prevent teleporting
+      const dx = bladeTipX - this.ball.x;
+      const dy = bladeTipY - this.ball.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0.1) {
+        const moveDist = Math.min(dist, 6); // max 6px per step
+        this.ball.x += (dx / dist) * moveDist;
+        this.ball.y += (dy / dist) * moveDist;
+      }
       return true;
     }
 
@@ -625,11 +633,35 @@ export class GameScene extends Phaser.Scene {
     this.ball.vx += (player.vx - this.ball.vx) * 0.22;
     this.ball.vy += (player.vy - this.ball.vy) * 0.22;
 
-    // Spring ball toward dribble target
-    this.ball.x += (targetX - this.ball.x) * 0.45;
-    this.ball.y += (targetY - this.ball.y) * 0.45;
+    // Distance-capped pull toward dribble target to prevent teleporting
+    const dx = targetX - this.ball.x;
+    const dy = targetY - this.ball.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 0.1) {
+      const moveDist = Math.min(dist, 6); // max 6px per step
+      this.ball.x += (dx / dist) * moveDist;
+      this.ball.y += (dy / dist) * moveDist;
+    }
 
     return true;
+  }
+
+  /** Spawns a brief visual effect on the ball for a one-touch shot. */
+  private _spawnOneTouchJuice(): void {
+    // Brief particle burst on the ball
+    const visualY = this.ball.y - this.ball.z * 0.6;
+    for (let i = 0; i < 8; i++) {
+      this._fireParticles.push({
+        x: this.ball.x,
+        y: visualY,
+        vx: (Math.random() - 0.5) * 500,
+        vy: (Math.random() - 0.5) * 500,
+        life: 300,
+        maxLife: 300,
+        size: 6 + Math.random() * 4,
+      });
+    }
+    // Also a brief scale up of the ball graphics could be added in _syncSprites if we had a dedicated timer
   }
 
   /** Snap ball to the static blade tip so shots always connect when possessed. */
@@ -663,7 +695,9 @@ export class GameScene extends Phaser.Scene {
 
     this._snapBallToBlade(who);
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
-    wristShot(this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
+    const isOT = this._isOneTouch(who);
+    if (isOT) this._spawnOneTouchJuice();
+    wristShot(this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
     else this._clientShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
@@ -682,7 +716,9 @@ export class GameScene extends Phaser.Scene {
     const state = who === "host" ? this._hostShoot : this._clientShoot;
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const player = who === "host" ? this.host : this.client;
-    releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
+    const isOT = this._isOneTouch(who);
+    if (isOT) this._spawnOneTouchJuice();
+    releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
     else this._clientShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;

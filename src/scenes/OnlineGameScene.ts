@@ -424,6 +424,14 @@ export class OnlineGameScene extends GameScene {
       }
       case "goal": {
         if (!this._isHost) {
+          // Snap ball to center of goal mouth for better visual transition on prediction error
+          const mouthX = msg.scorer === "host" ? GOAL_LINE_RIGHT : GOAL_LINE_LEFT;
+          this.ball.x = mouthX;
+          this.ball.y = (GOAL_TOP + GOAL_BOTTOM) / 2;
+          this.ball.z = 0;
+          this.ball.vx = 0;
+          this.ball.vy = 0;
+          this.ball.vz = 0;
           this._onGoal(msg.scorer);
         }
         break;
