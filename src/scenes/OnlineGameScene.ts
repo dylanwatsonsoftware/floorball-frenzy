@@ -41,10 +41,6 @@ export class OnlineGameScene extends GameScene {
   private _pendingWristShot = false;      // client → host: latched on key-down
   private _pendingClientWrist = false;    // host side: set when any input msg has wrist:true
 
-  private _hostAim = { x: 1, y: 0 };
-  private _hostAimSmooth = { x: 1, y: 0 };
-  private _hostShoot = { chargeMs: 0, charging: false };
-
   constructor() {
     super();
     this.sys.settings.key = "OnlineGameScene";
