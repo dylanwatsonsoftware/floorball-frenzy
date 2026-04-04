@@ -9,6 +9,14 @@ type OnStateCb = (state: RTCPeerConnectionState) => void;
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+  { urls: "stun:stun.l.google.com:3478" },
+  { urls: "stun:stun1.l.google.com:3478" },
+  { urls: "stun:stun2.l.google.com:3478" },
+  { urls: "stun:stun3.l.google.com:3478" },
+  { urls: "stun:stun4.l.google.com:3478" },
   { urls: "stun:stun.cloudflare.com:3478" },
 ];
 
@@ -254,8 +262,11 @@ export class PeerConnection {
   }
 
   private async _handleSignal(msg: SignalMessage): Promise<void> {
+    log(this._role, "Received signal:", msg.type, "SDP length:", msg.sdp?.length);
+
     if (msg.type === "offer" && this._role === "client") {
       log(this._role, "handling offer — setting remote description");
+      log(this._role, "Remote SDP candidates:", msg.sdp.split("\n").filter((l) => l.includes("candidate")).length);
       await this._pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
       log(this._role, "creating answer");
       const answer = await this._pc.createAnswer();
@@ -266,6 +277,7 @@ export class PeerConnection {
       await this._flushPendingCandidates();
     } else if (msg.type === "answer" && this._role === "host") {
       log(this._role, "handling answer — setting remote description");
+      log(this._role, "Remote SDP candidates:", msg.sdp.split("\n").filter((l) => l.includes("candidate")).length);
       this.onAnswerReceived();
       await this._pc.setRemoteDescription({ type: "answer", sdp: msg.sdp });
       log(this._role, "remote description set ✓");
