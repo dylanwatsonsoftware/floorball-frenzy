@@ -64,12 +64,16 @@ export const CONTROL_RADIUS = 40;
 // ─── Dash ─────────────────────────────────────────────────────────────────────
 export const DASH_FORCE    = 950;
 export const DASH_COOLDOWN = 4000;
+export const DASH_STEAL_WINDOW = 200;
+export const DASH_STEAL_FORCE = 1.6;
 
 // ─── Shooting ─────────────────────────────────────────────────────────────────
 export const SHOOT_BASE_POWER    = 500;  // was 400
 export const SHOOT_POWER_SCALE   = 700;  // was 600
 export const SHOOT_LIFT_SCALE    = 550;
 export const SHOOT_MAX_CHARGE_MS = 800;
+export const PERFECT_SHOT_WINDOW = 60;
+export const PERFECT_SHOT_BOOST = 1.3;
 
 // ─── One-touch bonus ──────────────────────────────────────────────────────────
 export const ONE_TOUCH_WINDOW      = 300;

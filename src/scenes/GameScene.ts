@@ -36,6 +36,8 @@ import {
   PX_PER_M,
   STICK_REACH,
   DASH_COOLDOWN,
+  DASH_STEAL_WINDOW,
+  DASH_STEAL_FORCE,
 } from "../physics/constants";
 
 const WINNING_SCORE = 5;
@@ -513,7 +515,7 @@ export class GameScene extends Phaser.Scene {
     // Use smoothed aim for stick direction so stick doesn't teleport on direction change
     const hostStick = this._stickDir(this.host, this._hostAimSmooth);
     const clientStick = this._stickDir(this.client, this._clientAimSmooth);
-    resolvePlayerPlayerCollision(this.host, this.client);
+    resolvePlayerPlayerCollision(this.host, this.client, (p1, p2) => this._onPlayerPlayerContact(p1, p2));
     resolvePlayerBallCollision(this.host, this.ball);
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
@@ -682,7 +684,12 @@ export class GameScene extends Phaser.Scene {
     const state = who === "host" ? this._hostShoot : this._clientShoot;
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const player = who === "host" ? this.host : this.client;
-    releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
+    const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, this._isOneTouch(who), player.vx, player.vy);
+    this.ball.isPerfect = isPerfect;
+    if (isPerfect) {
+      this._spawnPerfectJuice(this.ball.x, this.ball.y);
+      this._frozenMs = 50; // Hit-stop
+    }
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
     else this._clientShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
@@ -726,19 +733,82 @@ export class GameScene extends Phaser.Scene {
     return { moveX: mx, moveY: my, wrist: k.wrist.isDown, slap: k.slap.isDown, dash: k.dash.isDown };
   }
 
+  protected _onPlayerPlayerContact(p1: PlayerExtended, p2: PlayerExtended): void {
+    // Check if either player is dashing
+    const p1Dashing = p1.dashCooldownMs > DASH_COOLDOWN - DASH_STEAL_WINDOW;
+    const p2Dashing = p2.dashCooldownMs > DASH_COOLDOWN - DASH_STEAL_WINDOW;
+
+    if (p1Dashing && this._clientHasPossession) {
+      this._pokeBall(p1);
+    } else if (p2Dashing && this._hostHasPossession) {
+      this._pokeBall(p2);
+    }
+  }
+
+  private _pokeBall(dashingPlayer: PlayerExtended): void {
+    this.ball.vx = dashingPlayer.vx * DASH_STEAL_FORCE;
+    this.ball.vy = dashingPlayer.vy * DASH_STEAL_FORCE;
+    this.ball.isPerfect = false;
+    this._hostHasPossession = false;
+    this._clientHasPossession = false;
+    this._hostShotCooldownMs = 150;
+    this._clientShotCooldownMs = 150;
+
+    // Juice for poke
+    this.cameras.main.shake(100, 0.004);
+  }
+
   protected _onGoal(scorer: "host" | "client"): void {
     this.score[scorer]++;
     const isWin = this.score[scorer] >= WINNING_SCORE;
     const label = scorer === "host" ? "Green scores!" : "Black scores!";
     if (isWin) {
       this._messageText.setText(`${scorer === "host" ? "Green" : "Black"} wins!`);
-      this._frozenMs = 3000;
-      this.time.delayedCall(3000, () => this.scene.start("MenuScene"));
+      this._frozenMs = 5000; // Give time for the overlay
+      this._updateWinStreak(scorer);
+      this.time.delayedCall(1000, () => this._showMatchOver(scorer));
     } else {
       this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
       this._frozenMs = 1500;
     }
     this._playGoalCheer(isWin);
+  }
+
+  private _updateWinStreak(winner: "host" | "client"): void {
+    const key = "floorball:streak";
+    const data = JSON.parse(localStorage.getItem(key) || '{"winner":"","count":0}');
+    if (data.winner === winner) {
+      data.count++;
+    } else {
+      data.winner = winner;
+      data.count = 1;
+    }
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+
+  private _showMatchOver(winner: "host" | "client"): void {
+    const cx = 640, cy = 360;
+    const data = JSON.parse(localStorage.getItem("floorball:streak") || '{"winner":"","count":0}');
+    const streakText = data.count > 1 ? `WIN STREAK: ${data.count}` : "FIRST WIN!";
+
+    // Overlay background
+    const bg = this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30);
+
+    this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    this.add.text(cx, cy - 40, `${winner === "host" ? "GREEN" : "BLACK"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+
+    // Rematch button
+    const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, 0x00cc66, 1).setDepth(31).setInteractive({ useHandCursor: true });
+    const rematchLabel = this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+
+    rematchBtn.on("pointerup", () => this.scene.restart());
+
+    // Menu button
+    const menuBtn = this.add.rectangle(cx, cy + 170, 250, 60, 0x444466, 1).setDepth(31).setInteractive({ useHandCursor: true });
+    const menuLabel = this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+
+    menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
   }
 
   private _playGoalCheer(isWin: boolean): void {
@@ -828,13 +898,45 @@ export class GameScene extends Phaser.Scene {
       p.y += p.vy * dt;
 
       const t = p.life / p.maxLife; // 1=fresh, 0=dead
-      // bright yellow (t=1) → orange (t=0.5) → pure red (t<0.5)
-      const r = 0xff;
-      const g = t > 0.5 ? Math.round((t - 0.5) * 2 * 220) : 0;
-      const color = (r << 16) | (g << 8);
+
+      let color = 0xff0000;
+      if (this.ball.isPerfect) {
+        // Cyan (t=1) -> White (t=0.5) -> Cyan (t=0)
+        const g = 255;
+        const b = 255;
+        const r = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
+        color = (r << 16) | (g << 8) | b;
+      } else {
+        // bright yellow (t=1) → orange (t=0.5) → pure red (t<0.5)
+        const r = 0xff;
+        const g = t > 0.5 ? Math.round((t - 0.5) * 2 * 220) : 0;
+        color = (r << 16) | (g << 8);
+      }
+
       this._fireGraphics.fillStyle(color, Math.min(1, t * 1.1));
       this._fireGraphics.fillCircle(p.x, p.y, p.size * t);
       return true;
+    });
+  }
+
+  private _spawnPerfectJuice(x: number, y: number): void {
+    this.cameras.main.shake(150, 0.005);
+
+    // Expanding shockwave ring
+    const ring = this.add.graphics().setDepth(20);
+    const data = { r: 10, a: 1 };
+    this.tweens.add({
+      targets: data,
+      r: 100,
+      a: 0,
+      duration: 300,
+      ease: "Cubic.out",
+      onUpdate: () => {
+        ring.clear();
+        ring.lineStyle(4, 0xffffff, data.a);
+        ring.strokeCircle(x, y, data.r);
+      },
+      onComplete: () => ring.destroy(),
     });
   }
 

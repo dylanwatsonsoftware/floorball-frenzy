@@ -24,7 +24,8 @@ const MASS_SCALE = 0.015;
  */
 export function resolvePlayerPlayerCollision(
   a: PlayerExtended,
-  b: PlayerExtended
+  b: PlayerExtended,
+  onContact?: (p1: PlayerExtended, p2: PlayerExtended) => void
 ): void {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -66,6 +67,8 @@ export function resolvePlayerPlayerCollision(
   a.vy -= (j / massA) * ny;
   b.vx += (j / massB) * nx;
   b.vy += (j / massB) * ny;
+
+  if (onContact) onContact(a, b);
 }
 
 /**
