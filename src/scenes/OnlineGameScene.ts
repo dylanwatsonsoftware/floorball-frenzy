@@ -8,6 +8,12 @@ import { stepPlayer } from "../physics/playerPhysics";
 import { stepBall } from "../physics/ballPhysics";
 import { resolvePlayerBallCollision, resolveStickTipCollision, resolvePlayerPlayerCollision } from "../physics/collision";
 import { updateShootCharge } from "../physics/shooting";
+import {
+  GOAL_LINE_LEFT,
+  GOAL_LINE_RIGHT,
+  GOAL_TOP,
+  GOAL_BOTTOM
+} from "../physics/constants";
 
 const SNAPSHOT_INTERVAL_MS = 1000 / 15; // 15 Hz
 
