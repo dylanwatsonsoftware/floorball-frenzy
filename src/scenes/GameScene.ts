@@ -518,10 +518,15 @@ export class GameScene extends Phaser.Scene {
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
+
     this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging, this._hostShotCooldownMs > 0);
-    if (this._hostHasPossession) this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
-    this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
-    if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+    if (this._hostHasPossession) {
+      this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      this._clientHasPossession = false;
+    } else {
+      this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
+      if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+    }
 
     this._updateLastTouch();
 

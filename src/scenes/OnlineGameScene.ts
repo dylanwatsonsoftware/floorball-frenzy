@@ -33,6 +33,7 @@ export class OnlineGameScene extends GameScene {
   private _connectTimeoutTimer: Phaser.Time.TimerEvent | null = null;
 
   private _countdownMs = 0;
+  private _startedCountdown = false;
   private _countdownText!: Phaser.GameObjects.Text;
   private _lastCountdownLabel = "";
 
@@ -56,6 +57,16 @@ export class OnlineGameScene extends GameScene {
     this._onlineClientSlapWasDown = false;
     this._pendingWristShot = false;
     this._pendingClientWrist = false;
+    this._startedCountdown = false;
+
+    this._hostAim = { x: 1, y: 0 };
+    this._hostAimSmooth = { x: 1, y: 0 };
+    this._hostShoot = { chargeMs: 0, charging: false };
+
+    this._hostDribblePhase = 0;
+    this._clientDribblePhase = 0;
+    this._hostHasPossession = false;
+    this._clientHasPossession = false;
 
     this._peer = new PeerConnection(data.role, data.roomId);
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
@@ -76,6 +87,7 @@ export class OnlineGameScene extends GameScene {
             if (this._connected) this._peer.send({ type: "start" });
           },
         });
+        this._startedCountdown = true;
         this._startCountdown();
       }
     };
@@ -276,6 +288,16 @@ export class OnlineGameScene extends GameScene {
       this._clientAimSmooth = this._lerpAim(this._clientAimSmooth, this._clientAim);
       stepPlayer(this.client, input, dt, elapsedMs);
 
+      if (this.host.input.moveX !== 0 || this.host.input.moveY !== 0) {
+        this._hostAim = { x: this.host.input.moveX, y: this.host.input.moveY };
+      }
+      this._hostAimSmooth = this._lerpAim(this._hostAimSmooth, this._hostAim);
+      const hostInputActual = (this.host.input.dash && this.host.input.moveX === 0 && this.host.input.moveY === 0)
+        ? { ...this.host.input, moveX: this._hostAimSmooth.x, moveY: this._hostAimSmooth.y }
+        : this.host.input;
+      stepPlayer(this.host, hostInputActual, dt, elapsedMs);
+      updateShootCharge(this._hostShoot, this.host.input.slap, elapsedMs);
+
       // Slap: check release BEFORE updating charge
       if (this._onlineClientSlapWasDown && !input.slap) {
         this._clientShoot.chargeMs = 0;
@@ -286,12 +308,22 @@ export class OnlineGameScene extends GameScene {
 
       // Local prediction: player collision, stick tip collision + possession (host is authoritative)
       const clientStick = this._stickDir(this.client, this._clientAimSmooth);
+      const hostStick   = this._stickDir(this.host, this._hostAimSmooth);
       resolvePlayerPlayerCollision(this.host, this.client);
       resolvePlayerBallCollision(this.host, this.ball);
       resolvePlayerBallCollision(this.client, this.ball);
+      resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
       resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
-      this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging);
-      if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+
+      this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging);
+      if (this._hostHasPossession) {
+        this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+        this._clientHasPossession = false;
+      } else {
+        this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging);
+        if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      }
+
       stepBall(this.ball, dt);
 
       this._peer.send({ type: "input", seq: ++this._inputSeq, input });
@@ -358,7 +390,8 @@ export class OnlineGameScene extends GameScene {
   private _onNetMessage(msg: GameMessage): void {
     switch (msg.type) {
       case "start": {
-        if (this._connected) return;
+        if (this._startedCountdown) return;
+        this._startedCountdown = true;
         this._connected = true;
         this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
         this._statusText?.setText("");
@@ -373,7 +406,12 @@ export class OnlineGameScene extends GameScene {
             players: { host: this.host, client: this.client },
             score: this.score,
           };
-          lerpState(current, msg.snapshot, 0.15);
+          lerpState(current, msg.snapshot, 0.3);
+          // Correct charging state: if snapshot shows slap is up, zero the local prediction
+          if (!msg.snapshot.players.host.input.slap) {
+            this._hostShoot.chargeMs = 0;
+            this._hostShoot.charging = false;
+          }
         }
         break;
       }
