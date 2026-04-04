@@ -1,24 +1,13 @@
 import type { GameMessage, SignalMessage } from "./messages";
 import { decodeMessage, encodeMessage } from "./messages";
+import { DEFAULT_ICE_SERVERS } from "../../api/ice-servers";
 
 export type Role = "host" | "client";
 
 type OnMessageCb = (msg: GameMessage) => void;
 type OnStateCb = (state: RTCPeerConnectionState) => void;
 
-const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-  { urls: "stun:stun2.l.google.com:19302" },
-  { urls: "stun:stun3.l.google.com:19302" },
-  { urls: "stun:stun4.l.google.com:19302" },
-  { urls: "stun:stun.l.google.com:3478" },
-  { urls: "stun:stun1.l.google.com:3478" },
-  { urls: "stun:stun2.l.google.com:3478" },
-  { urls: "stun:stun3.l.google.com:3478" },
-  { urls: "stun:stun4.l.google.com:3478" },
-  { urls: "stun:stun.cloudflare.com:3478" },
-];
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = DEFAULT_ICE_SERVERS;
 
 async function fetchIceServers(): Promise<RTCIceServer[]> {
   try {
@@ -48,6 +37,7 @@ export class PeerConnection {
   private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _reconnectAttempts = 0;
   private _polling = false;
+  private _pollController: AbortController | null = null;
   private _pendingCandidates: RTCIceCandidateInit[] = [];
 
   onMessage: OnMessageCb = () => undefined;
@@ -95,6 +85,8 @@ export class PeerConnection {
 
   close(): void {
     this._clearTimers();
+    this._pollController?.abort();
+    this._pollController = null;
     this._channel?.close();
     this._pc.close();
   }
@@ -185,6 +177,8 @@ export class PeerConnection {
 
     // Tear down old connection
     this._clearTimers();
+    this._pollController?.abort();
+    this._pollController = null;
     this._channel?.close();
     this._pc.close();
     this._channel = null;
@@ -241,9 +235,11 @@ export class PeerConnection {
   private async _poll(): Promise<void> {
     if (this._polling) return;
     this._polling = true;
+    this._pollController = new AbortController();
+
     try {
       const url = `/api/signal?room=${encodeURIComponent(this._roomId)}&role=${this._role}&t=${Date.now()}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: this._pollController.signal });
       log(this._role, `poll → HTTP ${res.status}`);
       const msgs = await res.json() as unknown[];
       if (!Array.isArray(msgs) || msgs.length === 0) {
@@ -252,12 +248,21 @@ export class PeerConnection {
       }
       log(this._role, `poll → received ${msgs.length} message(s)`);
       for (const msg of msgs) {
-        await this._handleSignal(msg as SignalMessage);
+        try {
+          await this._handleSignal(msg as SignalMessage);
+        } catch (e) {
+          log(this._role, "error handling signal message:", (msg as any)?.type, e);
+        }
       }
-    } catch (err) {
-      log(this._role, "poll error:", err);
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        log(this._role, "poll aborted");
+      } else {
+        log(this._role, "poll error:", err);
+      }
     } finally {
       this._polling = false;
+      this._pollController = null;
     }
   }
 

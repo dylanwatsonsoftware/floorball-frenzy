@@ -14,29 +14,32 @@
 
 import type { IncomingMessage, ServerResponse } from "http";
 
-interface IceServer {
+export interface IceServer {
   urls: string | string[];
   username?: string;
   credential?: string;
 }
 
+export const DEFAULT_ICE_SERVERS: IceServer[] = [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+  { urls: "stun:stun.l.google.com:3478" },
+  { urls: "stun:stun1.l.google.com:3478" },
+  { urls: "stun:stun2.l.google.com:3478" },
+  { urls: "stun:stun3.l.google.com:3478" },
+  { urls: "stun:stun4.l.google.com:3478" },
+  { urls: "stun:stun.cloudflare.com:3478" },
+];
+
 export default function handler(_req: IncomingMessage, res: ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Content-Type", "application/json");
 
-  const servers: IceServer[] = [
-    { urls: "stun:stun.relay.metered.ca:80" },
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun3.l.google.com:19302" },
-    { urls: "stun:stun4.l.google.com:19302" },
-    { urls: "stun:stun.l.google.com:3478" },
-    { urls: "stun:stun1.l.google.com:3478" },
-    { urls: "stun:stun2.l.google.com:3478" },
-    { urls: "stun:stun3.l.google.com:3478" },
-    { urls: "stun:stun4.l.google.com:3478" },
-  ];
+  const servers: IceServer[] = [...DEFAULT_ICE_SERVERS];
 
   const username = process.env.TURN_USERNAME;
   const password = process.env.TURN_PASSWORD;
