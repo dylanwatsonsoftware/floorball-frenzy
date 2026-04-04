@@ -20,6 +20,7 @@ export class OnlineGameScene extends GameScene {
   private _pingTimer = 0;
   private _pingMs = 0;
   private _inputSeq = 0;
+  private _startSignalTimer: Phaser.Time.TimerEvent | null = null;
 
   private _statusText!: Phaser.GameObjects.Text;
   private _pingText!: Phaser.GameObjects.Text;
@@ -59,13 +60,22 @@ export class OnlineGameScene extends GameScene {
     this._peer = new PeerConnection(data.role, data.roomId);
     this._peer.onMessage = (msg) => this._onNetMessage(msg);
     this._peer.onChannelOpen = () => {
+      if (this._connected) return;
       this._connected = true;
       if (this._connectTimeoutTimer) { this._connectTimeoutTimer.destroy(); this._connectTimeoutTimer = null; }
       this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
       this._statusText?.setText("");
       if (this._isHost) {
         this._playDing();
+        // Send start signal multiple times to ensure it gets through the unreliable channel
         this._peer.send({ type: "start" });
+        this._startSignalTimer = this.time.addEvent({
+          delay: 500,
+          repeat: 5,
+          callback: () => {
+            if (this._connected) this._peer.send({ type: "start" });
+          },
+        });
         this._startCountdown();
       }
     };
@@ -347,6 +357,14 @@ export class OnlineGameScene extends GameScene {
 
   private _onNetMessage(msg: GameMessage): void {
     switch (msg.type) {
+      case "start": {
+        if (this._connected) return;
+        this._connected = true;
+        this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
+        this._statusText?.setText("");
+        this._startCountdown();
+        break;
+      }
       case "state": {
         if (!this._isHost) {
           const current: GameState = {
@@ -370,13 +388,6 @@ export class OnlineGameScene extends GameScene {
         if (!this._isHost) {
           this._onGoal(msg.scorer);
         }
-        break;
-      }
-      case "start": {
-        this._connected = true;
-        this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
-        this._statusText?.setText("");
-        this._startCountdown();
         break;
       }
       case "ping": {
@@ -524,6 +535,7 @@ export class OnlineGameScene extends GameScene {
 
   shutdown(): void {
     history.replaceState(null, "", window.location.pathname);
+    if (this._startSignalTimer) { this._startSignalTimer.destroy(); this._startSignalTimer = null; }
     if (this._peer) {
       // Clear all callbacks before closing so async events (channel close,
       // reconnect timers) don't fire on already-destroyed scene objects.

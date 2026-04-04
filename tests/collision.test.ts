@@ -112,17 +112,22 @@ describe("resolveStickTipCollision", () => {
 
   it("pushes ball away from tip on contact", () => {
     const p = makePlayer({ x: 0, y: 0 });
-    // Ball just beyond tip (tip at TIP_DIST, ball at TIP_DIST + 8 — inside BALL_RADIUS)
-    const ball = makeBall({ x: TIP_DIST + 8, y: 0 });
+    // Stick tip is at (TIP_DIST, -0.84 * PLAYER_RADIUS) due to fwdX/fwdY offset
+    const fwdY = -0.84 * PLAYER_RADIUS;
+    const ball = makeBall({ x: TIP_DIST, y: fwdY + 5 }); // 5px offset from tip
     resolveStickTipCollision(p, ball, 1, 0);
-    // Ball should be pushed further right (away from tip)
-    expect(ball.x).toBeGreaterThan(TIP_DIST + 8);
+    // Ball should be pushed further away from tip
+    const dist = Math.hypot(ball.x - TIP_DIST, ball.y - fwdY);
+    expect(dist).toBeGreaterThan(5);
   });
 
   it("transfers player velocity to ball on stick-tip contact", () => {
     const p = makePlayer({ x: 0, y: 0, vx: 300, vy: 0 });
-    // Ball just beyond tip — player moving right into it
-    const ball = makeBall({ x: TIP_DIST + 8, y: 0 });
+    const fwdY = -0.84 * PLAYER_RADIUS;
+    // Place ball so that it's overlapping the tip and the collision normal has a positive x component.
+    // Tip is at (TIP_DIST, fwdY).
+    // If ball is at (TIP_DIST + 5, fwdY), nx = 1.
+    const ball = makeBall({ x: TIP_DIST + 5, y: fwdY });
     resolveStickTipCollision(p, ball, 1, 0);
     expect(ball.vx).toBeGreaterThan(0);
   });
@@ -133,7 +138,12 @@ describe("resolveStickTipCollision", () => {
     const aimX = 3, aimY = 4; // magnitude 5
     const len = Math.hypot(aimX, aimY);
     const nax = aimX / len, nay = aimY / len;
-    const tipX = nax * TIP_DIST, tipY = nay * TIP_DIST;
+
+    const fwdX = nay * PLAYER_RADIUS * 0.84;
+    const fwdY = -nax * PLAYER_RADIUS * 0.84;
+    const tipX = nax * (PLAYER_RADIUS + STICK_LENGTH) + fwdX;
+    const tipY = nay * (PLAYER_RADIUS + STICK_LENGTH) + fwdY;
+
     const ball = makeBall({ x: tipX, y: tipY - 2 }); // near tip
     resolveStickTipCollision(p, ball, aimX, aimY);
     // Ball should have moved (overlap resolved)

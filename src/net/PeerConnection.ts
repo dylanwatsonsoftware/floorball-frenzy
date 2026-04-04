@@ -1,16 +1,13 @@
 import type { GameMessage, SignalMessage } from "./messages";
 import { decodeMessage, encodeMessage } from "./messages";
+import { DEFAULT_ICE_SERVERS } from "../../api/ice-servers";
 
 export type Role = "host" | "client";
 
 type OnMessageCb = (msg: GameMessage) => void;
 type OnStateCb = (state: RTCPeerConnectionState) => void;
 
-const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-  { urls: "stun:stun.cloudflare.com:3478" },
-];
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = DEFAULT_ICE_SERVERS;
 
 async function fetchIceServers(): Promise<RTCIceServer[]> {
   try {
@@ -23,7 +20,6 @@ async function fetchIceServers(): Promise<RTCIceServer[]> {
 }
 
 const SIGNAL_POLL_MS = 250;
-const ICE_GATHER_TIMEOUT_MS = 10000;
 // Delay before reconnecting after "disconnected" (transient drops often self-heal)
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECT_ATTEMPTS = 6;
@@ -40,6 +36,9 @@ export class PeerConnection {
   private _pollTimer: ReturnType<typeof setInterval> | null = null;
   private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _reconnectAttempts = 0;
+  private _polling = false;
+  private _pollController: AbortController | null = null;
+  private _pendingCandidates: RTCIceCandidateInit[] = [];
 
   onMessage: OnMessageCb = () => undefined;
   onStateChange: OnStateCb = () => undefined;
@@ -62,12 +61,9 @@ export class PeerConnection {
     this._initPC();
     log(this._role, "creating offer");
     const offer = await this._pc.createOffer();
-    const iceComplete = this._waitForICE();
     await this._pc.setLocalDescription(offer);
-    log(this._role, "localDescription set, waiting for ICE gathering…");
-    const finalDesc = await iceComplete;
-    log(this._role, "ICE gathering done, sending offer to signaling server");
-    await this._signal({ type: "offer", sdp: finalDesc.sdp!, roomId: this._roomId });
+    log(this._role, "localDescription set, sending offer to signaling server");
+    await this._signal({ type: "offer", sdp: offer.sdp!, roomId: this._roomId });
     log(this._role, "offer sent, starting poll");
     this._startPolling();
   }
@@ -89,6 +85,8 @@ export class PeerConnection {
 
   close(): void {
     this._clearTimers();
+    this._pollController?.abort();
+    this._pollController = null;
     this._channel?.close();
     this._pc.close();
   }
@@ -100,7 +98,11 @@ export class PeerConnection {
   // ─── Private ────────────────────────────────────────────────────────────────
 
   private _initPC(): void {
-    this._pc = new RTCPeerConnection({ iceServers: this._iceServers });
+    this._pc = new RTCPeerConnection({
+      iceServers: this._iceServers,
+      // Helps speed up gathering on some mobile networks
+      iceCandidatePoolSize: 10,
+    });
 
     this._pc.onconnectionstatechange = () => {
       const state = this._pc.connectionState;
@@ -130,6 +132,13 @@ export class PeerConnection {
       log(this._role, "iceGatheringState →", this._pc.iceGatheringState);
     this._pc.onsignalingstatechange = () =>
       log(this._role, "signalingState →", this._pc.signalingState);
+
+    this._pc.onicecandidate = (ev) => {
+      if (ev.candidate) {
+        log(this._role, "sending ICE candidate to peer");
+        void this._signal({ type: "ice", candidate: ev.candidate.toJSON(), roomId: this._roomId });
+      }
+    };
 
     if (this._role === "host") {
       this._channel = this._pc.createDataChannel("game", {
@@ -168,9 +177,12 @@ export class PeerConnection {
 
     // Tear down old connection
     this._clearTimers();
+    this._pollController?.abort();
+    this._pollController = null;
     this._channel?.close();
     this._pc.close();
     this._channel = null;
+    this._pendingCandidates = [];
 
     // Fire callback so the scene can show "Reconnecting…" and pause game
     this.onReconnecting();
@@ -180,10 +192,8 @@ export class PeerConnection {
     if (this._role === "host") {
       log(this._role, "reconnect — creating offer");
       void this._pc.createOffer().then(async (offer) => {
-        const iceComplete = this._waitForICE();
         await this._pc.setLocalDescription(offer);
-        const finalDesc = await iceComplete;
-        await this._signal({ type: "offer", sdp: finalDesc.sdp!, roomId: this._roomId });
+        await this._signal({ type: "offer", sdp: offer.sdp!, roomId: this._roomId });
         this._startPolling();
       });
     } else {
@@ -223,43 +233,80 @@ export class PeerConnection {
   }
 
   private async _poll(): Promise<void> {
+    if (this._polling) return;
+    this._polling = true;
+    this._pollController = new AbortController();
+
     try {
-      const url = `/api/signal?room=${encodeURIComponent(this._roomId)}&role=${this._role}`;
-      const res = await fetch(url);
+      const url = `/api/signal?room=${encodeURIComponent(this._roomId)}&role=${this._role}&t=${Date.now()}`;
+      const res = await fetch(url, { signal: this._pollController.signal });
       log(this._role, `poll → HTTP ${res.status}`);
-      const msg: unknown = await res.json();
-      if (!msg) {
-        log(this._role, "poll → empty (no message waiting)");
+      const msgs = await res.json() as unknown[];
+      if (!Array.isArray(msgs) || msgs.length === 0) {
+        log(this._role, "poll → empty (no messages waiting)");
         return;
       }
-      log(this._role, "poll → received message:", (msg as { type?: string }).type ?? msg);
-      await this._handleSignal(msg as SignalMessage);
-    } catch (err) {
-      log(this._role, "poll error:", err);
+      log(this._role, `poll → received ${msgs.length} message(s)`);
+      for (const msg of msgs) {
+        try {
+          await this._handleSignal(msg as SignalMessage);
+        } catch (e) {
+          log(this._role, "error handling signal message:", (msg as any)?.type, e);
+        }
+      }
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        log(this._role, "poll aborted");
+      } else {
+        log(this._role, "poll error:", err);
+      }
+    } finally {
+      this._polling = false;
+      this._pollController = null;
     }
   }
 
   private async _handleSignal(msg: SignalMessage): Promise<void> {
+    const sdpLen = (msg.type === "offer" || msg.type === "answer") ? msg.sdp.length : 0;
+    log(this._role, "Received signal:", msg.type, "SDP length:", sdpLen);
+
     if (msg.type === "offer" && this._role === "client") {
       log(this._role, "handling offer — setting remote description");
+      log(this._role, "Remote SDP candidates:", msg.sdp.split("\n").filter((l) => l.includes("candidate")).length);
       await this._pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
       log(this._role, "creating answer");
       const answer = await this._pc.createAnswer();
-      const iceComplete = this._waitForICE();
       await this._pc.setLocalDescription(answer);
-      log(this._role, "waiting for ICE gathering…");
-      const finalDesc = await iceComplete;
-      log(this._role, "ICE done, sending answer");
-      await this._signal({ type: "answer", sdp: finalDesc.sdp!, roomId: this._roomId });
+      log(this._role, "sending answer");
+      await this._signal({ type: "answer", sdp: answer.sdp!, roomId: this._roomId });
       log(this._role, "answer sent");
+      await this._flushPendingCandidates();
     } else if (msg.type === "answer" && this._role === "host") {
       log(this._role, "handling answer — setting remote description");
+      log(this._role, "Remote SDP candidates:", msg.sdp.split("\n").filter((l) => l.includes("candidate")).length);
       this.onAnswerReceived();
       await this._pc.setRemoteDescription({ type: "answer", sdp: msg.sdp });
       log(this._role, "remote description set ✓");
+      await this._flushPendingCandidates();
+    } else if (msg.type === "ice") {
+      if (this._pc.remoteDescription) {
+        log(this._role, "adding ICE candidate immediately");
+        await this._pc.addIceCandidate(msg.candidate);
+      } else {
+        log(this._role, "remoteDescription not set, buffering ICE candidate");
+        this._pendingCandidates.push(msg.candidate);
+      }
     } else {
       log(this._role, "unhandled signal type:", msg.type, "for role:", this._role);
     }
+  }
+
+  private async _flushPendingCandidates(): Promise<void> {
+    log(this._role, `flushing ${this._pendingCandidates.length} buffered ICE candidates`);
+    for (const cand of this._pendingCandidates) {
+      await this._pc.addIceCandidate(cand).catch((e) => log(this._role, "addIceCandidate error:", e));
+    }
+    this._pendingCandidates = [];
   }
 
   private async _signal(msg: SignalMessage): Promise<void> {
@@ -273,29 +320,5 @@ export class PeerConnection {
     } catch (err) {
       log(this._role, "signal POST error:", err);
     }
-  }
-
-  private _waitForICE(): Promise<RTCSessionDescriptionInit> {
-    return new Promise((resolve) => {
-      const done = (): void => {
-        log(this._role, "ICE gathering complete, candidates in SDP");
-        resolve(this._pc.localDescription!);
-      };
-      const t = setTimeout(() => {
-        log(this._role, `ICE gathering timed out after ${ICE_GATHER_TIMEOUT_MS}ms, using what we have`);
-        done();
-      }, ICE_GATHER_TIMEOUT_MS);
-      const check = (): void => {
-        if (this._pc.iceGatheringState === "complete") {
-          clearTimeout(t);
-          done();
-        }
-      };
-      this._pc.onicegatheringstatechange = () => {
-        log(this._role, "iceGatheringState →", this._pc.iceGatheringState);
-        check();
-      };
-      check();
-    });
   }
 }
