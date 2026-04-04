@@ -19,6 +19,52 @@ function runPossessionStep(state: PossessionLogic) {
   }
 }
 
+interface ChargeLogic {
+  chargeMs: number;
+  charging: boolean;
+  updateLocalPrediction: (slapHeld: boolean) => void;
+  correctFromSnapshot: (slapHeld: boolean) => void;
+}
+
+function runChargeLogic(state: ChargeLogic, localSlap: boolean, snapshotSlap: boolean) {
+  state.updateLocalPrediction(localSlap);
+  if (!snapshotSlap) {
+    state.chargeMs = 0;
+    state.charging = false;
+  }
+}
+
+describe("Charge desync correction logic", () => {
+  it("zeroes charge when snapshot shows slap is released", () => {
+    const state: ChargeLogic = {
+      chargeMs: 500,
+      charging: true,
+      updateLocalPrediction: (held) => { if (held) state.chargeMs += 16; },
+      correctFromSnapshot: (held) => { if (!held) { state.chargeMs = 0; state.charging = false; } }
+    };
+
+    // Simulate one step where local prediction thinks it's held but snapshot says it's released
+    runChargeLogic(state, true, false);
+
+    expect(state.chargeMs).toBe(0);
+    expect(state.charging).toBe(false);
+  });
+
+  it("allows charge to accumulate when snapshot shows slap is held", () => {
+    const state: ChargeLogic = {
+      chargeMs: 500,
+      charging: true,
+      updateLocalPrediction: (held) => { if (held) state.chargeMs += 16; },
+      correctFromSnapshot: (held) => { if (!held) { state.chargeMs = 0; state.charging = false; } }
+    };
+
+    runChargeLogic(state, true, true);
+
+    expect(state.chargeMs).toBe(516);
+    expect(state.charging).toBe(true);
+  });
+});
+
 describe("Possession prioritization logic", () => {
   it("prioritizes host and skips client check if host succeeds", () => {
     const applySpy = vi.fn();
