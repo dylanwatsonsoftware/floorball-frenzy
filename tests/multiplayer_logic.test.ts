@@ -28,10 +28,7 @@ interface ChargeLogic {
 
 function runChargeLogic(state: ChargeLogic, localSlap: boolean, snapshotSlap: boolean) {
   state.updateLocalPrediction(localSlap);
-  if (!snapshotSlap) {
-    state.chargeMs = 0;
-    state.charging = false;
-  }
+  state.correctFromSnapshot(snapshotSlap);
 }
 
 describe("Charge desync correction logic", () => {
@@ -62,6 +59,21 @@ describe("Charge desync correction logic", () => {
 
     expect(state.chargeMs).toBe(516);
     expect(state.charging).toBe(true);
+  });
+
+  it("stops accumulation when local player releases even if snapshot still shows hold", () => {
+    const state: ChargeLogic = {
+      chargeMs: 500,
+      charging: true,
+      updateLocalPrediction: (held) => { if (held) { state.chargeMs += 16; } else { state.charging = false; } },
+      correctFromSnapshot: (held) => { if (!held) { state.chargeMs = 0; state.charging = false; } }
+    };
+
+    // localSlap=false, snapshotSlap=true
+    runChargeLogic(state, false, true);
+
+    expect(state.chargeMs).toBe(500); // no increase
+    expect(state.charging).toBe(false);
   });
 });
 

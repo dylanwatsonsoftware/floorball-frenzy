@@ -47,18 +47,33 @@ describe("lerpState", () => {
     expect(current.score.client).toBe(1);
   });
 
-  it("interpolates player and ball velocities", () => {
+  it("interpolates all player and ball velocity components", () => {
     const current = makeState(0);
     current.ball.vx = 100;
-    current.players.host.vx = 50;
+    current.ball.vy = 50;
+    current.ball.vz = 20;
+    current.players.host.vx = 10;
+    current.players.host.vy = 20;
+    current.players.client.vx = -10;
+    current.players.client.vy = -20;
 
     const snapshot = makeState(0);
     snapshot.ball.vx = 200;
-    snapshot.players.host.vx = 150;
+    snapshot.ball.vy = 150;
+    snapshot.ball.vz = 120;
+    snapshot.players.host.vx = 110;
+    snapshot.players.host.vy = 120;
+    snapshot.players.client.vx = 90;
+    snapshot.players.client.vy = 80;
 
     lerpState(current, snapshot, 0.5);
     expect(current.ball.vx).toBeCloseTo(150, 5);
-    expect(current.players.host.vx).toBeCloseTo(100, 5);
+    expect(current.ball.vy).toBeCloseTo(100, 5);
+    expect(current.ball.vz).toBeCloseTo(70, 5);
+    expect(current.players.host.vx).toBeCloseTo(60, 5);
+    expect(current.players.host.vy).toBeCloseTo(70, 5);
+    expect(current.players.client.vx).toBeCloseTo(40, 5);
+    expect(current.players.client.vy).toBeCloseTo(30, 5);
   });
 
   it("copies player input directly from snapshot", () => {
@@ -73,5 +88,10 @@ describe("lerpState", () => {
     lerpState(current, snapshot, 0.1); // t doesn't affect input copying
     expect(current.players.host.input.moveX).toBe(1);
     expect(current.players.host.input.slap).toBe(true);
+
+    // Verify decoupling (shallow copy)
+    expect(current.players.host.input).not.toBe(snapshot.players.host.input);
+    snapshot.players.host.input.moveX = 2;
+    expect(current.players.host.input.moveX).toBe(1);
   });
 });
