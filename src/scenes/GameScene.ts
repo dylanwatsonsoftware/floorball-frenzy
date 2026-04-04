@@ -792,7 +792,7 @@ export class GameScene extends Phaser.Scene {
     const streakText = data.count > 1 ? `WIN STREAK: ${data.count}` : "FIRST WIN!";
 
     // Overlay background
-    const bg = this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30);
+    this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30);
 
     this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
     this.add.text(cx, cy - 40, `${winner === "host" ? "GREEN" : "BLACK"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
@@ -800,13 +800,13 @@ export class GameScene extends Phaser.Scene {
 
     // Rematch button
     const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, 0x00cc66, 1).setDepth(31).setInteractive({ useHandCursor: true });
-    const rematchLabel = this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
 
     rematchBtn.on("pointerup", () => this.scene.restart());
 
     // Menu button
     const menuBtn = this.add.rectangle(cx, cy + 170, 250, 60, 0x444466, 1).setDepth(31).setInteractive({ useHandCursor: true });
-    const menuLabel = this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
   }
