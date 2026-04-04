@@ -262,7 +262,8 @@ export class PeerConnection {
   }
 
   private async _handleSignal(msg: SignalMessage): Promise<void> {
-    log(this._role, "Received signal:", msg.type, "SDP length:", msg.sdp?.length);
+    const sdpLen = (msg.type === "offer" || msg.type === "answer") ? msg.sdp.length : 0;
+    log(this._role, "Received signal:", msg.type, "SDP length:", sdpLen);
 
     if (msg.type === "offer" && this._role === "client") {
       log(this._role, "handling offer — setting remote description");
