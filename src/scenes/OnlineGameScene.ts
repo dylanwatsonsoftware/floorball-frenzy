@@ -316,10 +316,13 @@ export class OnlineGameScene extends GameScene {
       resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
 
       this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging);
-      if (this._hostHasPossession) this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
-
-      this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging);
-      if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      if (this._hostHasPossession) {
+        this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+        this._clientHasPossession = false;
+      } else {
+        this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging);
+        if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      }
 
       stepBall(this.ball, dt);
 
@@ -404,6 +407,11 @@ export class OnlineGameScene extends GameScene {
             score: this.score,
           };
           lerpState(current, msg.snapshot, 0.3);
+          // Correct charging state: if snapshot shows slap is up, zero the local prediction
+          if (!msg.snapshot.players.host.input.slap) {
+            this._hostShoot.chargeMs = 0;
+            this._hostShoot.charging = false;
+          }
         }
         break;
       }
