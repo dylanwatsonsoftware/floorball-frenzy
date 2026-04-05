@@ -115,3 +115,33 @@ describe("Possession prioritization logic", () => {
     expect(applySpy).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("Authoritative Possession (Online Mode)", () => {
+  // Simulating the check added to GameScene.ts:
+  // if (this._mode === "online" && this.ball.possessedBy && this.ball.possessedBy !== player.id) return false;
+
+  function canTakeBall(mode: "local" | "online", ballPossessedBy: string | undefined, playerId: string): boolean {
+    if (mode === "online" && ballPossessedBy && ballPossessedBy !== playerId) {
+      return false;
+    }
+    return true; // simplified: assumes in range and other conditions met
+  }
+
+  it("allows taking ball in local mode even if already possessed", () => {
+    expect(canTakeBall("local", "host", "client")).toBe(true);
+  });
+
+  it("prevents taking ball in online mode if possessed by opponent", () => {
+    expect(canTakeBall("online", "host", "client")).toBe(false);
+    expect(canTakeBall("online", "client", "host")).toBe(false);
+  });
+
+  it("allows taking ball in online mode if it's free", () => {
+    expect(canTakeBall("online", undefined, "host")).toBe(true);
+    expect(canTakeBall("online", undefined, "client")).toBe(true);
+  });
+
+  it("allows maintaining possession if already possessed by self", () => {
+    expect(canTakeBall("online", "host", "host")).toBe(true);
+  });
+});
