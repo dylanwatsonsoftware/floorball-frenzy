@@ -183,6 +183,7 @@ export class GameScene extends Phaser.Scene {
     this.score = { host: 0, client: 0 };
     this._accumulator = 0;
     this._frozenMs = 0;
+    this._isGoalPause = false;
     this._elapsedMs = 0;
     this._hostSlapWasDown = false;
     this._clientSlapWasDown = false;
