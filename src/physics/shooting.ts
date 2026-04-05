@@ -5,6 +5,8 @@ import {
   SHOOT_LIFT_SCALE,
   SHOOT_MAX_CHARGE_MS,
   ONE_TOUCH_MULTIPLIER,
+  PERFECT_SHOT_WINDOW,
+  PERFECT_SHOT_BOOST,
 } from "./constants";
 
 export interface ShootState {
@@ -51,12 +53,15 @@ export function releaseShot(
   oneTouch: boolean,
   playerVx = 0,
   playerVy = 0,
-): void {
+): boolean {
+  const isPerfect = Math.abs(state.chargeMs - SHOOT_MAX_CHARGE_MS) < PERFECT_SHOT_WINDOW;
+
   const t = Math.min(state.chargeMs / SHOOT_MAX_CHARGE_MS, 2); // 0..2
   // Triangle: ramp up 0→1, ramp down 1→2
   const chargeFrac = t <= 1 ? t : 2 - t;
   let power = SHOOT_BASE_POWER + chargeFrac * SHOOT_POWER_SCALE;
   if (oneTouch) power *= ONE_TOUCH_MULTIPLIER;
+  if (isPerfect) power *= PERFECT_SHOT_BOOST;
 
   const len = Math.hypot(aimX, aimY);
   const nx = len > 0 ? aimX / len : 1;
@@ -68,6 +73,8 @@ export function releaseShot(
 
   state.chargeMs = 0;
   state.charging = false;
+
+  return isPerfect;
 }
 
 /**

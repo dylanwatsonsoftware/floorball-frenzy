@@ -15,6 +15,7 @@ export function lerpState(current: GameState, snapshot: GameState, t: number): v
   current.ball.vx = lerp(current.ball.vx, snapshot.ball.vx);
   current.ball.vy = lerp(current.ball.vy, snapshot.ball.vy);
   current.ball.vz = lerp(current.ball.vz, snapshot.ball.vz);
+  current.ball.isPerfect = snapshot.ball.isPerfect;
 
   for (const role of ["host", "client"] as const) {
     current.players[role].x = lerp(current.players[role].x, snapshot.players[role].x);
