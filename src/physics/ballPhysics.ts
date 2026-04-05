@@ -174,17 +174,6 @@ function resolveCorners(ball: Ball): void {
   }
 }
 
-/**
- * Apply possession assist — ball gently follows the player in control.
- */
-export function applyPossessionAssist(
-  ball: Ball,
-  playerVx: number,
-  playerVy: number
-): void {
-  ball.vx += (playerVx - ball.vx) * 0.1;
-  ball.vy += (playerVy - ball.vy) * 0.1;
-}
 
 /**
  * Reset ball to centre of field.

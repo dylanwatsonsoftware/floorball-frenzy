@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Ball } from "../src/types/game";
-import { stepBall, applyPossessionAssist, resetBall } from "../src/physics/ballPhysics";
+import { stepBall, resetBall } from "../src/physics/ballPhysics";
 import {
   FIELD_LEFT,
   FIELD_RIGHT,
@@ -180,14 +180,6 @@ describe("stepBall — rounded corner collision", () => {
   });
 });
 
-describe("applyPossessionAssist", () => {
-  it("pulls ball velocity toward player velocity", () => {
-    const ball = makeBall({ vx: 0, vy: 0 });
-    applyPossessionAssist(ball, 100, 200);
-    expect(ball.vx).toBeCloseTo(10, 5);
-    expect(ball.vy).toBeCloseTo(20, 5);
-  });
-});
 
 describe("resetBall", () => {
   it("places ball at field center with zero velocity", () => {
