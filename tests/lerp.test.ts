@@ -6,11 +6,12 @@ function makeInput(): InputState {
   return { moveX: 0, moveY: 0, wrist: false, slap: false, dash: false };
 }
 function makePlayer(x: number, y: number): Player {
-  return { id: "p", x, y, vx: 0, vy: 0, input: makeInput() };
+  return { id: "p", x, y, vx: 0, vy: 0, aimX: 1, aimY: 0, dashCooldownMs: 0, input: makeInput() };
 }
 function makeState(ballX: number, score = { host: 0, client: 0 }): GameState {
   return {
     t: 0,
+    remainingTimeMs: 120000,
     ball: { x: ballX, y: 360, z: 0, vx: 0, vy: 0, vz: 0 },
     players: { host: makePlayer(300, 360), client: makePlayer(900, 360) },
     score,
@@ -39,23 +40,30 @@ describe("lerpState", () => {
     expect(current.ball.x).toBeCloseTo(100, 5);
   });
 
-  it("always adopts snapshot score directly", () => {
+  it("always adopts snapshot score and time directly", () => {
     const current = makeState(0, { host: 1, client: 0 });
+    current.remainingTimeMs = 10000;
     const snapshot = makeState(0, { host: 2, client: 1 });
+    snapshot.remainingTimeMs = 5000;
     lerpState(current, snapshot, 0);
     expect(current.score.host).toBe(2);
     expect(current.score.client).toBe(1);
+    expect(current.remainingTimeMs).toBe(5000);
   });
 
-  it("interpolates all player and ball velocity components", () => {
+  it("interpolates all player and ball velocity and aim components", () => {
     const current = makeState(0);
     current.ball.vx = 100;
     current.ball.vy = 50;
     current.ball.vz = 20;
     current.players.host.vx = 10;
     current.players.host.vy = 20;
+    current.players.host.aimX = 1;
+    current.players.host.aimY = 0;
     current.players.client.vx = -10;
     current.players.client.vy = -20;
+    current.players.client.aimX = 0;
+    current.players.client.aimY = 1;
 
     const snapshot = makeState(0);
     snapshot.ball.vx = 200;
@@ -63,8 +71,12 @@ describe("lerpState", () => {
     snapshot.ball.vz = 120;
     snapshot.players.host.vx = 110;
     snapshot.players.host.vy = 120;
+    snapshot.players.host.aimX = 0;
+    snapshot.players.host.aimY = 1;
     snapshot.players.client.vx = 90;
     snapshot.players.client.vy = 80;
+    snapshot.players.client.aimX = -1;
+    snapshot.players.client.aimY = 0;
 
     lerpState(current, snapshot, 0.5);
     expect(current.ball.vx).toBeCloseTo(150, 5);
@@ -72,8 +84,12 @@ describe("lerpState", () => {
     expect(current.ball.vz).toBeCloseTo(70, 5);
     expect(current.players.host.vx).toBeCloseTo(60, 5);
     expect(current.players.host.vy).toBeCloseTo(70, 5);
+    expect(current.players.host.aimX).toBeCloseTo(0.5, 5);
+    expect(current.players.host.aimY).toBeCloseTo(0.5, 5);
     expect(current.players.client.vx).toBeCloseTo(40, 5);
     expect(current.players.client.vy).toBeCloseTo(30, 5);
+    expect(current.players.client.aimX).toBeCloseTo(-0.5, 5);
+    expect(current.players.client.aimY).toBeCloseTo(0.5, 5);
   });
 
   it("copies player input directly from snapshot", () => {
@@ -93,5 +109,19 @@ describe("lerpState", () => {
     expect(current.players.host.input).not.toBe(snapshot.players.host.input);
     snapshot.players.host.input.moveX = 2;
     expect(current.players.host.input.moveX).toBe(1);
+  });
+
+  it("synchronizes ball possession and player dash cooldown", () => {
+    const current = makeState(0);
+    current.ball.possessedBy = "host";
+    current.players.host.dashCooldownMs = 1000;
+
+    const snapshot = makeState(0);
+    snapshot.ball.possessedBy = "client";
+    snapshot.players.host.dashCooldownMs = 2000;
+
+    lerpState(current, snapshot, 0.5);
+    expect(current.ball.possessedBy).toBe("client");
+    expect(current.players.host.dashCooldownMs).toBe(2000);
   });
 });

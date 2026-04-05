@@ -79,7 +79,8 @@ export class PeerConnection {
 
   send(msg: GameMessage): void {
     if (this._channel?.readyState === "open") {
-      this._channel.send(encodeMessage(msg));
+      const encoded = encodeMessage(msg);
+      this._channel.send(encoded as any);
     }
   }
 
@@ -145,12 +146,14 @@ export class PeerConnection {
         ordered: false,
         maxRetransmits: 0,
       });
+      this._channel.binaryType = "arraybuffer";
       log(this._role, "created dataChannel");
       this._setupChannel(this._channel);
     } else {
       this._pc.ondatachannel = (ev) => {
         log(this._role, "received dataChannel");
         this._channel = ev.channel;
+        this._channel.binaryType = "arraybuffer";
         this._setupChannel(this._channel);
       };
     }
@@ -222,7 +225,7 @@ export class PeerConnection {
       this._scheduleReconnect(0);
     };
     ch.onerror = (e) => log(this._role, "dataChannel error", e);
-    ch.onmessage = (ev: MessageEvent<string>) => {
+    ch.onmessage = (ev: MessageEvent<string | ArrayBuffer>) => {
       const msg = decodeMessage(ev.data);
       if (msg) this.onMessage(msg);
     };
