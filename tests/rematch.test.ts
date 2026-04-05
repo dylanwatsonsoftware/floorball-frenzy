@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
 // Minimal reproduction of synchronized rematch logic to test the handshake
 // without requiring the full Phaser scene.
