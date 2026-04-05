@@ -19,7 +19,7 @@ import {
 } from "../src/physics/constants";
 
 function makeBall(overrides: Partial<Ball> = {}): Ball {
-  return { x: 640, y: 360, z: 0, vx: 0, vy: 0, vz: 0, ...overrides };
+  return { x: 640, y: 360, z: 0, vx: 0, vy: 0, vz: 0, possessedBy: null, ...overrides };
 }
 
 describe("stepBall — gravity and vertical bounce", () => {

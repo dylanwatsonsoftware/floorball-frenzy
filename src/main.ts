@@ -22,6 +22,7 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 const game = new Phaser.Game(config);
+(window as any).game = game;
 
 new ResizeObserver(() => game.scale.refresh()).observe(document.body);
 document.addEventListener("fullscreenchange", () => game.scale.refresh());
