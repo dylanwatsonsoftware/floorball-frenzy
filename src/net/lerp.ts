@@ -16,6 +16,8 @@ export function lerpState(current: GameState, snapshot: GameState, t: number): v
   current.ball.vy = lerp(current.ball.vy, snapshot.ball.vy);
   current.ball.vz = lerp(current.ball.vz, snapshot.ball.vz);
   current.ball.isPerfect = snapshot.ball.isPerfect;
+  current.ball.isBolt = snapshot.ball.isBolt;
+  current.ball.boltTimerMs = snapshot.ball.boltTimerMs;
   current.ball.possessedBy = snapshot.ball.possessedBy;
 
   for (const role of ["host", "client"] as const) {

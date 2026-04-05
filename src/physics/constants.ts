@@ -75,6 +75,10 @@ export const SHOOT_MAX_CHARGE_MS = 800;
 export const PERFECT_SHOT_WINDOW = 60;
 export const PERFECT_SHOT_BOOST = 1.3;
 
+export const BOLT_SHOT_BOOST = 1.2;
+export const BOLT_SHOT_DURATION_MS = 600;
+export const BOLT_FRICTION_POWER = 0.5;
+
 // ─── One-touch bonus ──────────────────────────────────────────────────────────
 export const ONE_TOUCH_WINDOW      = 300;
 export const ONE_TOUCH_MULTIPLIER  = 1.25;
