@@ -40,7 +40,7 @@ import {
   DASH_STEAL_FORCE,
 } from "../physics/constants";
 
-const WINNING_SCORE = 5;
+export const WINNING_SCORE = 5;
 
 /** Tracks the last player to touch the ball for one-touch bonus. */
 interface LastTouch {
@@ -73,7 +73,7 @@ export class GameScene extends Phaser.Scene {
   protected _clientAimSmooth = { x: -1, y: 0 };
 
   // One-touch tracking
-  private _lastTouch: LastTouch = { playerId: "", timeMs: 0 };
+  protected _lastTouch: LastTouch = { playerId: "", timeMs: 0 };
   protected _elapsedMs = 0; // total game time in ms
 
   // Was slap held last frame? (to detect release)
@@ -81,21 +81,21 @@ export class GameScene extends Phaser.Scene {
   protected _clientSlapWasDown = false;
 
   // After firing a shot, skip possession for this many ms so the ball escapes
-  private _hostShotCooldownMs = 0;
-  private _clientShotCooldownMs = 0;
-  private static readonly SHOT_COOLDOWN_MS = 200;
+  protected _hostShotCooldownMs = 0;
+  protected _clientShotCooldownMs = 0;
+  protected static readonly SHOT_COOLDOWN_MS = 200;
 
   // Touch UI (present on mobile; keyboard still works on desktop)
   protected _hostJoy!: VirtualJoystick;
   protected _hostButtons!: ActionButtons;
 
   // Graphics / display objects
-  private _field!: Phaser.GameObjects.Graphics;
-  private _hostStickSprite!: Phaser.GameObjects.Sprite;
-  private _clientStickSprite!: Phaser.GameObjects.Sprite;
-  private _hostSprite!: Phaser.GameObjects.Sprite;
-  private _clientSprite!: Phaser.GameObjects.Sprite;
-  private _ballGraphics!: Phaser.GameObjects.Graphics;
+  protected _field!: Phaser.GameObjects.Graphics;
+  protected _hostStickSprite!: Phaser.GameObjects.Sprite;
+  protected _clientStickSprite!: Phaser.GameObjects.Sprite;
+  protected _hostSprite!: Phaser.GameObjects.Sprite;
+  protected _clientSprite!: Phaser.GameObjects.Sprite;
+  protected _ballGraphics!: Phaser.GameObjects.Graphics;
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
@@ -114,10 +114,10 @@ export class GameScene extends Phaser.Scene {
       return [Math.cos(θ) * r, Math.sin(θ) * r, z] as [number, number, number];
     });
   })();
-  private _ballShadow!: Phaser.GameObjects.Arc;
-  private _dashRingGfx!: Phaser.GameObjects.Graphics;
-  private _fireGraphics!: Phaser.GameObjects.Graphics;
-  private _fireParticles: Array<{
+  protected _ballShadow!: Phaser.GameObjects.Arc;
+  protected _dashRingGfx!: Phaser.GameObjects.Graphics;
+  protected _fireGraphics!: Phaser.GameObjects.Graphics;
+  protected _fireParticles: Array<{
     x: number; y: number; vx: number; vy: number;
     life: number; maxLife: number; size: number;
   }> = [];
@@ -147,6 +147,8 @@ export class GameScene extends Phaser.Scene {
   protected _hostHasPossession = false;
   protected _clientHasPossession = false;
 
+  protected _isMatchOver = false;
+  protected _matchOverObjects: Phaser.GameObjects.GameObject[] = [];
 
   // Keys
   protected _wasd!: {
@@ -395,10 +397,14 @@ export class GameScene extends Phaser.Scene {
       if (this._frozenMs <= 0) {
         this._frozenMs = 0;
         this._messageText.setText("");
-        this._resetRound();
+        if (!this._isMatchOver) {
+          this._resetRound();
+        }
       }
       return;
     }
+
+    if (this._isMatchOver) return;
 
     // Cap delta so returning from a background tab doesn't cause a
     // multi-second catch-up spiral through hundreds of fixed steps.
@@ -798,6 +804,7 @@ export class GameScene extends Phaser.Scene {
     const isWin = this.score[scorer] >= WINNING_SCORE;
     const label = scorer === "host" ? "Green scores!" : "Black scores!";
     if (isWin) {
+      this._isMatchOver = true;
       this._messageText.setText(`${scorer === "host" ? "Green" : "Black"} wins!`);
       this._frozenMs = 5000; // Give time for the overlay
       this._updateWinStreak(scorer);
@@ -821,29 +828,65 @@ export class GameScene extends Phaser.Scene {
     localStorage.setItem(key, JSON.stringify(data));
   }
 
-  private _showMatchOver(winner: "host" | "client"): void {
+  protected _showMatchOver(winner: "host" | "client"): void {
     const cx = 640, cy = 360;
     const data = JSON.parse(localStorage.getItem("floorball:streak") || '{"winner":"","count":0}');
     const streakText = data.count > 1 ? `WIN STREAK: ${data.count}` : "FIRST WIN!";
 
-    // Overlay background
-    this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30);
+    this._matchOverObjects = [
+      // Overlay background
+      this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30),
 
-    this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
-    this.add.text(cx, cy - 40, `${winner === "host" ? "GREEN" : "BLACK"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
-    this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+      this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31),
+      this.add.text(cx, cy - 40, `${winner === "host" ? "GREEN" : "BLACK"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31),
+      this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31),
 
-    // Rematch button
-    const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, 0x00cc66, 1).setDepth(31).setInteractive({ useHandCursor: true });
-    this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+      // Rematch button
+      this.add.rectangle(cx, cy + 100, 250, 60, 0x00cc66, 1).setDepth(31).setInteractive({ useHandCursor: true }),
+      this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31),
 
-    rematchBtn.on("pointerup", () => this.scene.restart());
+      // Menu button
+      this.add.rectangle(cx, cy + 170, 250, 60, 0x444466, 1).setDepth(31).setInteractive({ useHandCursor: true }),
+      this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31),
+    ];
 
-    // Menu button
-    const menuBtn = this.add.rectangle(cx, cy + 170, 250, 60, 0x444466, 1).setDepth(31).setInteractive({ useHandCursor: true });
-    this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const rematchBtn = this._matchOverObjects[4] as Phaser.GameObjects.Rectangle;
+    rematchBtn.on("pointerup", () => this._onRematchClick());
 
+    const menuBtn = this._matchOverObjects[6] as Phaser.GameObjects.Rectangle;
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
+  }
+
+  protected _onRematchClick(): void {
+    this.scene.restart();
+  }
+
+  protected _resetMatch(): void {
+    this.score = { host: 0, client: 0 };
+    this._isMatchOver = false;
+    this._elapsedMs = 0;
+    this._frozenMs = 0;
+    this._accumulator = 0;
+    this._lastTouch = { playerId: "", timeMs: 0 };
+    this._hostShotCooldownMs = 0;
+    this._clientShotCooldownMs = 0;
+    this._hostPendingWristMs = 0;
+    this._clientPendingWristMs = 0;
+    this._hostShoot.chargeMs = 0;
+    this._hostShoot.charging = false;
+    this._clientShoot.chargeMs = 0;
+    this._clientShoot.charging = false;
+    this._hostDribblePhase = 0;
+    this._clientDribblePhase = 0;
+    this._hostHasPossession = false;
+    this._clientHasPossession = false;
+    this._fireParticles = [];
+    this._resetRound();
+  }
+
+  protected _clearMatchOver(): void {
+    this._matchOverObjects.forEach(obj => obj.destroy());
+    this._matchOverObjects = [];
   }
 
   private _playGoalCheer(isWin: boolean): void {
