@@ -79,6 +79,8 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     y,
     vx: 0,
     vy: 0,
+    aimX: id === "host" ? 1 : -1,
+    aimY: 0,
     dashCooldownMs: 0,
     input: { moveX: 0, moveY: 0, wrist: false, slap: false, dash: false },
   };

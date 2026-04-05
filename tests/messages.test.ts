@@ -7,7 +7,8 @@ import {
   encodeSnapshot,
   decodeSnapshot,
 } from "../src/net/messages";
-import type { GameMessage, GameState } from "../src/types/game";
+import type { GameMessage } from "../src/net/messages";
+import type { GameState } from "../src/types/game";
 
 function makeInput() {
   return { moveX: 0, moveY: 0, wrist: false, slap: false, dash: false };

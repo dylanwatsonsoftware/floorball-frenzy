@@ -7,6 +7,7 @@ import type { PlayerExtended } from "../src/physics/playerPhysics";
 function makePlayer(overrides: Partial<PlayerExtended> = {}): PlayerExtended {
   return {
     id: "p1", x: 0, y: 0, vx: 0, vy: 0,
+    aimX: 1, aimY: 0,
     dashCooldownMs: 0,
     input: { moveX: 0, moveY: 0, wrist: false, slap: false, dash: false },
     ...overrides,
