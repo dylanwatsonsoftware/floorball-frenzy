@@ -456,14 +456,16 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Core physics step with explicit inputs.
-   * Called by _fixedUpdate (local) and directly by OnlineGameScene (host)
-   * with network-received client input so there is no indirection.
+   * Called by _fixedUpdate (local) and directly by OnlineGameScene (host/client)
+   * with network-received input so there is no indirection.
+   * @param isClientPrediction If true, skip authoritative possession/ownership logic.
    */
   protected _runPhysics(
     hostInput: InputState,
     clientInput: InputState,
     dt: number,
-    elapsedMs: number
+    elapsedMs: number,
+    isClientPrediction = false
   ): void {
     // Tick pending wrist shot timers; fire when they expire
     if (this._hostPendingWristMs > 0) {
@@ -533,18 +535,30 @@ export class GameScene extends Phaser.Scene {
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
 
-    this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging, this._hostShotCooldownMs > 0);
-    if (this._hostHasPossession) {
-      this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
-      this._clientHasPossession = false;
-      if (this._isAuthoritative) this.ball.possessedBy = "host";
+    // Possession: if client prediction, ONLY allow keeping current possession, don't allow taking it.
+    // This prevents local prediction from fighting the authoritative host state.
+    if (isClientPrediction) {
+      if (this._hostHasPossession) {
+        this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging, this._hostShotCooldownMs > 0);
+        if (this._hostHasPossession) this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      } else if (this._clientHasPossession) {
+        this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
+        if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      }
     } else {
-      this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
-      if (this._clientHasPossession) {
-        this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
-        if (this._isAuthoritative) this.ball.possessedBy = "client";
+      this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging, this._hostShotCooldownMs > 0);
+      if (this._hostHasPossession) {
+        this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+        this._clientHasPossession = false;
+        if (this._isAuthoritative) this.ball.possessedBy = "host";
       } else {
-        if (this._isAuthoritative) this.ball.possessedBy = null;
+        this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
+        if (this._clientHasPossession) {
+          this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+          if (this._isAuthoritative) this.ball.possessedBy = "client";
+        } else {
+          if (this._isAuthoritative) this.ball.possessedBy = null;
+        }
       }
     }
 

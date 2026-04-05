@@ -281,7 +281,7 @@ export class OnlineGameScene extends GameScene {
     } else {
       const clientInput = this._readOnlineClientInput();
       const hostInput = this.host.input || NEUTRAL_INPUT;
-      this._runPhysics(hostInput, clientInput, dt, elapsedMs);
+      this._runPhysics(hostInput, clientInput, dt, elapsedMs, true);
       this._peer.send({ type: "input", seq: ++this._inputSeq, input: clientInput });
     }
   }
