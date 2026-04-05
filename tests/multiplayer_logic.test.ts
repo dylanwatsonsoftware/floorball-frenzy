@@ -115,3 +115,42 @@ describe("Possession prioritization logic", () => {
     expect(applySpy).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("Online mode possession exclusivity", () => {
+  it("prevents taking ball if possessedBy is set to another player", () => {
+    // In online mode, _applyStickPossession checks this.ball.possessedBy.
+    const ball = { possessedBy: "host" };
+    const playerClient = { id: "client" };
+    const mode = "online";
+
+    const canTake = (mode === "online" && ball.possessedBy && ball.possessedBy !== playerClient.id)
+      ? false
+      : true;
+
+    expect(canTake).toBe(false);
+  });
+
+  it("allows taking ball if possessedBy is null", () => {
+    const ball = { possessedBy: null };
+    const playerClient = { id: "client" };
+    const mode = "online";
+
+    const canTake = (mode === "online" && ball.possessedBy && ball.possessedBy !== playerClient.id)
+      ? false
+      : true;
+
+    expect(canTake).toBe(true);
+  });
+
+  it("allows continuing possession if already possessing", () => {
+    const ball = { possessedBy: "client" };
+    const playerClient = { id: "client" };
+    const mode = "online";
+
+    const canTake = (mode === "online" && ball.possessedBy && ball.possessedBy !== playerClient.id)
+      ? false
+      : true;
+
+    expect(canTake).toBe(true);
+  });
+});

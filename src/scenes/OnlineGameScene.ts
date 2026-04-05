@@ -1,13 +1,9 @@
 import LogRocket from "logrocket";
-import type { GameState } from "../types/game";
+import { type GameState, NEUTRAL_INPUT } from "../types/game";
 import { GameScene } from "./GameScene";
 import { PeerConnection } from "../net/PeerConnection";
 import type { GameMessage } from "../net/messages";
 import { lerpState } from "../net/lerp";
-import { stepPlayer } from "../physics/playerPhysics";
-import { stepBall } from "../physics/ballPhysics";
-import { resolvePlayerBallCollision, resolveStickTipCollision, resolvePlayerPlayerCollision } from "../physics/collision";
-import { updateShootCharge } from "../physics/shooting";
 import {
   GOAL_LINE_LEFT,
   GOAL_LINE_RIGHT,
@@ -43,9 +39,12 @@ export class OnlineGameScene extends GameScene {
   private _countdownText!: Phaser.GameObjects.Text;
   private _lastCountdownLabel = "";
 
-  private _onlineClientSlapWasDown = false;
   private _pendingWristShot = false;      // client → host: latched on key-down
   private _pendingClientWrist = false;    // host side: set when any input msg has wrist:true
+
+  protected override get _isAuthoritative(): boolean {
+    return this._isHost;
+  }
 
   constructor() {
     super();
@@ -60,13 +59,14 @@ export class OnlineGameScene extends GameScene {
     this._snapshotTimer = 0;
     this._pingTimer = 0;
     this._inputSeq = 0;
-    this._onlineClientSlapWasDown = false;
     this._pendingWristShot = false;
     this._pendingClientWrist = false;
     this._startedCountdown = false;
 
     this._hostAim = { x: 1, y: 0 };
+    this._clientAim = { x: -1, y: 0 };
     this._hostAimSmooth = { x: 1, y: 0 };
+    this._clientAimSmooth = { x: -1, y: 0 };
     this._hostShoot = { chargeMs: 0, charging: false };
 
     this._hostDribblePhase = 0;
@@ -266,73 +266,23 @@ export class OnlineGameScene extends GameScene {
     this._elapsedMs += elapsedMs;
 
     if (this._isHost) {
-      // Fire client wrist shot from the latch set in _onNetMessage.
-      // Using a latch rather than rising-edge on client.input avoids missing
-      // shots when two packets arrive between host fixed steps (wrist:true then
-      // wrist:false — the second overwrites the first before we read it).
       if (this._pendingClientWrist) {
         this._pendingClientWrist = false;
         this._doWristShot("client");
       }
-
-      // Call physics directly with explicit inputs — no override tricks, no super call.
-      // this.client.input is updated from network messages in _onNetMessage.
       const hostInput = this._readHostInput();
-      this._runPhysics(hostInput, this.client.input, dt, elapsedMs);
-
+      const clientInput = this.client.input || NEUTRAL_INPUT;
+      this._runPhysics(hostInput, clientInput, dt, elapsedMs);
       this._snapshotTimer += elapsedMs;
       if (this._snapshotTimer >= SNAPSHOT_INTERVAL_MS) {
         this._snapshotTimer = 0;
         this._sendSnapshot();
       }
     } else {
-      // Client: local prediction for own player + send input to host
-      const input = this._readOnlineClientInput();
-      if (input.moveX !== 0 || input.moveY !== 0) {
-        this._clientAim = { x: input.moveX, y: input.moveY };
-      }
-      this._clientAimSmooth = this._lerpAim(this._clientAimSmooth, this._clientAim);
-      stepPlayer(this.client, input, dt, elapsedMs);
-
-      if (this.host.input.moveX !== 0 || this.host.input.moveY !== 0) {
-        this._hostAim = { x: this.host.input.moveX, y: this.host.input.moveY };
-      }
-      this._hostAimSmooth = this._lerpAim(this._hostAimSmooth, this._hostAim);
-      const hostInputActual = (this.host.input.dash && this.host.input.moveX === 0 && this.host.input.moveY === 0)
-        ? { ...this.host.input, moveX: this._hostAimSmooth.x, moveY: this._hostAimSmooth.y }
-        : this.host.input;
-      stepPlayer(this.host, hostInputActual, dt, elapsedMs);
-      updateShootCharge(this._hostShoot, this.host.input.slap, elapsedMs);
-
-      // Slap: check release BEFORE updating charge
-      if (this._onlineClientSlapWasDown && !input.slap) {
-        this._clientShoot.chargeMs = 0;
-        this._clientShoot.charging = false;
-      }
-      this._onlineClientSlapWasDown = input.slap;
-      updateShootCharge(this._clientShoot, input.slap, elapsedMs);
-
-      // Local prediction: player collision, stick tip collision + possession (host is authoritative)
-      const clientStick = this._stickDir(this.client, this._clientAimSmooth);
-      const hostStick   = this._stickDir(this.host, this._hostAimSmooth);
-      resolvePlayerPlayerCollision(this.host, this.client, (p1, p2) => this._onPlayerPlayerContact(p1, p2));
-      resolvePlayerBallCollision(this.host, this.ball);
-      resolvePlayerBallCollision(this.client, this.ball);
-      resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
-      resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
-
-      this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging);
-      if (this._hostHasPossession) {
-        this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
-        this._clientHasPossession = false;
-      } else {
-        this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging);
-        if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
-      }
-
-      stepBall(this.ball, dt);
-
-      this._peer.send({ type: "input", seq: ++this._inputSeq, input });
+      const clientInput = this._readOnlineClientInput();
+      const hostInput = this.host.input || NEUTRAL_INPUT;
+      this._runPhysics(hostInput, clientInput, dt, elapsedMs, true);
+      this._peer.send({ type: "input", seq: ++this._inputSeq, input: clientInput });
     }
   }
 
@@ -381,11 +331,19 @@ export class OnlineGameScene extends GameScene {
       players: {
         host: {
           id: this.host.id, x: this.host.x, y: this.host.y,
-          vx: this.host.vx, vy: this.host.vy, input: this.host.input,
+          vx: this.host.vx, vy: this.host.vy,
+          aimX: this.host.aimX, aimY: this.host.aimY,
+          dashCooldownMs: this.host.dashCooldownMs,
+          chargeMs: this.host.chargeMs,
+          input: this.host.input,
         },
         client: {
           id: this.client.id, x: this.client.x, y: this.client.y,
-          vx: this.client.vx, vy: this.client.vy, input: this.client.input,
+          vx: this.client.vx, vy: this.client.vy,
+          aimX: this.client.aimX, aimY: this.client.aimY,
+          dashCooldownMs: this.client.dashCooldownMs,
+          chargeMs: this.client.chargeMs,
+          input: this.client.input,
         },
       },
       score: { ...this.score },
@@ -412,8 +370,25 @@ export class OnlineGameScene extends GameScene {
             players: { host: this.host, client: this.client },
             score: this.score,
           };
-          lerpState(current, msg.snapshot, 0.3);
-          // Correct charging state: if snapshot shows slap is up, zero the local prediction
+          lerpState(current, msg.snapshot, 0.5);
+
+          // Correct possession state if snapshot differs
+          if (msg.snapshot.ball.possessedBy === "host") {
+            this._hostHasPossession = true;
+            this._clientHasPossession = false;
+          } else if (msg.snapshot.ball.possessedBy === "client") {
+            this._hostHasPossession = false;
+            this._clientHasPossession = true;
+          } else {
+            this._hostHasPossession = false;
+            this._clientHasPossession = false;
+          }
+
+          // Update smoothed aim directly from synced state for other player
+          this._hostAim = { x: msg.snapshot.players.host.aimX, y: msg.snapshot.players.host.aimY };
+          this._hostShoot.chargeMs = msg.snapshot.players.host.chargeMs;
+          this._hostShoot.charging = msg.snapshot.players.host.input.slap;
+
           if (!msg.snapshot.players.host.input.slap) {
             this._hostShoot.chargeMs = 0;
             this._hostShoot.charging = false;
@@ -516,7 +491,8 @@ export class OnlineGameScene extends GameScene {
 
   private _playCountdownBeep(label: string): void {
     try {
-      const ctx = new AudioContext();
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -533,7 +509,8 @@ export class OnlineGameScene extends GameScene {
 
   private _playDing(): void {
     try {
-      const ctx = new AudioContext();
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
