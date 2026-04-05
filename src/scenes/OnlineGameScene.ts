@@ -43,6 +43,11 @@ export class OnlineGameScene extends GameScene {
   private _countdownText!: Phaser.GameObjects.Text;
   private _lastCountdownLabel = "";
 
+  private _wantsRematch = false;
+  private _remoteWantsRematch = false;
+  private _rematchBtn: Phaser.GameObjects.Rectangle | null = null;
+  private _rematchStatusText: Phaser.GameObjects.Text | null = null;
+
   private _onlineClientSlapWasDown = false;
   private _pendingWristShot = false;      // client → host: latched on key-down
   private _pendingClientWrist = false;    // host side: set when any input msg has wrist:true
@@ -338,8 +343,60 @@ export class OnlineGameScene extends GameScene {
 
   protected override _onGoal(scorer: "host" | "client"): void {
     super._onGoal(scorer);
+    if (this._isMatchOver) {
+      this._wantsRematch = false;
+      this._remoteWantsRematch = false;
+      this._startedCountdown = false;
+    }
     if (this._isHost) {
       this._peer.send({ type: "goal", scorer });
+    }
+  }
+
+  protected override _showMatchOver(winner: "host" | "client"): void {
+    super._showMatchOver(winner);
+
+    this._rematchBtn = this._matchOverObjects[4] as Phaser.GameObjects.Rectangle;
+
+    this._rematchStatusText = this.add.text(640, 500, "", {
+      fontSize: "18px",
+      color: "#00cc66",
+      fontStyle: "bold"
+    }).setOrigin(0.5).setDepth(31);
+    this._matchOverObjects.push(this._rematchStatusText);
+
+    this._updateRematchUI();
+  }
+
+  protected override _onRematchClick(): void {
+    if (this._wantsRematch) return;
+    this._wantsRematch = true;
+    this._peer.send({ type: "rematch" });
+    this._updateRematchUI();
+
+    if (this._isHost && this._wantsRematch && this._remoteWantsRematch) {
+      this._clearMatchOver();
+      this._resetMatch();
+      this._peer.send({ type: "start" });
+      this._startedCountdown = true;
+      this._startCountdown();
+    }
+  }
+
+  private _updateRematchUI(): void {
+    if (!this._rematchBtn || !this._rematchStatusText) return;
+
+    if (this._wantsRematch) {
+      const btnLabel = this._matchOverObjects[5] as Phaser.GameObjects.Text;
+      btnLabel.setText("WAITING...");
+      this._rematchBtn.disableInteractive();
+      this._rematchBtn.setAlpha(0.5);
+    }
+
+    if (this._remoteWantsRematch) {
+      this._rematchStatusText.setText("Opponent wants a rematch!");
+    } else {
+      this._rematchStatusText.setText("");
     }
   }
 
@@ -401,7 +458,23 @@ export class OnlineGameScene extends GameScene {
         this._connected = true;
         this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
         this._statusText?.setText("");
+        if (this._isMatchOver) {
+          this._clearMatchOver();
+          this._resetMatch();
+        }
         this._startCountdown();
+        break;
+      }
+      case "rematch": {
+        this._remoteWantsRematch = true;
+        this._updateRematchUI();
+        if (this._isHost && this._wantsRematch && this._remoteWantsRematch) {
+          this._clearMatchOver();
+          this._resetMatch();
+          this._peer.send({ type: "start" });
+          this._startedCountdown = true;
+          this._startCountdown();
+        }
         break;
       }
       case "state": {

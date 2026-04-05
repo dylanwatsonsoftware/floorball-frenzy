@@ -6,6 +6,7 @@ export type GameMessage =
   | { type: "input"; seq: number; input: InputState }
   | { type: "state"; snapshot: GameState }
   | { type: "start" }
+  | { type: "rematch" }
   | { type: "goal"; scorer: "host" | "client" }
   | { type: "ping"; t: number }
   | { type: "pong"; t: number };
@@ -26,6 +27,7 @@ export function isGameMessage(v: unknown): v is GameMessage {
     obj["type"] === "input" ||
     obj["type"] === "state" ||
     obj["type"] === "start" ||
+    obj["type"] === "rematch" ||
     obj["type"] === "goal" ||
     obj["type"] === "ping" ||
     obj["type"] === "pong"
