@@ -45,12 +45,8 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
   ball.y += ball.vy * dt;
 
   // Goal detection (at goal line — only scores if entering through the mouth)
-  // IMPORTANT: Skip goal detection if the ball is possessed, to prevent players
-  // from "dribbling" the ball through the goal line and triggering a reset.
-  if (ball.possessedBy === null) {
-    const goal = checkGoal(ball);
-    if (goal) return goal;
-  }
+  const goal = checkGoal(ball);
+  if (goal) return goal;
 
   // ── Goal cage physics ──────────────────────────────────────────────────────
   // The cage box is open at the front (goal mouth). Ball enters only through
