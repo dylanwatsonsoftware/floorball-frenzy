@@ -38,6 +38,8 @@ export interface Ball {
   vy: number;
   vz: number;
   isPerfect?: boolean;
+  isBolt?: boolean;
+  boltTimerMs?: number;
   possessedBy: string | null;
 }
 

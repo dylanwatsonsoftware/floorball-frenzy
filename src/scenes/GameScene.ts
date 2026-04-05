@@ -38,6 +38,8 @@ import {
   DASH_COOLDOWN,
   DASH_STEAL_WINDOW,
   DASH_STEAL_FORCE,
+  BOLT_SHOT_BOOST,
+  BOLT_SHOT_DURATION_MS,
 } from "../physics/constants";
 
 const WINNING_SCORE = 5;
@@ -136,6 +138,19 @@ export class GameScene extends Phaser.Scene {
   protected _hostShotAnimMs = 0;
   protected _clientShotAnimMs = 0;
 
+  // Dash ghosting
+  private _ghosts: Array<{
+    x: number;
+    y: number;
+    rotation: number;
+    frame: number;
+    alpha: number;
+    life: number;
+    color: number;
+  }> = [];
+  private static readonly GHOST_LIFETIME = 360;
+  private _ghostGraphics!: Phaser.GameObjects.Graphics;
+
   // Pending wrist shot: counts down after key-down, fires when it hits 0
   protected _hostPendingWristMs = 0;
   protected _clientPendingWristMs = 0;
@@ -214,6 +229,8 @@ export class GameScene extends Phaser.Scene {
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
     // Dash cooldown rings (drawn below players)
     this._dashRingGfx = this.add.graphics().setDepth(4.5);
+    // Dash ghosts
+    this._ghostGraphics = this.add.graphics().setDepth(4.6);
     // Fire trail — drawn behind the ball
     this._fireGraphics = this.add.graphics().setDepth(5.5);
     // Ball drawn each frame via Graphics for physically correct rolling animation
@@ -441,6 +458,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._syncSprites();
+    this._updateGhosts(delta);
     this._updateFire(delta);
   }
 
@@ -735,7 +753,20 @@ export class GameScene extends Phaser.Scene {
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const isOT = this._isOneTouch(who);
     if (isOT) this._spawnOneTouchJuice();
+
+    const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200;
     wristShot(this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
+    if (isBolt) {
+      this.ball.vx *= BOLT_SHOT_BOOST;
+      this.ball.vy *= BOLT_SHOT_BOOST;
+      this.ball.isBolt = true;
+      this.ball.boltTimerMs = BOLT_SHOT_DURATION_MS;
+      this._spawnPerfectJuice(this.ball.x, this.ball.y); // reuse perfect juice for bolt shots
+    } else {
+      this.ball.isBolt = false;
+      this.ball.boltTimerMs = 0;
+    }
+
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
     else this._clientShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
@@ -756,11 +787,22 @@ export class GameScene extends Phaser.Scene {
     const player = who === "host" ? this.host : this.client;
     const isOT = this._isOneTouch(who);
     if (isOT) this._spawnOneTouchJuice();
+    const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200;
     const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
     this.ball.isPerfect = isPerfect;
-    if (isPerfect) {
+    if (isBolt) {
+      this.ball.vx *= BOLT_SHOT_BOOST;
+      this.ball.vy *= BOLT_SHOT_BOOST;
+      this.ball.isBolt = true;
+      this.ball.boltTimerMs = BOLT_SHOT_DURATION_MS;
+    } else {
+      this.ball.isBolt = false;
+      this.ball.boltTimerMs = 0;
+    }
+
+    if (isPerfect || isBolt) {
       this._spawnPerfectJuice(this.ball.x, this.ball.y);
-      this._frozenMs = 50; // Hit-stop
+      this._frozenMs = isPerfect ? 50 : 30; // Hit-stop
     }
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
@@ -821,13 +863,29 @@ export class GameScene extends Phaser.Scene {
     this.ball.vx = dashingPlayer.vx * DASH_STEAL_FORCE;
     this.ball.vy = dashingPlayer.vy * DASH_STEAL_FORCE;
     this.ball.isPerfect = false;
+    this.ball.isBolt = false;
+    this.ball.boltTimerMs = 0;
     this._hostHasPossession = false;
     this._clientHasPossession = false;
     this._hostShotCooldownMs = 150;
     this._clientShotCooldownMs = 150;
 
     // Juice for poke
-    this.cameras.main.shake(100, 0.004);
+    this.cameras.main.shake(150, 0.008);
+    this._frozenMs = 40; // hit-stop on steal
+
+    // Impact sparks using fire system
+    for (let i = 0; i < 12; i++) {
+      this._fireParticles.push({
+        x: this.ball.x,
+        y: this.ball.y - this.ball.z * 0.6,
+        vx: (Math.random() - 0.5) * 800,
+        vy: (Math.random() - 0.5) * 800,
+        life: 250,
+        maxLife: 250,
+        size: 8 + Math.random() * 6,
+      });
+    }
   }
 
   protected _onGoal(scorer: "host" | "client"): void {
@@ -872,13 +930,24 @@ export class GameScene extends Phaser.Scene {
 
     // Rematch button
     const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, 0x00cc66, 1).setDepth(31).setInteractive({ useHandCursor: true });
-    this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const rematchText = this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
 
-    rematchBtn.on("pointerup", () => this.scene.restart());
+    rematchBtn.on("pointerover", () => { rematchBtn.setScale(1.05); rematchBtn.setFillStyle(0x00ee77); });
+    rematchBtn.on("pointerout", () => { rematchBtn.setScale(1.0); rematchBtn.setFillStyle(0x00cc66); });
+
+    rematchBtn.on("pointerup", () => {
+      rematchText.setText("WAITING...");
+      rematchBtn.disableInteractive();
+      rematchBtn.setAlpha(0.6);
+      this.scene.restart();
+    });
 
     // Menu button
     const menuBtn = this.add.rectangle(cx, cy + 170, 250, 60, 0x444466, 1).setDepth(31).setInteractive({ useHandCursor: true });
     this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+
+    menuBtn.on("pointerover", () => { menuBtn.setScale(1.05); menuBtn.setFillStyle(0x555577); });
+    menuBtn.on("pointerout", () => { menuBtn.setScale(1.0); menuBtn.setFillStyle(0x444466); });
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
   }
@@ -978,6 +1047,12 @@ export class GameScene extends Phaser.Scene {
         const g = 255;
         const b = 255;
         const r = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
+        color = (r << 16) | (g << 8) | b;
+      } else if (this.ball.isBolt) {
+        // Bright Violet/Pink (t=1) -> White (t=0.5) -> Violet (t=0)
+        const r = 255;
+        const b = 255;
+        const g = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
         color = (r << 16) | (g << 8) | b;
       } else {
         // bright yellow (t=1) → orange (t=0.5) → pure red (t<0.5)
@@ -1094,6 +1169,46 @@ export class GameScene extends Phaser.Scene {
     this._updateChargeBar(this._clientChargeBar, this._clientShoot, this.client.x - 20, this.client.y - PLAYER_RADIUS - 8);
 
     this._scoreText.setText(`${this.score.host}  —  ${this.score.client}`);
+  }
+
+  private _updateGhosts(delta: number): void {
+    // Spawn ghosts
+    const DASH_BURST = DASH_COOLDOWN - 200;
+    if (this.host.dashCooldownMs > DASH_BURST && Math.floor(this.time.now / 40) % 2 === 0) {
+      this._ghosts.push({
+        x: this.host.x,
+        y: this.host.y,
+        rotation: this._hostSprite.rotation,
+        frame: this._hostSprite.frame.name as unknown as number,
+        alpha: 0.5,
+        life: GameScene.GHOST_LIFETIME,
+        color: 0x00cc66,
+      });
+    }
+    if (this.client.dashCooldownMs > DASH_BURST && Math.floor(this.time.now / 40) % 2 === 0) {
+      this._ghosts.push({
+        x: this.client.x,
+        y: this.client.y,
+        rotation: this._clientSprite.rotation,
+        frame: this._clientSprite.frame.name as unknown as number,
+        alpha: 0.5,
+        life: GameScene.GHOST_LIFETIME,
+        color: 0xdd2244,
+      });
+    }
+
+    this._ghostGraphics.clear();
+    this._ghosts = this._ghosts.filter(g => {
+      g.life -= delta;
+      if (g.life <= 0) return false;
+      const t = g.life / GameScene.GHOST_LIFETIME;
+      this._ghostGraphics.fillStyle(g.color, g.alpha * t);
+      // Since we are using sprites with frames, but Graphics doesn't easily draw sprites,
+      // I'll just draw a tinted circle as a "ghost" for now to keep it lightweight,
+      // or I could use a pool of sprites. Let's do tinted circles for "juice" feel.
+      this._ghostGraphics.fillCircle(g.x, g.y, PLAYER_RADIUS);
+      return true;
+    });
   }
 
   private _updateDashRings(): void {
