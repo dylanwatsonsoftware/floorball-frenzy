@@ -10,10 +10,6 @@ import {
 import type { GameMessage } from "../src/net/messages";
 import type { GameState } from "../src/types/game";
 
-function makeInput() {
-  return { moveX: 0, moveY: 0, wrist: false, slap: false, dash: false };
-}
-
 describe("isGameMessage", () => {
   it("accepts valid types", () => {
     expect(isGameMessage({ type: "start" })).toBe(true);
@@ -48,7 +44,7 @@ describe("isSignalMessage", () => {
 });
 
 describe("encode/decode roundtrip", () => {
-  const cases: any[] = [
+  const cases: GameMessage[] = [
     { type: "start" },
     { type: "ping", t: 1000 },
     { type: "pong", t: 1001 },
@@ -79,7 +75,7 @@ describe("encode/decode roundtrip", () => {
 
 describe("Binary Snapshot", () => {
   it("encodes and decodes a complex state accurately", () => {
-    const s: any = {
+    const s: GameState = {
       t: 12345.678,
       remainingTimeMs: 45000.5,
       ball: {
