@@ -1,5 +1,5 @@
 import LogRocket from "logrocket";
-import type { GameState } from "../types/game";
+import { type GameState, NEUTRAL_INPUT } from "../types/game";
 import { GameScene } from "./GameScene";
 import { PeerConnection } from "../net/PeerConnection";
 import type { GameMessage } from "../net/messages";
@@ -41,6 +41,10 @@ export class OnlineGameScene extends GameScene {
 
   private _pendingWristShot = false;      // client → host: latched on key-down
   private _pendingClientWrist = false;    // host side: set when any input msg has wrist:true
+
+  protected override get _isAuthoritative(): boolean {
+    return this._isHost;
+  }
 
   constructor() {
     super();
@@ -267,16 +271,18 @@ export class OnlineGameScene extends GameScene {
         this._doWristShot("client");
       }
       const hostInput = this._readHostInput();
-      this._runPhysics(hostInput, this.client.input, dt, elapsedMs);
+      const clientInput = this.client.input || NEUTRAL_INPUT;
+      this._runPhysics(hostInput, clientInput, dt, elapsedMs);
       this._snapshotTimer += elapsedMs;
       if (this._snapshotTimer >= SNAPSHOT_INTERVAL_MS) {
         this._snapshotTimer = 0;
         this._sendSnapshot();
       }
     } else {
-      const input = this._readOnlineClientInput();
-      this._runPhysics(this.host.input, input, dt, elapsedMs);
-      this._peer.send({ type: "input", seq: ++this._inputSeq, input });
+      const clientInput = this._readOnlineClientInput();
+      const hostInput = this.host.input || NEUTRAL_INPUT;
+      this._runPhysics(hostInput, clientInput, dt, elapsedMs);
+      this._peer.send({ type: "input", seq: ++this._inputSeq, input: clientInput });
     }
   }
 

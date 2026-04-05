@@ -76,7 +76,7 @@ describe("lerpState", () => {
     expect(current.players.client.vy).toBeCloseTo(30, 5);
   });
 
-  it("interpolates player aim and synchronizes dashCooldown and chargeMs", () => {
+  it("interpolates player aim and synchronizes dashCooldown and chargeMs (t=0.5)", () => {
     const current = makeState(0);
     current.players.host.aimX = 1;
     current.players.host.aimY = 0;
@@ -93,8 +93,45 @@ describe("lerpState", () => {
 
     expect(current.players.host.aimX).toBeCloseTo(0.5, 5);
     expect(current.players.host.aimY).toBeCloseTo(0.5, 5);
-    expect(current.players.host.dashCooldownMs).toBe(0); // Snap-to (no lerp)
-    expect(current.players.host.chargeMs).toBe(500); // Snap-to (no lerp)
+    expect(current.players.host.dashCooldownMs).toBe(0); // Clamped/Snapped
+    expect(current.players.host.chargeMs).toBe(500); // Clamped/Snapped
+  });
+
+  it("synchronizes player fields (t=1)", () => {
+    const current = makeState(0);
+    const snapshot = makeState(0);
+    snapshot.players.host.aimX = 0.707;
+    snapshot.players.host.aimY = 0.707;
+    snapshot.players.host.dashCooldownMs = 400;
+    snapshot.players.host.chargeMs = 800;
+
+    lerpState(current, snapshot, 1);
+
+    expect(current.players.host.aimX).toBeCloseTo(0.707, 5);
+    expect(current.players.host.aimY).toBeCloseTo(0.707, 5);
+    expect(current.players.host.dashCooldownMs).toBe(400);
+    expect(current.players.host.chargeMs).toBe(800);
+  });
+
+  it("preserves player fields (t=0)", () => {
+    const current = makeState(0);
+    current.players.host.aimX = 0.8;
+    current.players.host.aimY = 0.6;
+    current.players.host.dashCooldownMs = 2000;
+    current.players.host.chargeMs = 150;
+
+    const snapshot = makeState(0);
+    snapshot.players.host.aimX = 0;
+    snapshot.players.host.aimY = 1;
+    snapshot.players.host.dashCooldownMs = 0;
+    snapshot.players.host.chargeMs = 0;
+
+    lerpState(current, snapshot, 0);
+
+    expect(current.players.host.aimX).toBeCloseTo(0.8, 5);
+    expect(current.players.host.aimY).toBeCloseTo(0.6, 5);
+    expect(current.players.host.dashCooldownMs).toBe(0); // Snap-to snapshot value regardless of t
+    expect(current.players.host.chargeMs).toBe(0); // Snap-to snapshot value regardless of t
   });
 
   it("copies ball possessedBy state directly from snapshot", () => {

@@ -147,6 +147,10 @@ export class GameScene extends Phaser.Scene {
   protected _hostHasPossession = false;
   protected _clientHasPossession = false;
 
+  protected get _isAuthoritative(): boolean {
+    return this._mode === "local";
+  }
+
 
   // Keys
   protected _wasd!: {
@@ -533,14 +537,14 @@ export class GameScene extends Phaser.Scene {
     if (this._hostHasPossession) {
       this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
       this._clientHasPossession = false;
-      this.ball.possessedBy = "host";
+      if (this._isAuthoritative) this.ball.possessedBy = "host";
     } else {
       this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
       if (this._clientHasPossession) {
         this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
-        this.ball.possessedBy = "client";
+        if (this._isAuthoritative) this.ball.possessedBy = "client";
       } else {
-        this.ball.possessedBy = null;
+        if (this._isAuthoritative) this.ball.possessedBy = null;
       }
     }
 
