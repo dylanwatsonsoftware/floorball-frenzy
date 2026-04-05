@@ -99,7 +99,7 @@ export class GameScene extends Phaser.Scene {
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
-  protected static readonly DRIBBLE_AMP  = 50;          // px half-sweep width
+  protected static readonly DRIBBLE_AMP  = 22;          // px half-sweep width
   protected static readonly DRIBBLE_FREQ = 3.2;         // tic-tacs per second
   protected static readonly DRIBBLE_DIST = STICK_REACH * 0.91; // how far in front
 
@@ -636,18 +636,20 @@ export class GameScene extends Phaser.Scene {
     // During slap-shot charge, pull ball back to blade so it's ready to hit
     if (isCharging) {
       const distToBlade = Math.hypot(this.ball.x - bladeTipX, this.ball.y - bladeTipY);
-      if (distToBlade > STICK_REACH * 2 + BALL_RADIUS) return false;
+      if (distToBlade > 85) return false;
       if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
-      applyPossessionAssist(this.ball, player.vx, player.vy);
-      this.ball.vx += (player.vx - this.ball.vx) * 0.22;
-      this.ball.vy += (player.vy - this.ball.vy) * 0.22;
 
-      // Distance-capped pull toward blade tip to prevent teleporting
+      // Velocity coupling: 0.45 total (0.1 from assist + 0.35 here)
+      applyPossessionAssist(this.ball, player.vx, player.vy);
+      this.ball.vx += (player.vx - this.ball.vx) * 0.35;
+      this.ball.vy += (player.vy - this.ball.vy) * 0.35;
+
+      // Pull toward blade tip: 45% of distance per step, capped at 15px
       const dx = bladeTipX - this.ball.x;
       const dy = bladeTipY - this.ball.y;
       const dist = Math.hypot(dx, dy);
       if (dist > 0.1) {
-        const moveDist = Math.min(dist, 6); // max 6px per step
+        const moveDist = Math.min(dist * 0.45, 15);
         this.ball.x += (dx / dist) * moveDist;
         this.ball.y += (dy / dist) * moveDist;
       }
@@ -659,25 +661,25 @@ export class GameScene extends Phaser.Scene {
     const targetX = player.x + aNx * DRIBBLE_DIST + stickDir.x * side;
     const targetY = player.y + aNy * DRIBBLE_DIST + stickDir.y * side;
 
-    // Possession zone: centred in front of player, wide enough to cover the full sweep
-    const zoneRadius = DRIBBLE_AMP + DRIBBLE_DIST * 0.6 + BALL_RADIUS;
+    // Possession zone: centred in front of player, generous 85px radius for easy pickup
+    const zoneRadius = 85;
     const zoneCX = player.x + aNx * DRIBBLE_DIST;
     const zoneCY = player.y + aNy * DRIBBLE_DIST;
     if (Math.hypot(this.ball.x - zoneCX, this.ball.y - zoneCY) > zoneRadius) return false;
 
-    if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 480) return false;
+    if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-    // Velocity coupling
+    // Velocity coupling: 0.45 total (0.1 from assist + 0.35 here)
     applyPossessionAssist(this.ball, player.vx, player.vy);
-    this.ball.vx += (player.vx - this.ball.vx) * 0.22;
-    this.ball.vy += (player.vy - this.ball.vy) * 0.22;
+    this.ball.vx += (player.vx - this.ball.vx) * 0.35;
+    this.ball.vy += (player.vy - this.ball.vy) * 0.35;
 
-    // Distance-capped pull toward dribble target to prevent teleporting
+    // Pull toward dribble target: 45% of distance per step, capped at 15px
     const dx = targetX - this.ball.x;
     const dy = targetY - this.ball.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.1) {
-      const moveDist = Math.min(dist, 6); // max 6px per step
+      const moveDist = Math.min(dist * 0.45, 15);
       this.ball.x += (dx / dist) * moveDist;
       this.ball.y += (dy / dist) * moveDist;
     }
