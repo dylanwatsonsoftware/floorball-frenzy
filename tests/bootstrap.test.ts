@@ -22,10 +22,18 @@ describe("type contracts", () => {
       t: 0,
       remainingTimeMs: 120000,
       ball,
-      players: { host: p, client: { ...p, id: "client", aimX: -1 } },
+      players: {
+        host: p,
+        client: { ...p, id: "client", aimX: -1, input: { ...input } },
+      },
       score: { host: 0, client: 0 },
     };
+    expect(state.remainingTimeMs).toBe(120000);
     expect(state.score.host).toBe(0);
     expect(state.players.host.id).toBe("host");
+    expect(state.players.client.aimX).toBe(-1);
+
+    // Verify input was independently cloned (not shared by reference)
+    expect(state.players.client.input).not.toBe(state.players.host.input);
   });
 });
