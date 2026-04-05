@@ -15,6 +15,10 @@ export interface Player {
   y: number;
   vx: number;
   vy: number;
+  aimX: number;
+  aimY: number;
+  dashCooldownMs: number;
+  chargeMs: number;
   input: InputState;
 }
 
@@ -26,6 +30,7 @@ export interface Ball {
   vy: number;
   vz: number;
   isPerfect?: boolean;
+  possessedBy: string | null;
 }
 
 export interface GameState {

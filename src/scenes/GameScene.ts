@@ -188,7 +188,7 @@ export class GameScene extends Phaser.Scene {
 
     this.host = createPlayer("host", midX - 200, midY);
     this.client = createPlayer("client", midX + 200, midY);
-    this.ball = { x: midX, y: midY, z: 0, vx: 0, vy: 0, vz: 0 };
+    this.ball = { x: midX, y: midY, z: 0, vx: 0, vy: 0, vz: 0, possessedBy: null };
 
     this._hostShoot = createShootState();
     this._clientShoot = createShootState();
@@ -493,6 +493,14 @@ export class GameScene extends Phaser.Scene {
     stepPlayer(this.host, hostInputActual, dt, elapsedMs);
     stepPlayer(this.client, clientInputActual, dt, elapsedMs);
 
+    this.host.aimX = this._hostAimSmooth.x;
+    this.host.aimY = this._hostAimSmooth.y;
+    this.client.aimX = this._clientAimSmooth.x;
+    this.client.aimY = this._clientAimSmooth.y;
+
+    this.host.chargeMs = this._hostShoot.chargeMs;
+    this.client.chargeMs = this._clientShoot.chargeMs;
+
     if (this._hostSlapWasDown && !hostInput.slap) {
       if (this._hostShoot.chargeMs > 0) this._doSlapShot("host");
       this._hostShoot.chargeMs = 0;
@@ -525,9 +533,15 @@ export class GameScene extends Phaser.Scene {
     if (this._hostHasPossession) {
       this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
       this._clientHasPossession = false;
+      this.ball.possessedBy = "host";
     } else {
       this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
-      if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      if (this._clientHasPossession) {
+        this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+        this.ball.possessedBy = "client";
+      } else {
+        this.ball.possessedBy = null;
+      }
     }
 
     this._updateLastTouch();
@@ -586,6 +600,11 @@ export class GameScene extends Phaser.Scene {
     shotCooldownActive = false
   ): boolean {
     if (shotCooldownActive) return false;
+
+    // In online mode, if someone else has possession, don't try to take it
+    if (this._mode === "online" && this.ball.possessedBy && this.ball.possessedBy !== player.id) {
+      return false;
+    }
 
     // Aim direction is 90° CW from stickDir (stickDir is 90° CCW from aim)
     const aNx = stickDir.y;
@@ -848,7 +867,8 @@ export class GameScene extends Phaser.Scene {
 
   private _playGoalCheer(isWin: boolean): void {
     try {
-      const ctx = new AudioContext();
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
       const duration = isWin ? 3.5 : 2.0;
 
       // ── Crowd noise: filtered white noise ──────────────────────────────────
