@@ -131,6 +131,8 @@ export class GameScene extends Phaser.Scene {
 
   // Frozen while showing goal message
   protected _frozenMs = 0;
+  // If true, the current freeze is for a goal/score (which resets the round)
+  protected _isGoalPause = false;
 
   // Shot animation (countdown ms per player; used by _drawSticks)
   protected _hostShotAnimMs = 0;
@@ -181,6 +183,7 @@ export class GameScene extends Phaser.Scene {
     this.score = { host: 0, client: 0 };
     this._accumulator = 0;
     this._frozenMs = 0;
+    this._isGoalPause = false;
     this._elapsedMs = 0;
     this._hostSlapWasDown = false;
     this._clientSlapWasDown = false;
@@ -398,8 +401,11 @@ export class GameScene extends Phaser.Scene {
       this._frozenMs -= delta;
       if (this._frozenMs <= 0) {
         this._frozenMs = 0;
-        this._messageText.setText("");
-        this._resetRound();
+        if (this._isGoalPause) {
+          this._messageText.setText("");
+          this._resetRound();
+          this._isGoalPause = false;
+        }
       }
       return;
     }
@@ -636,20 +642,20 @@ export class GameScene extends Phaser.Scene {
     // During slap-shot charge, pull ball back to blade so it's ready to hit
     if (isCharging) {
       const distToBlade = Math.hypot(this.ball.x - bladeTipX, this.ball.y - bladeTipY);
-      if (distToBlade > 85) return false;
+      if (distToBlade > 75) return false;
       if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-      // Velocity coupling: 0.45 total (0.1 from assist + 0.35 here)
+      // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
       applyPossessionAssist(this.ball, player.vx, player.vy);
-      this.ball.vx += (player.vx - this.ball.vx) * 0.35;
-      this.ball.vy += (player.vy - this.ball.vy) * 0.35;
+      this.ball.vx += (player.vx - this.ball.vx) * 0.25;
+      this.ball.vy += (player.vy - this.ball.vy) * 0.25;
 
-      // Pull toward blade tip: 45% of distance per step, capped at 15px
+      // Pull toward blade tip: 30% of distance per step, capped at 12px
       const dx = bladeTipX - this.ball.x;
       const dy = bladeTipY - this.ball.y;
       const dist = Math.hypot(dx, dy);
       if (dist > 0.1) {
-        const moveDist = Math.min(dist * 0.45, 15);
+        const moveDist = Math.min(dist * 0.30, 12);
         this.ball.x += (dx / dist) * moveDist;
         this.ball.y += (dy / dist) * moveDist;
       }
@@ -661,25 +667,25 @@ export class GameScene extends Phaser.Scene {
     const targetX = player.x + aNx * DRIBBLE_DIST + stickDir.x * side;
     const targetY = player.y + aNy * DRIBBLE_DIST + stickDir.y * side;
 
-    // Possession zone: centred in front of player, generous 85px radius for easy pickup
-    const zoneRadius = 85;
+    // Possession zone: centred in front of player, generous 75px radius for easy pickup
+    const zoneRadius = 75;
     const zoneCX = player.x + aNx * DRIBBLE_DIST;
     const zoneCY = player.y + aNy * DRIBBLE_DIST;
     if (Math.hypot(this.ball.x - zoneCX, this.ball.y - zoneCY) > zoneRadius) return false;
 
     if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-    // Velocity coupling: 0.45 total (0.1 from assist + 0.35 here)
+    // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
     applyPossessionAssist(this.ball, player.vx, player.vy);
-    this.ball.vx += (player.vx - this.ball.vx) * 0.35;
-    this.ball.vy += (player.vy - this.ball.vy) * 0.35;
+    this.ball.vx += (player.vx - this.ball.vx) * 0.25;
+    this.ball.vy += (player.vy - this.ball.vy) * 0.25;
 
-    // Pull toward dribble target: 45% of distance per step, capped at 15px
+    // Pull toward dribble target: 30% of distance per step, capped at 12px
     const dx = targetX - this.ball.x;
     const dy = targetY - this.ball.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.1) {
-      const moveDist = Math.min(dist * 0.45, 15);
+      const moveDist = Math.min(dist * 0.30, 12);
       this.ball.x += (dx / dist) * moveDist;
       this.ball.y += (dy / dist) * moveDist;
     }
@@ -839,11 +845,13 @@ export class GameScene extends Phaser.Scene {
     if (isWin) {
       this._messageText.setText(`${scorer === "host" ? "Green" : "Black"} wins!`);
       this._frozenMs = 5000; // Give time for the overlay
+      this._isGoalPause = true;
       this._updateWinStreak(scorer);
       this.time.delayedCall(1000, () => this._showMatchOver(scorer));
     } else {
       this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
       this._frozenMs = 1500;
+      this._isGoalPause = true;
     }
     this._playGoalCheer(isWin);
   }
