@@ -15,7 +15,7 @@ import {
   GOAL_BOTTOM
 } from "../physics/constants";
 
-const SNAPSHOT_INTERVAL_MS = 1000 / 15; // 15 Hz
+const SNAPSHOT_INTERVAL_MS = 1000 / 60; // 60 Hz (matches physics engine)
 
 export class OnlineGameScene extends GameScene {
   private _peer!: PeerConnection;
@@ -64,6 +64,8 @@ export class OnlineGameScene extends GameScene {
     this._pendingWristShot = false;
     this._pendingClientWrist = false;
     this._startedCountdown = false;
+
+    this.remainingTimeMs = 120000; // 2 minutes
 
     this._hostAim = { x: 1, y: 0 };
     this._hostAimSmooth = { x: 1, y: 0 };
@@ -240,6 +242,7 @@ export class OnlineGameScene extends GameScene {
       this._countdownText.setText(label).setVisible(true);
       if (this._countdownMs <= 0) {
         this._countdownText.setVisible(false);
+        this.remainingTimeMs = 120000;
       }
       return; // freeze physics during countdown
     }
@@ -266,6 +269,11 @@ export class OnlineGameScene extends GameScene {
     this._elapsedMs += elapsedMs;
 
     if (this._isHost) {
+      if (this.remainingTimeMs > 0 && this._frozenMs === 0) {
+        this.remainingTimeMs = Math.max(0, this.remainingTimeMs - elapsedMs);
+        if (this.remainingTimeMs === 0) this._onTimeUp();
+      }
+
       // Fire client wrist shot from the latch set in _onNetMessage.
       // Using a latch rather than rising-edge on client.input avoids missing
       // shots when two packets arrive between host fixed steps (wrist:true then
@@ -377,15 +385,21 @@ export class OnlineGameScene extends GameScene {
   private _sendSnapshot(): void {
     const snapshot: GameState = {
       t: this._elapsedMs,
-      ball: { ...this.ball },
+      remainingTimeMs: this.remainingTimeMs,
+      ball: {
+        ...this.ball,
+        possessedBy: this._hostHasPossession ? "host" : this._clientHasPossession ? "client" : undefined,
+      },
       players: {
         host: {
-          id: this.host.id, x: this.host.x, y: this.host.y,
-          vx: this.host.vx, vy: this.host.vy, input: this.host.input,
+          ...this.host,
+          aimX: this._hostAimSmooth.x,
+          aimY: this._hostAimSmooth.y,
         },
         client: {
-          id: this.client.id, x: this.client.x, y: this.client.y,
-          vx: this.client.vx, vy: this.client.vy, input: this.client.input,
+          ...this.client,
+          aimX: this._clientAimSmooth.x,
+          aimY: this._clientAimSmooth.y,
         },
       },
       score: { ...this.score },
@@ -406,15 +420,19 @@ export class OnlineGameScene extends GameScene {
       }
       case "state": {
         if (!this._isHost) {
+          const snapshot = msg.snapshot;
+          if (snapshot instanceof ArrayBuffer) return;
+
           const current: GameState = {
             t: this._elapsedMs,
+            remainingTimeMs: this.remainingTimeMs,
             ball: this.ball,
             players: { host: this.host, client: this.client },
             score: this.score,
           };
-          lerpState(current, msg.snapshot, 0.3);
+          lerpState(current, snapshot, 0.5);
           // Correct charging state: if snapshot shows slap is up, zero the local prediction
-          if (!msg.snapshot.players.host.input.slap) {
+          if (!snapshot.players.host.input.slap) {
             this._hostShoot.chargeMs = 0;
             this._hostShoot.charging = false;
           }

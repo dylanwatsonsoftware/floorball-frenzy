@@ -15,6 +15,9 @@ export interface Player {
   y: number;
   vx: number;
   vy: number;
+  aimX: number;
+  aimY: number;
+  dashCooldownMs: number;
   input: InputState;
 }
 
@@ -26,10 +29,12 @@ export interface Ball {
   vy: number;
   vz: number;
   isPerfect?: boolean;
+  possessedBy?: string;
 }
 
 export interface GameState {
   t: number;
+  remainingTimeMs: number;
   ball: Ball;
   players: { host: Player; client: Player };
   score: { host: number; client: number };

@@ -58,6 +58,7 @@ export class GameScene extends Phaser.Scene {
 
   // Score
   protected score = { host: 0, client: 0 };
+  protected remainingTimeMs = 120000;
 
   // Shooting state per player
   protected _hostShoot!: ShootState;
@@ -175,6 +176,7 @@ export class GameScene extends Phaser.Scene {
   init(data: { mode: GameMode }): void {
     this._mode = data.mode ?? "local";
     this.score = { host: 0, client: 0 };
+    this.remainingTimeMs = 120000;
     this._accumulator = 0;
     this._frozenMs = 0;
     this._elapsedMs = 0;
@@ -265,17 +267,17 @@ export class GameScene extends Phaser.Scene {
     this.add.text(1080, HUD_H / 2, "AWAY", { fontSize: "14px", color: "#dd2244", fontStyle: "bold", letterSpacing: 3 })
       .setOrigin(0.5).setDepth(15);
 
-    // "SCORE" eyebrow inside pill
-    this.add
-      .text(640, 14, "SCORE", {
-        fontSize: "9px", color: "#555577", fontStyle: "bold", letterSpacing: 2,
-      })
-      .setOrigin(0.5, 0)
-      .setDepth(15);
+    // Center HUD Pill labels
+    this.add.text(540, 14, "HOME", { fontSize: "9px", color: "#00cc66", fontStyle: "bold", letterSpacing: 1 })
+      .setOrigin(0.5, 0).setDepth(15);
+    this.add.text(640, 14, "TIME", { fontSize: "9px", color: "#555577", fontStyle: "bold", letterSpacing: 1 })
+      .setOrigin(0.5, 0).setDepth(15);
+    this.add.text(740, 14, "AWAY", { fontSize: "9px", color: "#dd2244", fontStyle: "bold", letterSpacing: 1 })
+      .setOrigin(0.5, 0).setDepth(15);
 
-    // Score — updated every frame
+    // Three-section score display: Home | Time | Away
     this._scoreText = this.add
-      .text(640, 55, "0  —  0", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" })
+      .text(640, 55, "0    2:00    0", { fontSize: "32px", color: "#ffffff", fontStyle: "bold", letterSpacing: 4 })
       .setOrigin(0.5)
       .setDepth(15);
 
@@ -447,6 +449,12 @@ export class GameScene extends Phaser.Scene {
   protected _fixedUpdate(dt: number): void {
     const elapsedMs = dt * 1000;
     this._elapsedMs += elapsedMs;
+
+    if (this._mode === "local" && this._frozenMs === 0) {
+      this.remainingTimeMs = Math.max(0, this.remainingTimeMs - elapsedMs);
+      if (this.remainingTimeMs === 0) this._onTimeUp();
+    }
+
     this._runPhysics(this._readHostInput(), this._readClientInput(), dt, elapsedMs);
   }
 
@@ -586,6 +594,11 @@ export class GameScene extends Phaser.Scene {
     shotCooldownActive = false
   ): boolean {
     if (shotCooldownActive) return false;
+
+    // In online mode, host is authoritative: don't allow taking ball if already possessed by opponent
+    if (this._mode === "online" && this.ball.possessedBy && this.ball.possessedBy !== player.id) {
+      return false;
+    }
 
     // Aim direction is 90° CW from stickDir (stickDir is 90° CCW from aim)
     const aNx = stickDir.y;
@@ -809,6 +822,22 @@ export class GameScene extends Phaser.Scene {
     this._playGoalCheer(isWin);
   }
 
+  protected _onTimeUp(): void {
+    const winner = this.score.host > this.score.client ? "host"
+      : this.score.client > this.score.host ? "client" : null;
+
+    if (winner) {
+      this._messageText.setText("TIME UP!");
+      this._frozenMs = 5000;
+      this._updateWinStreak(winner);
+      this.time.delayedCall(1000, () => this._showMatchOver(winner));
+    } else {
+      this._messageText.setText("DRAW!");
+      this._frozenMs = 5000;
+      this.time.delayedCall(1000, () => this._showMatchOver("host")); // For now just show host as winner on draw for simplicity
+    }
+  }
+
   private _updateWinStreak(winner: "host" | "client"): void {
     const key = "floorball:streak";
     const data = JSON.parse(localStorage.getItem(key) || '{"winner":"","count":0}');
@@ -1003,6 +1032,13 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private _formatTime(ms: number): string {
+    const s = Math.ceil(ms / 1000);
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return `${m}:${rs.toString().padStart(2, "0")}`;
+  }
+
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
@@ -1055,7 +1091,8 @@ export class GameScene extends Phaser.Scene {
     this._updateChargeBar(this._hostChargeBar, this._hostShoot, this.host.x - 20, this.host.y - PLAYER_RADIUS - 8);
     this._updateChargeBar(this._clientChargeBar, this._clientShoot, this.client.x - 20, this.client.y - PLAYER_RADIUS - 8);
 
-    this._scoreText.setText(`${this.score.host}  —  ${this.score.client}`);
+    const timeStr = this._formatTime(this.remainingTimeMs);
+    this._scoreText.setText(`${this.score.host}    ${timeStr}    ${this.score.client}`);
   }
 
   private _updateDashRings(): void {
