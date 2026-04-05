@@ -309,7 +309,7 @@ export class OnlineGameScene extends GameScene {
       // Local prediction: player collision, stick tip collision + possession (host is authoritative)
       const clientStick = this._stickDir(this.client, this._clientAimSmooth);
       const hostStick   = this._stickDir(this.host, this._hostAimSmooth);
-      resolvePlayerPlayerCollision(this.host, this.client);
+      resolvePlayerPlayerCollision(this.host, this.client, (p1, p2) => this._onPlayerPlayerContact(p1, p2));
       resolvePlayerBallCollision(this.host, this.ball);
       resolvePlayerBallCollision(this.client, this.ball);
       resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);

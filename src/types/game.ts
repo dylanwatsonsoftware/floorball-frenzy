@@ -25,6 +25,7 @@ export interface Ball {
   vx: number;
   vy: number;
   vz: number;
+  isPerfect?: boolean;
 }
 
 export interface GameState {
