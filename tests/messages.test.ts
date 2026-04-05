@@ -89,12 +89,14 @@ describe("Binary Snapshot", () => {
           id: "host", x: 10, y: 20, vx: 1, vy: 2,
           aimX: 0.707, aimY: 0.707,
           dashCooldownMs: 500,
+          chargeMs: 150,
           input: { moveX: 1, moveY: 0, wrist: true, slap: false, dash: true },
         },
         client: {
           id: "client", x: 90, y: 80, vx: -1, vy: -2,
           aimX: -1, aimY: 0,
           dashCooldownMs: 0,
+          chargeMs: 0,
           input: { moveX: -0.5, moveY: 0.5, wrist: false, slap: true, dash: false },
         },
       },
@@ -102,7 +104,7 @@ describe("Binary Snapshot", () => {
     };
 
     const buf = encodeSnapshot(s);
-    expect(buf.byteLength).toBe(118);
+    expect(buf.byteLength).toBe(126);
     const decoded = decodeSnapshot(buf);
 
     expect(decoded!.t).toBeCloseTo(s.t, 5);

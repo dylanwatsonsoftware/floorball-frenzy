@@ -116,32 +116,41 @@ describe("Possession prioritization logic", () => {
   });
 });
 
-describe("Authoritative Possession (Online Mode)", () => {
-  // Simulating the check added to GameScene.ts:
-  // if (this._mode === "online" && this.ball.possessedBy && this.ball.possessedBy !== player.id) return false;
+describe("Online mode possession exclusivity", () => {
+  it("prevents taking ball if possessedBy is set to another player", () => {
+    // In online mode, _applyStickPossession checks this.ball.possessedBy.
+    const ball = { possessedBy: "host" };
+    const playerClient = { id: "client" };
+    const mode = "online";
 
-  function canTakeBall(mode: "local" | "online", ballPossessedBy: string | undefined, playerId: string): boolean {
-    if (mode === "online" && ballPossessedBy && ballPossessedBy !== playerId) {
-      return false;
-    }
-    return true; // simplified: assumes in range and other conditions met
-  }
+    const canTake = (mode === "online" && ball.possessedBy && ball.possessedBy !== playerClient.id)
+      ? false
+      : true;
 
-  it("allows taking ball in local mode even if already possessed", () => {
-    expect(canTakeBall("local", "host", "client")).toBe(true);
+    expect(canTake).toBe(false);
   });
 
-  it("prevents taking ball in online mode if possessed by opponent", () => {
-    expect(canTakeBall("online", "host", "client")).toBe(false);
-    expect(canTakeBall("online", "client", "host")).toBe(false);
+  it("allows taking ball if possessedBy is null", () => {
+    const ball = { possessedBy: null };
+    const playerClient = { id: "client" };
+    const mode = "online";
+
+    const canTake = (mode === "online" && ball.possessedBy && ball.possessedBy !== playerClient.id)
+      ? false
+      : true;
+
+    expect(canTake).toBe(true);
   });
 
-  it("allows taking ball in online mode if it's free", () => {
-    expect(canTakeBall("online", undefined, "host")).toBe(true);
-    expect(canTakeBall("online", undefined, "client")).toBe(true);
-  });
+  it("allows continuing possession if already possessing", () => {
+    const ball = { possessedBy: "client" };
+    const playerClient = { id: "client" };
+    const mode = "online";
 
-  it("allows maintaining possession if already possessed by self", () => {
-    expect(canTakeBall("online", "host", "host")).toBe(true);
+    const canTake = (mode === "online" && ball.possessedBy && ball.possessedBy !== playerClient.id)
+      ? false
+      : true;
+
+    expect(canTake).toBe(true);
   });
 });

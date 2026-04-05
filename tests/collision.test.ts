@@ -9,13 +9,14 @@ function makePlayer(overrides: Partial<PlayerExtended> = {}): PlayerExtended {
     id: "p1", x: 0, y: 0, vx: 0, vy: 0,
     aimX: 1, aimY: 0,
     dashCooldownMs: 0,
+    chargeMs: 0,
     input: { moveX: 0, moveY: 0, wrist: false, slap: false, dash: false },
     ...overrides,
   };
 }
 
 function makeBall(overrides: Partial<Ball> = {}): Ball {
-  return { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, ...overrides };
+  return { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, possessedBy: null, ...overrides };
 }
 
 const CONTACT_DIST = PLAYER_RADIUS + BALL_RADIUS; // 30

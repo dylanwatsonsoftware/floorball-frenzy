@@ -13,7 +13,7 @@ import {
 } from "../src/physics/constants";
 
 function makeBall(): Ball {
-  return { x: 640, y: 360, z: 0, vx: 0, vy: 0, vz: 0 };
+  return { x: 640, y: 360, z: 0, vx: 0, vy: 0, vz: 0, possessedBy: null };
 }
 
 describe("createShootState", () => {

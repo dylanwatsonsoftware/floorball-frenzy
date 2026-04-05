@@ -63,10 +63,10 @@ export function decodeMessage(raw: string | ArrayBuffer): GameMessage | null {
   }
 }
 
-// ─── Binary Snapshot Encoding (approx 118 bytes) ──────────────────────────────
+// ─── Binary Snapshot Encoding (approx 126 bytes) ──────────────────────────────
 
 export function encodeSnapshot(s: GameState): ArrayBuffer {
-  const buf = new ArrayBuffer(118);
+  const buf = new ArrayBuffer(126);
   const v = new DataView(buf);
 
   v.setFloat64(0, s.t);
@@ -94,6 +94,7 @@ export function encodeSnapshot(s: GameState): ArrayBuffer {
     v.setFloat32(off, p.aimX); off += 4;
     v.setFloat32(off, p.aimY); off += 4;
     v.setFloat32(off, p.dashCooldownMs); off += 4;
+    v.setFloat32(off, p.chargeMs); off += 4;
     v.setFloat32(off, p.input.moveX); off += 4;
     v.setFloat32(off, p.input.moveY); off += 4;
     let mask = 0;
@@ -104,14 +105,14 @@ export function encodeSnapshot(s: GameState): ArrayBuffer {
   }
 
   // Score
-  v.setUint8(116, s.score.host);
-  v.setUint8(117, s.score.client);
+  v.setUint8(124, s.score.host);
+  v.setUint8(125, s.score.client);
 
   return buf;
 }
 
 export function decodeSnapshot(buf: ArrayBuffer): GameState | null {
-  if (buf.byteLength < 118) return null;
+  if (buf.byteLength < 126) return null;
   const v = new DataView(buf);
 
   const t = v.getFloat64(0);
@@ -125,7 +126,7 @@ export function decodeSnapshot(buf: ArrayBuffer): GameState | null {
     vy: v.getFloat32(32),
     vz: v.getFloat32(36),
     isPerfect: v.getUint8(40) === 1,
-    possessedBy: [undefined, "host", "client"][v.getUint8(41)] as any,
+    possessedBy: [null, "host", "client"][v.getUint8(41)] as any,
   };
 
   const players: any = {};
@@ -138,12 +139,13 @@ export function decodeSnapshot(buf: ArrayBuffer): GameState | null {
     const aimX = v.getFloat32(off); off += 4;
     const aimY = v.getFloat32(off); off += 4;
     const dashCooldownMs = v.getFloat32(off); off += 4;
+    const chargeMs = v.getFloat32(off); off += 4;
     const moveX = v.getFloat32(off); off += 4;
     const moveY = v.getFloat32(off); off += 4;
     const mask = v.getUint8(off); off += 1;
     players[role] = {
       id: role,
-      x, y, vx, vy, aimX, aimY, dashCooldownMs,
+      x, y, vx, vy, aimX, aimY, dashCooldownMs, chargeMs,
       input: {
         moveX, moveY,
         wrist: !!(mask & 1),
@@ -154,8 +156,8 @@ export function decodeSnapshot(buf: ArrayBuffer): GameState | null {
   }
 
   const score = {
-    host: v.getUint8(116),
-    client: v.getUint8(117),
+    host: v.getUint8(124),
+    client: v.getUint8(125),
   };
 
   return { t, remainingTimeMs, ball, players, score };

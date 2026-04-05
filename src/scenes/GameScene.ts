@@ -148,6 +148,10 @@ export class GameScene extends Phaser.Scene {
   protected _hostHasPossession = false;
   protected _clientHasPossession = false;
 
+  protected get _isAuthoritative(): boolean {
+    return this._mode === "local";
+  }
+
 
   // Keys
   protected _wasd!: {
@@ -190,7 +194,7 @@ export class GameScene extends Phaser.Scene {
 
     this.host = createPlayer("host", midX - 200, midY);
     this.client = createPlayer("client", midX + 200, midY);
-    this.ball = { x: midX, y: midY, z: 0, vx: 0, vy: 0, vz: 0 };
+    this.ball = { x: midX, y: midY, z: 0, vx: 0, vy: 0, vz: 0, possessedBy: null };
 
     this._hostShoot = createShootState();
     this._clientShoot = createShootState();
@@ -460,14 +464,16 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Core physics step with explicit inputs.
-   * Called by _fixedUpdate (local) and directly by OnlineGameScene (host)
-   * with network-received client input so there is no indirection.
+   * Called by _fixedUpdate (local) and directly by OnlineGameScene (host/client)
+   * with network-received input so there is no indirection.
+   * @param isClientPrediction If true, skip authoritative possession/ownership logic.
    */
   protected _runPhysics(
     hostInput: InputState,
     clientInput: InputState,
     dt: number,
-    elapsedMs: number
+    elapsedMs: number,
+    isClientPrediction = false
   ): void {
     // Tick pending wrist shot timers; fire when they expire
     if (this._hostPendingWristMs > 0) {
@@ -501,6 +507,14 @@ export class GameScene extends Phaser.Scene {
     stepPlayer(this.host, hostInputActual, dt, elapsedMs);
     stepPlayer(this.client, clientInputActual, dt, elapsedMs);
 
+    this.host.aimX = this._hostAimSmooth.x;
+    this.host.aimY = this._hostAimSmooth.y;
+    this.client.aimX = this._clientAimSmooth.x;
+    this.client.aimY = this._clientAimSmooth.y;
+
+    this.host.chargeMs = this._hostShoot.chargeMs;
+    this.client.chargeMs = this._clientShoot.chargeMs;
+
     if (this._hostSlapWasDown && !hostInput.slap) {
       if (this._hostShoot.chargeMs > 0) this._doSlapShot("host");
       this._hostShoot.chargeMs = 0;
@@ -529,13 +543,31 @@ export class GameScene extends Phaser.Scene {
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
 
-    this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging, this._hostShotCooldownMs > 0);
-    if (this._hostHasPossession) {
-      this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
-      this._clientHasPossession = false;
+    // Possession: if client prediction, ONLY allow keeping current possession, don't allow taking it.
+    // This prevents local prediction from fighting the authoritative host state.
+    if (isClientPrediction) {
+      if (this._hostHasPossession) {
+        this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging, this._hostShotCooldownMs > 0);
+        if (this._hostHasPossession) this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      } else if (this._clientHasPossession) {
+        this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
+        if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      }
     } else {
-      this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
-      if (this._clientHasPossession) this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+      this._hostHasPossession = this._applyStickPossession(this.host, hostStick, this._hostDribblePhase, this._hostShoot.charging, this._hostShotCooldownMs > 0);
+      if (this._hostHasPossession) {
+        this._hostDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+        this._clientHasPossession = false;
+        if (this._isAuthoritative) this.ball.possessedBy = "host";
+      } else {
+        this._clientHasPossession = this._applyStickPossession(this.client, clientStick, this._clientDribblePhase, this._clientShoot.charging, this._clientShotCooldownMs > 0);
+        if (this._clientHasPossession) {
+          this._clientDribblePhase += dt * 2 * Math.PI * GameScene.DRIBBLE_FREQ;
+          if (this._isAuthoritative) this.ball.possessedBy = "client";
+        } else {
+          if (this._isAuthoritative) this.ball.possessedBy = null;
+        }
+      }
     }
 
     this._updateLastTouch();
@@ -595,7 +627,7 @@ export class GameScene extends Phaser.Scene {
   ): boolean {
     if (shotCooldownActive) return false;
 
-    // In online mode, host is authoritative: don't allow taking ball if already possessed by opponent
+    // In online mode, if someone else has possession, don't try to take it
     if (this._mode === "online" && this.ball.possessedBy && this.ball.possessedBy !== player.id) {
       return false;
     }
@@ -806,22 +838,6 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(100, 0.004);
   }
 
-  protected _onGoal(scorer: "host" | "client"): void {
-    this.score[scorer]++;
-    const isWin = this.score[scorer] >= WINNING_SCORE;
-    const label = scorer === "host" ? "Green scores!" : "Black scores!";
-    if (isWin) {
-      this._messageText.setText(`${scorer === "host" ? "Green" : "Black"} wins!`);
-      this._frozenMs = 5000; // Give time for the overlay
-      this._updateWinStreak(scorer);
-      this.time.delayedCall(1000, () => this._showMatchOver(scorer));
-    } else {
-      this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
-      this._frozenMs = 1500;
-    }
-    this._playGoalCheer(isWin);
-  }
-
   protected _onTimeUp(): void {
     const winner = this.score.host > this.score.client ? "host"
       : this.score.client > this.score.host ? "client" : null;
@@ -836,6 +852,22 @@ export class GameScene extends Phaser.Scene {
       this._frozenMs = 5000;
       this.time.delayedCall(1000, () => this._showMatchOver("host")); // For now just show host as winner on draw for simplicity
     }
+  }
+
+  protected _onGoal(scorer: "host" | "client"): void {
+    this.score[scorer]++;
+    const isWin = this.score[scorer] >= WINNING_SCORE;
+    const label = scorer === "host" ? "Green scores!" : "Black scores!";
+    if (isWin) {
+      this._messageText.setText(`${scorer === "host" ? "Green" : "Black"} wins!`);
+      this._frozenMs = 5000; // Give time for the overlay
+      this._updateWinStreak(scorer);
+      this.time.delayedCall(1000, () => this._showMatchOver(scorer));
+    } else {
+      this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
+      this._frozenMs = 1500;
+    }
+    this._playGoalCheer(isWin);
   }
 
   private _updateWinStreak(winner: "host" | "client"): void {
@@ -877,7 +909,8 @@ export class GameScene extends Phaser.Scene {
 
   private _playGoalCheer(isWin: boolean): void {
     try {
-      const ctx = new AudioContext();
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
       const duration = isWin ? 3.5 : 2.0;
 
       // ── Crowd noise: filtered white noise ──────────────────────────────────

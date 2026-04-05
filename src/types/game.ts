@@ -9,6 +9,14 @@ export interface InputState {
   dash: boolean;
 }
 
+export const NEUTRAL_INPUT: InputState = {
+  moveX: 0,
+  moveY: 0,
+  wrist: false,
+  slap: false,
+  dash: false,
+};
+
 export interface Player {
   id: string;
   x: number;
@@ -18,6 +26,7 @@ export interface Player {
   aimX: number;
   aimY: number;
   dashCooldownMs: number;
+  chargeMs: number;
   input: InputState;
 }
 
@@ -29,7 +38,7 @@ export interface Ball {
   vy: number;
   vz: number;
   isPerfect?: boolean;
-  possessedBy?: string;
+  possessedBy: string | null;
 }
 
 export interface GameState {
