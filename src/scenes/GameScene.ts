@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import type { Ball, GameMode, InputState } from "../types/game";
 import type { PlayerExtended } from "../physics/playerPhysics";
 import { createPlayer, stepPlayer } from "../physics/playerPhysics";
-import { stepBall, resetBall, applyPossessionAssist } from "../physics/ballPhysics";
+import { stepBall, resetBall } from "../physics/ballPhysics";
 import { resolvePlayerBallCollision, resolveStickTipCollision, resolvePlayerPlayerCollision } from "../physics/collision";
 import { stickDir as stickDirPure, ballInRange } from "../physics/stickUtils";
 import {
@@ -638,16 +638,19 @@ export class GameScene extends Phaser.Scene {
       const distToBlade = Math.hypot(this.ball.x - bladeTipX, this.ball.y - bladeTipY);
       if (distToBlade > STICK_REACH * 2 + BALL_RADIUS) return false;
       if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
-      applyPossessionAssist(this.ball, player.vx, player.vy);
-      this.ball.vx += (player.vx - this.ball.vx) * 0.22;
-      this.ball.vy += (player.vy - this.ball.vy) * 0.22;
 
-      // Distance-capped pull toward blade tip to prevent teleporting
+      // Distance-weighted interpolation for smoother "soft-catch"
       const dx = bladeTipX - this.ball.x;
       const dy = bladeTipY - this.ball.y;
       const dist = Math.hypot(dx, dy);
+
+      // Interpolation factor: pulls stronger as ball gets closer
+      const pullStrength = 0.25 * (1 - Math.min(dist / (STICK_REACH * 2), 0.8));
+      this.ball.vx += (player.vx - this.ball.vx) * pullStrength;
+      this.ball.vy += (player.vy - this.ball.vy) * pullStrength;
+
       if (dist > 0.1) {
-        const moveDist = Math.min(dist, 6); // max 6px per step
+        const moveDist = Math.min(dist, 8) * (pullStrength * 4);
         this.ball.x += (dx / dist) * moveDist;
         this.ball.y += (dy / dist) * moveDist;
       }
@@ -663,21 +666,23 @@ export class GameScene extends Phaser.Scene {
     const zoneRadius = DRIBBLE_AMP + DRIBBLE_DIST * 0.6 + BALL_RADIUS;
     const zoneCX = player.x + aNx * DRIBBLE_DIST;
     const zoneCY = player.y + aNy * DRIBBLE_DIST;
-    if (Math.hypot(this.ball.x - zoneCX, this.ball.y - zoneCY) > zoneRadius) return false;
+    const distToZone = Math.hypot(this.ball.x - zoneCX, this.ball.y - zoneCY);
+    if (distToZone > zoneRadius) return false;
 
     if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 480) return false;
 
-    // Velocity coupling
-    applyPossessionAssist(this.ball, player.vx, player.vy);
-    this.ball.vx += (player.vx - this.ball.vx) * 0.22;
-    this.ball.vy += (player.vy - this.ball.vy) * 0.22;
-
-    // Distance-capped pull toward dribble target to prevent teleporting
+    // Distance-weighted interpolation for smoother "soft-catch"
     const dx = targetX - this.ball.x;
     const dy = targetY - this.ball.y;
     const dist = Math.hypot(dx, dy);
+
+    // Interpolation factor: pulls stronger as ball gets closer to target
+    const pullStrength = 0.22 * (1 - Math.min(dist / zoneRadius, 0.7));
+    this.ball.vx += (player.vx - this.ball.vx) * pullStrength;
+    this.ball.vy += (player.vy - this.ball.vy) * pullStrength;
+
     if (dist > 0.1) {
-      const moveDist = Math.min(dist, 6); // max 6px per step
+      const moveDist = Math.min(dist, 7) * (pullStrength * 4);
       this.ball.x += (dx / dist) * moveDist;
       this.ball.y += (dy / dist) * moveDist;
     }
