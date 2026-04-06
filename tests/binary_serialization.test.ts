@@ -57,7 +57,7 @@ describe("Binary Serialization", () => {
   it("encodes and decodes a GameState snapshot accurately", () => {
     const encoded = encodeMessage({ type: "state", snapshot: mockState });
     expect(encoded).toBeInstanceOf(Uint8Array);
-    expect((encoded as Uint8Array).length).toBe(119);
+    expect((encoded as Uint8Array).length).toBe(121);
 
     const decoded = decodeMessage(encoded);
     expect(decoded?.type).toBe("state");
@@ -110,6 +110,35 @@ describe("Binary Serialization", () => {
       expect(decoded.seq).toBe(5678);
       expect(decoded.input.moveX).toBeCloseTo(mockInput.moveX, 2);
     }
+  });
+
+  it("encodes and decodes snapshots with boundary and large scores accurately", () => {
+    const cases = [
+      { host: 255, client: 255 },
+      { host: 256, client: 1024 },
+      { host: 1234, client: 5678 },
+    ];
+    for (const score of cases) {
+      const state: GameState = { ...mockState, score };
+      const encoded = encodeMessage({ type: "state", snapshot: state }) as Uint8Array;
+      const decoded = decodeMessage(encoded);
+      expect(decoded?.type).toBe("state");
+      if (decoded?.type === "state") {
+        expect(decoded.snapshot.score.host).toBe(score.host);
+        expect(decoded.snapshot.score.client).toBe(score.client);
+      }
+    }
+  });
+
+  it("returns null for truncated binary payloads", () => {
+    const encoded = encodeMessage({ type: "state", snapshot: mockState }) as Uint8Array;
+    const truncated = encoded.subarray(0, 100); // 100 < 121
+    expect(decodeMessage(truncated)).toBeNull();
+  });
+
+  it("returns null for unknown binary type bytes", () => {
+    const invalid = new Uint8Array([0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(decodeMessage(invalid)).toBeNull();
   });
 
   it("falls back to JSON for other message types", () => {

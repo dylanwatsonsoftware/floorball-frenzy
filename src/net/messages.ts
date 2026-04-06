@@ -62,7 +62,7 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
     const type = view[0];
     const dv = new DataView(view.buffer, view.byteOffset, view.byteLength);
 
-    if (type === TYPE_STATE && view.byteLength === 119) {
+    if (type === TYPE_STATE && view.byteLength === 121) {
       return { type: "state", snapshot: decodeSnapshot(dv) };
     }
     if (type === TYPE_INPUT && view.byteLength === 14) {
@@ -79,10 +79,10 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
   }
 }
 
-// ─── Binary Snapshot (119 bytes) ──────────────────────────────────────────────
+// ─── Binary Snapshot (121 bytes) ──────────────────────────────────────────────
 
 function encodeSnapshot(s: GameState): Uint8Array {
-  const buf = new ArrayBuffer(119);
+  const buf = new ArrayBuffer(121);
   const v = new DataView(buf);
   v.setUint8(0, TYPE_STATE);
   v.setFloat32(1, s.t, true);
@@ -123,8 +123,8 @@ function encodeSnapshot(s: GameState): Uint8Array {
   writePlayer(s.players.host, 35);
   writePlayer(s.players.client, 76);
 
-  v.setUint8(117, s.score.host);
-  v.setUint8(118, s.score.client);
+  v.setUint16(117, s.score.host, true);
+  v.setUint16(119, s.score.client, true);
 
   return new Uint8Array(buf);
 }
@@ -177,8 +177,8 @@ function decodeSnapshot(v: DataView): GameState {
       client: readPlayer(76, "client"),
     },
     score: {
-      host: v.getUint8(117),
-      client: v.getUint8(118),
+      host: v.getUint16(117, true),
+      client: v.getUint16(119, true),
     },
   };
 }
