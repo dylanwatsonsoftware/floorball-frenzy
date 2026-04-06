@@ -1,9 +1,8 @@
 import LogRocket from "logrocket";
-import { type GameState, NEUTRAL_INPUT } from "../types/game";
+import { type GameState, type Player, NEUTRAL_INPUT } from "../types/game";
 import { GameScene } from "./GameScene";
 import { PeerConnection } from "../net/PeerConnection";
 import type { GameMessage } from "../net/messages";
-import { lerpState } from "../net/lerp";
 import {
   GOAL_LINE_LEFT,
   GOAL_LINE_RIGHT,
