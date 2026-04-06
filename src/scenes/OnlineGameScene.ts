@@ -11,7 +11,7 @@ import {
   GOAL_BOTTOM
 } from "../physics/constants";
 
-const SNAPSHOT_INTERVAL_MS = 1000 / 15; // 15 Hz
+const SNAPSHOT_INTERVAL_MS = 1000 / 30; // 30 Hz
 
 export class OnlineGameScene extends GameScene {
   private _peer!: PeerConnection;

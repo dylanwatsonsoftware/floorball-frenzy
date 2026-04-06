@@ -79,7 +79,20 @@ export class PeerConnection {
 
   send(msg: GameMessage): void {
     if (this._channel?.readyState === "open") {
-      this._channel.send(encodeMessage(msg));
+      // If network is congested (bufferedAmount > 8KB), drop lossy snapshot messages
+      if (msg.type === "state" && this._channel.bufferedAmount > 8192) {
+        return;
+      }
+      try {
+        const payload = encodeMessage(msg);
+        this._channel.send(payload as any);
+      } catch (err: any) {
+        if (err.name === "QuotaExceededError") {
+          log(this._role, "DataChannel quota exceeded, dropping message");
+        } else {
+          log(this._role, "DataChannel send error:", err);
+        }
+      }
     }
   }
 
@@ -213,6 +226,7 @@ export class PeerConnection {
   }
 
   private _setupChannel(ch: RTCDataChannel): void {
+    ch.binaryType = "arraybuffer";
     ch.onopen = () => {
       log(this._role, "dataChannel open ✓");
       this.onChannelOpen();
@@ -222,7 +236,7 @@ export class PeerConnection {
       this._scheduleReconnect(0);
     };
     ch.onerror = (e) => log(this._role, "dataChannel error", e);
-    ch.onmessage = (ev: MessageEvent<string>) => {
+    ch.onmessage = (ev: MessageEvent<string | ArrayBuffer>) => {
       const msg = decodeMessage(ev.data);
       if (msg) this.onMessage(msg);
     };
