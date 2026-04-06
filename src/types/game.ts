@@ -4,7 +4,6 @@ export type Role = "host" | "client";
 export interface InputState {
   moveX: number;
   moveY: number;
-  wrist: boolean;
   slap: boolean;
   dash: boolean;
 }
@@ -12,7 +11,6 @@ export interface InputState {
 export const NEUTRAL_INPUT: InputState = {
   moveX: 0,
   moveY: 0,
-  wrist: false,
   slap: false,
   dash: false,
 };
