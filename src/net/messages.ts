@@ -8,7 +8,8 @@ export type GameMessage =
   | { type: "start" }
   | { type: "goal"; scorer: "host" | "client" }
   | { type: "ping"; t: number }
-  | { type: "pong"; t: number };
+  | { type: "pong"; t: number }
+  | { type: "rematch" };
 
 // ─── Signaling messages (sent through the Vercel KV relay) ────────────────────
 
@@ -28,7 +29,8 @@ export function isGameMessage(v: unknown): v is GameMessage {
     obj["type"] === "start" ||
     obj["type"] === "goal" ||
     obj["type"] === "ping" ||
-    obj["type"] === "pong"
+    obj["type"] === "pong" ||
+    obj["type"] === "rematch"
   );
 }
 

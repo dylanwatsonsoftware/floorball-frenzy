@@ -39,6 +39,10 @@ export class OnlineGameScene extends GameScene {
   private _countdownText!: Phaser.GameObjects.Text;
   private _lastCountdownLabel = "";
 
+  private _rematchRequested = false;
+  private _opponentRequestedRematch = false;
+  private _rematchText: Phaser.GameObjects.Text | null = null;
+
   private _pendingWristShot = false;      // client → host: latched on key-down
   private _pendingClientWrist = false;    // host side: set when any input msg has wrist:true
 
@@ -354,12 +358,17 @@ export class OnlineGameScene extends GameScene {
   private _onNetMessage(msg: GameMessage): void {
     switch (msg.type) {
       case "start": {
-        if (this._startedCountdown) return;
+        if (this._startedCountdown && !this._matchOverObjects.length) return;
         this._startedCountdown = true;
         this._connected = true;
         this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
         this._statusText?.setText("");
+        this._clearMatchOver();
+        this._resetMatch();
         this._startCountdown();
+        this._rematchRequested = false;
+        this._opponentRequestedRematch = false;
+        this._rematchText = null;
         break;
       }
       case "state": {
@@ -423,6 +432,18 @@ export class OnlineGameScene extends GameScene {
       }
       case "pong": {
         this._pingMs = Math.round(performance.now() - msg.t);
+        break;
+      }
+      case "rematch": {
+        this._opponentRequestedRematch = true;
+        if (this._rematchText?.active) {
+          this._statusText.setText("Opponent wants a rematch!");
+        }
+        if (this._isHost && this._rematchRequested) {
+          // Host sends start signal
+          this._peer.send({ type: "start" });
+          this._startCountdown();
+        }
         break;
       }
     }
@@ -560,6 +581,29 @@ export class OnlineGameScene extends GameScene {
     btnBg.on("pointerover", () => btnBg.setFillStyle(0x2255cc, 1));
     btnBg.on("pointerout", () => btnBg.setFillStyle(0x1a44bb, 1));
     btnBg.on("pointerup", () => this.scene.start("MenuScene"));
+  }
+
+  protected override _showMatchOver(winner: "host" | "client"): void {
+    super._showMatchOver(winner);
+
+    if (this._opponentRequestedRematch) {
+      this._statusText.setText("Opponent wants a rematch!");
+    }
+  }
+
+  protected override _handleRematchClick(btn: Phaser.GameObjects.Rectangle, text: Phaser.GameObjects.Text): void {
+    text.setText("WAITING...");
+    btn.disableInteractive();
+    btn.setAlpha(0.6);
+    this._rematchRequested = true;
+    this._rematchText = text;
+    this._peer.send({ type: "rematch" });
+
+    if (this._isHost && this._opponentRequestedRematch) {
+      // Both ready - host triggers start
+      this._peer.send({ type: "start" });
+      this._startCountdown();
+    }
   }
 
   shutdown(): void {

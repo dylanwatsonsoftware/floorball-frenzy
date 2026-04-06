@@ -91,8 +91,8 @@ export class GameScene extends Phaser.Scene {
   protected _clientSlapWasDown = false;
 
   // After firing a shot, skip possession for this many ms so the ball escapes
-  private _hostShotCooldownMs = 0;
-  private _clientShotCooldownMs = 0;
+  protected _hostShotCooldownMs = 0;
+  protected _clientShotCooldownMs = 0;
   private static readonly SHOT_COOLDOWN_MS = 200;
 
   // Touch UI (present on mobile; keyboard still works on desktop)
@@ -171,6 +171,8 @@ export class GameScene extends Phaser.Scene {
   protected _clientDribblePhase = 0;
   protected _hostHasPossession = false;
   protected _clientHasPossession = false;
+
+  protected _matchOverObjects: Phaser.GameObjects.GameObject[] = [];
 
   protected get _isAuthoritative(): boolean {
     return this._mode === "local";
@@ -938,17 +940,17 @@ export class GameScene extends Phaser.Scene {
     localStorage.setItem(key, JSON.stringify(data));
   }
 
-  private _showMatchOver(winner: "host" | "client"): void {
+  protected _showMatchOver(winner: "host" | "client"): void {
     const cx = 640, cy = 360;
     const data = JSON.parse(localStorage.getItem("floorball:streak") || '{"winner":"","count":0}');
     const streakText = data.count > 1 ? `WIN STREAK: ${data.count}` : "FIRST WIN!";
 
     // Overlay background
-    this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30);
+    const bg = this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30);
 
-    this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
-    this.add.text(cx, cy - 40, `${winner === "host" ? "GREEN" : "BLACK"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
-    this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const title = this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const winLabel = this.add.text(cx, cy - 40, `${winner === "host" ? "GREEN" : "BLACK"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const streakLabel = this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
 
     // Rematch button
     const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, 0x00cc66, 1).setDepth(31).setInteractive({ useHandCursor: true });
@@ -957,21 +959,40 @@ export class GameScene extends Phaser.Scene {
     rematchBtn.on("pointerover", () => { rematchBtn.setScale(1.05); rematchBtn.setFillStyle(0x00ee77); });
     rematchBtn.on("pointerout", () => { rematchBtn.setScale(1.0); rematchBtn.setFillStyle(0x00cc66); });
 
-    rematchBtn.on("pointerup", () => {
-      rematchText.setText("WAITING...");
-      rematchBtn.disableInteractive();
-      rematchBtn.setAlpha(0.6);
-      this.scene.restart();
-    });
+    rematchBtn.on("pointerup", () => this._handleRematchClick(rematchBtn, rematchText));
 
     // Menu button
     const menuBtn = this.add.rectangle(cx, cy + 170, 250, 60, 0x444466, 1).setDepth(31).setInteractive({ useHandCursor: true });
-    this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const menuText = this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
 
     menuBtn.on("pointerover", () => { menuBtn.setScale(1.05); menuBtn.setFillStyle(0x555577); });
     menuBtn.on("pointerout", () => { menuBtn.setScale(1.0); menuBtn.setFillStyle(0x444466); });
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
+
+    this._matchOverObjects = [bg, title, winLabel, streakLabel, rematchBtn, rematchText, menuBtn, menuText];
+  }
+
+  protected _clearMatchOver(): void {
+    this._matchOverObjects.forEach(obj => obj.destroy());
+    this._matchOverObjects = [];
+  }
+
+  protected _resetMatch(): void {
+    this.score = { host: 0, client: 0 };
+    this._resetRound();
+    this._frozenMs = 0;
+    this._isGoalPause = false;
+    this._messageText.setText("");
+    this._hostShotCooldownMs = 0;
+    this._clientShotCooldownMs = 0;
+  }
+
+  protected _handleRematchClick(btn: Phaser.GameObjects.Rectangle, text: Phaser.GameObjects.Text): void {
+    text.setText("WAITING...");
+    btn.disableInteractive();
+    btn.setAlpha(0.6);
+    this.scene.restart();
   }
 
   private _playGoalCheer(isWin: boolean): void {
