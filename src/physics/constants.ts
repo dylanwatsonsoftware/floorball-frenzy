@@ -39,6 +39,11 @@ export const DZONE_HEIGHT = Math.round(5 * PX_PER_M); // 140 px
 export const DZONE_TOP    = (FIELD_TOP + FIELD_BOTTOM) / 2 - DZONE_HEIGHT / 2;
 export const DZONE_BOTTOM = DZONE_TOP + DZONE_HEIGHT;
 
+export const HOUSE_DEPTH  = Math.round(1 * PX_PER_M); // 28 px
+export const HOUSE_WIDTH  = Math.round(2.5 * PX_PER_M); // 70 px
+export const HOUSE_TOP    = (FIELD_TOP + FIELD_BOTTOM) / 2 - HOUSE_WIDTH / 2;
+export const HOUSE_BOTTOM = HOUSE_TOP + HOUSE_WIDTH;
+
 // ─── Player ───────────────────────────────────────────────────────────────────
 export const PLAYER_RADIUS    = 20;
 export const PLAYER_MAX_SPEED = 700;

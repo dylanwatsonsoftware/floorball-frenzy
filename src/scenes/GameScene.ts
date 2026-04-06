@@ -3,7 +3,12 @@ import type { Ball, GameMode, InputState } from "../types/game";
 import type { PlayerExtended } from "../physics/playerPhysics";
 import { createPlayer, stepPlayer } from "../physics/playerPhysics";
 import { stepBall, resetBall, applyPossessionAssist } from "../physics/ballPhysics";
-import { resolvePlayerBallCollision, resolveStickTipCollision, resolvePlayerPlayerCollision } from "../physics/collision";
+import {
+  resolvePlayerBallCollision,
+  resolveStickTipCollision,
+  resolvePlayerPlayerCollision,
+  resolvePlayerEnvironment,
+} from "../physics/collision";
 import { stickDir as stickDirPure, ballInRange } from "../physics/stickUtils";
 import {
   createShootState,
@@ -33,6 +38,9 @@ import {
   DZONE_TOP,
   DZONE_BOTTOM,
   GOAL_CAGE_DEPTH,
+  HOUSE_DEPTH,
+  HOUSE_TOP,
+  HOUSE_BOTTOM,
   PX_PER_M,
   STICK_REACH,
   DASH_COOLDOWN,
@@ -554,6 +562,8 @@ export class GameScene extends Phaser.Scene {
     const hostStick = this._stickDir(this.host, this._hostAimSmooth);
     const clientStick = this._stickDir(this.client, this._clientAimSmooth);
     resolvePlayerPlayerCollision(this.host, this.client, (p1, p2) => this._onPlayerPlayerContact(p1, p2));
+    resolvePlayerEnvironment(this.host);
+    resolvePlayerEnvironment(this.client);
     resolvePlayerBallCollision(this.host, this.ball);
     resolvePlayerBallCollision(this.client, this.ball);
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
@@ -1431,14 +1441,11 @@ export class GameScene extends Phaser.Scene {
     // Inner goalkeeper area (house): 1 m deep × 2.5 m wide, directly at goal mouth
     // Cage: 1.5 m deep behind goal mouth, 2 m tall (arcade scaled from 1.6 m)
     //
-    const HOUSE_DEPTH = Math.round(1 * PX_PER_M); // 28 px — goalkeeper area depth
-    const HOUSE_W = Math.round(2.5 * PX_PER_M); // 70 px — goalkeeper area width
 
     const drawGoal = (left: boolean): void => {
       const mouthX = left ? GOAL_LINE_LEFT : GOAL_LINE_RIGHT;
       const cageBackX = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
       const netFillX = left ? cageBackX : mouthX;
-      const midGoalY = (GOAL_TOP + GOAL_BOTTOM) / 2;
 
       const teamColor = left ? 0x004422 : 0xdd2244;
 
@@ -1446,7 +1453,6 @@ export class GameScene extends Phaser.Scene {
       const creaseX = left ? mouthX : mouthX - DZONE_DEPTH;
       // House extends into the field from the goal mouth (field side only, per IFF rules)
       const houseX = left ? mouthX : mouthX - HOUSE_DEPTH;
-      const houseTop = midGoalY - HOUSE_W / 2;
 
       // ── Net fill + crosshatch ────────────────────────────────────────────────
       g.fillStyle(0x0a1210, 1);
@@ -1470,9 +1476,9 @@ export class GameScene extends Phaser.Scene {
 
       // ── Inner goalkeeper area (house): 1 m × 2.5 m, field side only ─────────
       g.fillStyle(teamColor, 0.18);
-      g.fillRect(houseX, houseTop, HOUSE_DEPTH, HOUSE_W);
+      g.fillRect(houseX, HOUSE_TOP, HOUSE_DEPTH, HOUSE_BOTTOM - HOUSE_TOP);
       g.lineStyle(2, teamColor, 0.9);
-      g.strokeRect(houseX, houseTop, HOUSE_DEPTH, HOUSE_W);
+      g.strokeRect(houseX, HOUSE_TOP, HOUSE_DEPTH, HOUSE_BOTTOM - HOUSE_TOP);
 
       // ── Goal cage frame ──────────────────────────────────────────────────────
       g.lineStyle(3, 0xffffff, 0.9);

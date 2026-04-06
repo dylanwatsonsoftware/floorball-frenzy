@@ -1,6 +1,22 @@
 import type { Ball } from "../types/game";
 import type { PlayerExtended } from "./playerPhysics";
-import { PLAYER_RADIUS, BALL_RADIUS, STICK_LENGTH, FIELD_LEFT, FIELD_RIGHT, FIELD_TOP, FIELD_BOTTOM } from "./constants";
+import {
+  PLAYER_RADIUS,
+  BALL_RADIUS,
+  STICK_LENGTH,
+  FIELD_LEFT,
+  FIELD_RIGHT,
+  FIELD_TOP,
+  FIELD_BOTTOM,
+  GOAL_LINE_LEFT,
+  GOAL_LINE_RIGHT,
+  GOAL_TOP,
+  GOAL_BOTTOM,
+  GOAL_CAGE_DEPTH,
+  HOUSE_TOP,
+  HOUSE_BOTTOM,
+  HOUSE_DEPTH,
+} from "./constants";
 
 const CONTACT_DIST = PLAYER_RADIUS + BALL_RADIUS;
 
@@ -105,6 +121,83 @@ export function resolvePlayerBallCollision(
     ball.vx += nx * dot * TRANSFER;
     ball.vy += ny * dot * TRANSFER;
   }
+}
+
+/**
+ * Resolve a collision between a player (circle) and a rectangle (AABB).
+ */
+export function resolvePlayerRectangleCollision(
+  player: PlayerExtended,
+  rx: number,
+  ry: number,
+  rw: number,
+  rh: number
+): void {
+  // Find the closest point on the rectangle to the player's center
+  const closestX = Math.max(rx, Math.min(player.x, rx + rw));
+  const closestY = Math.max(ry, Math.min(player.y, ry + rh));
+
+  const dx = player.x - closestX;
+  const dy = player.y - closestY;
+  const dist = Math.hypot(dx, dy);
+
+  if (dist >= PLAYER_RADIUS) return;
+
+  const nx = dist > 0 ? dx / dist : 1;
+  const ny = dist > 0 ? dy / dist : 0;
+
+  // Push player out of the rectangle
+  const overlap = PLAYER_RADIUS - dist;
+  player.x += nx * overlap;
+  player.y += ny * overlap;
+
+  // Kill velocity component moving into the rectangle
+  const dot = player.vx * nx + player.vy * ny;
+  if (dot < 0) {
+    player.vx -= nx * dot;
+    player.vy -= ny * dot;
+  }
+}
+
+/**
+ * Resolve player collision with restricted environment areas (goals and houses).
+ */
+export function resolvePlayerEnvironment(player: PlayerExtended): void {
+  // Left Goal Cage
+  resolvePlayerRectangleCollision(
+    player,
+    GOAL_LINE_LEFT - GOAL_CAGE_DEPTH,
+    GOAL_TOP,
+    GOAL_CAGE_DEPTH,
+    GOAL_BOTTOM - GOAL_TOP
+  );
+
+  // Right Goal Cage
+  resolvePlayerRectangleCollision(
+    player,
+    GOAL_LINE_RIGHT,
+    GOAL_TOP,
+    GOAL_CAGE_DEPTH,
+    GOAL_BOTTOM - GOAL_TOP
+  );
+
+  // Left House (Goalkeeper Area)
+  resolvePlayerRectangleCollision(
+    player,
+    GOAL_LINE_LEFT,
+    HOUSE_TOP,
+    HOUSE_DEPTH,
+    HOUSE_BOTTOM - HOUSE_TOP
+  );
+
+  // Right House (Goalkeeper Area)
+  resolvePlayerRectangleCollision(
+    player,
+    GOAL_LINE_RIGHT - HOUSE_DEPTH,
+    HOUSE_TOP,
+    HOUSE_DEPTH,
+    HOUSE_BOTTOM - HOUSE_TOP
+  );
 }
 
 /**
