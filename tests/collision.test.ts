@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { resolvePlayerBallCollision, resolveStickTipCollision } from "../src/physics/collision";
+import {
+  resolvePlayerBallCollision,
+  resolveStickTipCollision,
+  resolvePlayerRectangleCollision,
+} from "../src/physics/collision";
 import { PLAYER_RADIUS, BALL_RADIUS, STICK_LENGTH } from "../src/physics/constants";
 import type { Ball } from "../src/types/game";
 import type { PlayerExtended } from "../src/physics/playerPhysics";
@@ -151,5 +155,64 @@ describe("resolveStickTipCollision", () => {
     // Ball should have moved (overlap resolved)
     const distToTip = Math.hypot(ball.x - tipX, ball.y - tipY);
     expect(distToTip).toBeGreaterThanOrEqual(BALL_RADIUS - 0.1);
+  });
+});
+
+describe("resolvePlayerRectangleCollision", () => {
+  it("pushes player out of rectangle from the left", () => {
+    const p = makePlayer({ x: 90, y: 150, vx: 100, vy: 0 });
+    // Rect at 100, 100 with width 50, height 100
+    // Player radius 20. If p.x = 90, it overlaps the rect (left edge at 100).
+    // Closest point on rect to (90, 150) is (100, 150).
+    // dist = 10, overlap = 20 - 10 = 10.
+    // normal nx = -1 (points away from rect toward player center).
+    resolvePlayerRectangleCollision(p, 100, 100, 50, 100);
+    expect(p.x).toBeLessThanOrEqual(80.1);
+    expect(p.vx).toBeLessThanOrEqual(0); // velocity killed or reversed
+  });
+
+  it("pushes player out of rectangle from the right", () => {
+    const p = makePlayer({ x: 160, y: 150, vx: -100, vy: 0 });
+    // Rect at 100, 100, w=50, h=100 (right edge at 150)
+    // Closest point is (150, 150). dist = 10, nx = 1.
+    // overlap = 10. p.x += 10 -> 170.
+    resolvePlayerRectangleCollision(p, 100, 100, 50, 100);
+    expect(p.x).toBeGreaterThanOrEqual(169.9);
+    expect(p.vx).toBeGreaterThanOrEqual(0);
+  });
+
+  it("pushes player out of rectangle from the top", () => {
+    const p = makePlayer({ x: 125, y: 90, vx: 0, vy: 100 });
+    // Rect at 100, 100, w=50, h=100 (top edge at 100)
+    // Closest point (125, 100). dist = 10, ny = -1.
+    // overlap = 10. p.y -= 10 -> 80.
+    resolvePlayerRectangleCollision(p, 100, 100, 50, 100);
+    expect(p.y).toBeLessThanOrEqual(80.1);
+    expect(p.vy).toBeLessThanOrEqual(0);
+  });
+
+  it("pushes player out of rectangle from the bottom", () => {
+    const p = makePlayer({ x: 125, y: 210, vx: 0, vy: -100 });
+    // Rect at 100, 100, w=50, h=100 (bottom edge at 200)
+    // Closest point (125, 200). dist = 10, ny = 1.
+    resolvePlayerRectangleCollision(p, 100, 100, 50, 100);
+    expect(p.y).toBeGreaterThanOrEqual(209.9);
+    expect(p.vy).toBeGreaterThanOrEqual(0);
+  });
+
+  it("handles diagonal approach to a corner", () => {
+    const p = makePlayer({ x: 85, y: 85, vx: 50, vy: 50 });
+    // Rect at 100, 100. Closest point is corner (100, 100).
+    // dx = -15, dy = -15, dist = 21.2.
+    // PLAYER_RADIUS = 20. dist > radius, so no collision.
+    resolvePlayerRectangleCollision(p, 100, 100, 50, 100);
+    expect(p.x).toBe(85);
+    expect(p.y).toBe(85);
+
+    // Now move closer: (90, 90). Closest point (100, 100).
+    // dx = -10, dy = -10, dist = 14.14.
+    p.x = 90; p.y = 90;
+    resolvePlayerRectangleCollision(p, 100, 100, 50, 100);
+    expect(Math.hypot(p.x - 100, p.y - 100)).toBeGreaterThanOrEqual(19.9);
   });
 });
