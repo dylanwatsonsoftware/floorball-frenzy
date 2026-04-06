@@ -24,6 +24,8 @@
     "@upstash/redis": "1.37.0",
     "@vercel/kv": "3.0.0",
     "logrocket": "12.1.0",
-    "phaser": "3.90.0"
+    "orientationchangeend": "^1.1.2",
+    "phaser": "3.90.0",
+    "scream": "^2.11.1"
   }
 }
