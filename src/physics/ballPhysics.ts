@@ -16,6 +16,7 @@ import {
   GOAL_LINE_RIGHT,
   GOAL_CAGE_DEPTH,
   CORNER_RADIUS,
+  BOLT_FRICTION_POWER,
 } from "./constants";
 
 export type GoalEvent = "host" | "client" | null;
@@ -25,6 +26,12 @@ export type GoalEvent = "host" | "client" | null;
  * Returns which side scored ("host" | "client") or null.
  */
 export function stepBall(ball: Ball, dt: number): GoalEvent {
+  const elapsedMs = dt * 1000;
+  if (ball.boltTimerMs && ball.boltTimerMs > 0) {
+    ball.boltTimerMs = Math.max(0, ball.boltTimerMs - elapsedMs);
+    if (ball.boltTimerMs === 0) ball.isBolt = false;
+  }
+
   // Vertical (z) physics
   ball.vz -= GRAVITY * dt;
   ball.z += ball.vz * dt;
@@ -36,8 +43,9 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
 
   // Horizontal friction (only when on the ground)
   if (ball.z === 0) {
-    ball.vx *= BALL_FRICTION;
-    ball.vy *= BALL_FRICTION;
+    const friction = ball.isBolt ? Math.pow(BALL_FRICTION, BOLT_FRICTION_POWER) : BALL_FRICTION;
+    ball.vx *= friction;
+    ball.vy *= friction;
   }
 
   // Integrate horizontal position

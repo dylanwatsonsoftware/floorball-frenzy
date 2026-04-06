@@ -28,7 +28,7 @@ export const GOAL_LINE_RIGHT = FIELD_RIGHT - GOAL_LINE_INSET; // 1086
 // The remaining space (GOAL_LINE_INSET - GOAL_CAGE_DEPTH = 1.5 m) is open
 // space behind the goal that players and the ball can freely enter.
 export const GOAL_CAGE_DEPTH = Math.round(1.5 * PX_PER_M); // 42 px
-export const GOAL_Z_THRESHOLD = 240; // ball.z must be below this to score (px)
+export const GOAL_Z_THRESHOLD = 4800; // ball.z must be below this to score (px) - effectively infinite
 export const GOAL_TOP    = (FIELD_TOP + FIELD_BOTTOM) / 2 - GOAL_HEIGHT_PX / 2;
 export const GOAL_BOTTOM = GOAL_TOP + GOAL_HEIGHT_PX;
 
@@ -74,6 +74,10 @@ export const SHOOT_LIFT_SCALE    = 550;
 export const SHOOT_MAX_CHARGE_MS = 800;
 export const PERFECT_SHOT_WINDOW = 60;
 export const PERFECT_SHOT_BOOST = 1.3;
+
+export const BOLT_SHOT_BOOST = 1.2;
+export const BOLT_SHOT_DURATION_MS = 600;
+export const BOLT_FRICTION_POWER = 0.5;
 
 // ─── One-touch bonus ──────────────────────────────────────────────────────────
 export const ONE_TOUCH_WINDOW      = 300;

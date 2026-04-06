@@ -112,8 +112,8 @@ describe("stepBall — goal detection (at goal line, not end wall)", () => {
 
   it("returns null when ball is above goal z threshold", () => {
     const goalMidY = (GOAL_TOP + GOAL_BOTTOM) / 2;
-    // GOAL_Z_THRESHOLD is 240, so 300 is above it.
-    const ball = makeBall({ x: GOAL_LINE_LEFT - 5, y: goalMidY, z: 300, vx: -300 });
+    // GOAL_Z_THRESHOLD is now 4800, so 300 is below it.
+    const ball = makeBall({ x: GOAL_LINE_LEFT - 5, y: goalMidY, z: 5000, vx: -300 });
     const result = stepBall(ball, FIXED_DT);
     expect(result).toBeNull();
   });

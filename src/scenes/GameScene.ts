@@ -38,6 +38,8 @@ import {
   DASH_COOLDOWN,
   DASH_STEAL_WINDOW,
   DASH_STEAL_FORCE,
+  BOLT_SHOT_BOOST,
+  BOLT_SHOT_DURATION_MS,
 } from "../physics/constants";
 
 export const WINNING_SCORE = 5;
@@ -99,7 +101,7 @@ export class GameScene extends Phaser.Scene {
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
-  protected static readonly DRIBBLE_AMP  = 50;          // px half-sweep width
+  protected static readonly DRIBBLE_AMP  = 22;          // px half-sweep width
   protected static readonly DRIBBLE_FREQ = 3.2;         // tic-tacs per second
   protected static readonly DRIBBLE_DIST = STICK_REACH * 0.91; // how far in front
 
@@ -131,10 +133,25 @@ export class GameScene extends Phaser.Scene {
 
   // Frozen while showing goal message
   protected _frozenMs = 0;
+  // If true, the current freeze is for a goal/score (which resets the round)
+  protected _isGoalPause = false;
 
   // Shot animation (countdown ms per player; used by _drawSticks)
   protected _hostShotAnimMs = 0;
   protected _clientShotAnimMs = 0;
+
+  // Dash ghosting
+  private _ghosts: Array<{
+    x: number;
+    y: number;
+    rotation: number;
+    frame: number;
+    alpha: number;
+    life: number;
+    color: number;
+  }> = [];
+  private static readonly GHOST_LIFETIME = 360;
+  private _ghostGraphics!: Phaser.GameObjects.Graphics;
 
   // Pending wrist shot: counts down after key-down, fires when it hits 0
   protected _hostPendingWristMs = 0;
@@ -183,6 +200,7 @@ export class GameScene extends Phaser.Scene {
     this.score = { host: 0, client: 0 };
     this._accumulator = 0;
     this._frozenMs = 0;
+    this._isGoalPause = false;
     this._elapsedMs = 0;
     this._hostSlapWasDown = false;
     this._clientSlapWasDown = false;
@@ -216,6 +234,8 @@ export class GameScene extends Phaser.Scene {
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
     // Dash cooldown rings (drawn below players)
     this._dashRingGfx = this.add.graphics().setDepth(4.5);
+    // Dash ghosts
+    this._ghostGraphics = this.add.graphics().setDepth(4.6);
     // Fire trail — drawn behind the ball
     this._fireGraphics = this.add.graphics().setDepth(5.5);
     // Ball drawn each frame via Graphics for physically correct rolling animation
@@ -401,9 +421,10 @@ export class GameScene extends Phaser.Scene {
       if (this._frozenMs <= 0) {
         this._frozenMs = 0;
         this._messageText.setText("");
-        if (!this._isMatchOver) {
+        if (this._isGoalPause && !this._isMatchOver) {
           this._resetRound();
         }
+        this._isGoalPause = false;
       }
       return;
     }
@@ -447,6 +468,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._syncSprites();
+    this._updateGhosts(delta);
     this._updateFire(delta);
   }
 
@@ -642,18 +664,20 @@ export class GameScene extends Phaser.Scene {
     // During slap-shot charge, pull ball back to blade so it's ready to hit
     if (isCharging) {
       const distToBlade = Math.hypot(this.ball.x - bladeTipX, this.ball.y - bladeTipY);
-      if (distToBlade > STICK_REACH * 2 + BALL_RADIUS) return false;
+      if (distToBlade > 75) return false;
       if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
-      applyPossessionAssist(this.ball, player.vx, player.vy);
-      this.ball.vx += (player.vx - this.ball.vx) * 0.22;
-      this.ball.vy += (player.vy - this.ball.vy) * 0.22;
 
-      // Distance-capped pull toward blade tip to prevent teleporting
+      // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+      applyPossessionAssist(this.ball, player.vx, player.vy);
+      this.ball.vx += (player.vx - this.ball.vx) * 0.25;
+      this.ball.vy += (player.vy - this.ball.vy) * 0.25;
+
+      // Pull toward blade tip: 30% of distance per step, capped at 12px
       const dx = bladeTipX - this.ball.x;
       const dy = bladeTipY - this.ball.y;
       const dist = Math.hypot(dx, dy);
       if (dist > 0.1) {
-        const moveDist = Math.min(dist, 6); // max 6px per step
+        const moveDist = Math.min(dist * 0.30, 12);
         this.ball.x += (dx / dist) * moveDist;
         this.ball.y += (dy / dist) * moveDist;
       }
@@ -665,25 +689,25 @@ export class GameScene extends Phaser.Scene {
     const targetX = player.x + aNx * DRIBBLE_DIST + stickDir.x * side;
     const targetY = player.y + aNy * DRIBBLE_DIST + stickDir.y * side;
 
-    // Possession zone: centred in front of player, wide enough to cover the full sweep
-    const zoneRadius = DRIBBLE_AMP + DRIBBLE_DIST * 0.6 + BALL_RADIUS;
+    // Possession zone: centred in front of player, generous 75px radius for easy pickup
+    const zoneRadius = 75;
     const zoneCX = player.x + aNx * DRIBBLE_DIST;
     const zoneCY = player.y + aNy * DRIBBLE_DIST;
     if (Math.hypot(this.ball.x - zoneCX, this.ball.y - zoneCY) > zoneRadius) return false;
 
-    if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 480) return false;
+    if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-    // Velocity coupling
+    // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
     applyPossessionAssist(this.ball, player.vx, player.vy);
-    this.ball.vx += (player.vx - this.ball.vx) * 0.22;
-    this.ball.vy += (player.vy - this.ball.vy) * 0.22;
+    this.ball.vx += (player.vx - this.ball.vx) * 0.25;
+    this.ball.vy += (player.vy - this.ball.vy) * 0.25;
 
-    // Distance-capped pull toward dribble target to prevent teleporting
+    // Pull toward dribble target: 30% of distance per step, capped at 12px
     const dx = targetX - this.ball.x;
     const dy = targetY - this.ball.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.1) {
-      const moveDist = Math.min(dist, 6); // max 6px per step
+      const moveDist = Math.min(dist * 0.30, 12);
       this.ball.x += (dx / dist) * moveDist;
       this.ball.y += (dy / dist) * moveDist;
     }
@@ -741,7 +765,20 @@ export class GameScene extends Phaser.Scene {
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const isOT = this._isOneTouch(who);
     if (isOT) this._spawnOneTouchJuice();
+
+    const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200;
     wristShot(this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
+    if (isBolt) {
+      this.ball.vx *= BOLT_SHOT_BOOST;
+      this.ball.vy *= BOLT_SHOT_BOOST;
+      this.ball.isBolt = true;
+      this.ball.boltTimerMs = BOLT_SHOT_DURATION_MS;
+      this._spawnPerfectJuice(this.ball.x, this.ball.y); // reuse perfect juice for bolt shots
+    } else {
+      this.ball.isBolt = false;
+      this.ball.boltTimerMs = 0;
+    }
+
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
     else this._clientShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
@@ -762,11 +799,22 @@ export class GameScene extends Phaser.Scene {
     const player = who === "host" ? this.host : this.client;
     const isOT = this._isOneTouch(who);
     if (isOT) this._spawnOneTouchJuice();
+    const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200;
     const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
     this.ball.isPerfect = isPerfect;
-    if (isPerfect) {
+    if (isBolt) {
+      this.ball.vx *= BOLT_SHOT_BOOST;
+      this.ball.vy *= BOLT_SHOT_BOOST;
+      this.ball.isBolt = true;
+      this.ball.boltTimerMs = BOLT_SHOT_DURATION_MS;
+    } else {
+      this.ball.isBolt = false;
+      this.ball.boltTimerMs = 0;
+    }
+
+    if (isPerfect || isBolt) {
       this._spawnPerfectJuice(this.ball.x, this.ball.y);
-      this._frozenMs = 50; // Hit-stop
+      this._frozenMs = isPerfect ? 50 : 30; // Hit-stop
     }
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
@@ -827,13 +875,29 @@ export class GameScene extends Phaser.Scene {
     this.ball.vx = dashingPlayer.vx * DASH_STEAL_FORCE;
     this.ball.vy = dashingPlayer.vy * DASH_STEAL_FORCE;
     this.ball.isPerfect = false;
+    this.ball.isBolt = false;
+    this.ball.boltTimerMs = 0;
     this._hostHasPossession = false;
     this._clientHasPossession = false;
     this._hostShotCooldownMs = 150;
     this._clientShotCooldownMs = 150;
 
     // Juice for poke
-    this.cameras.main.shake(100, 0.004);
+    this.cameras.main.shake(150, 0.008);
+    this._frozenMs = 40; // hit-stop on steal
+
+    // Impact sparks using fire system
+    for (let i = 0; i < 12; i++) {
+      this._fireParticles.push({
+        x: this.ball.x,
+        y: this.ball.y - this.ball.z * 0.6,
+        vx: (Math.random() - 0.5) * 800,
+        vy: (Math.random() - 0.5) * 800,
+        life: 250,
+        maxLife: 250,
+        size: 8 + Math.random() * 6,
+      });
+    }
   }
 
   protected _onGoal(scorer: "host" | "client"): void {
@@ -844,11 +908,13 @@ export class GameScene extends Phaser.Scene {
       this._isMatchOver = true;
       this._messageText.setText(`${scorer === "host" ? "Green" : "Black"} wins!`);
       this._frozenMs = 5000; // Give time for the overlay
+      this._isGoalPause = true;
       this._updateWinStreak(scorer);
       this.time.delayedCall(1000, () => this._showMatchOver(scorer));
     } else {
       this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
       this._frozenMs = 1500;
+      this._isGoalPause = true;
     }
     this._playGoalCheer(isWin);
   }
@@ -888,9 +954,13 @@ export class GameScene extends Phaser.Scene {
     ];
 
     const rematchBtn = this._matchOverObjects[4] as Phaser.GameObjects.Rectangle;
+    rematchBtn.on("pointerover", () => { rematchBtn.setScale(1.05); rematchBtn.setFillStyle(0x00ee77); });
+    rematchBtn.on("pointerout", () => { rematchBtn.setScale(1.0); rematchBtn.setFillStyle(0x00cc66); });
     rematchBtn.on("pointerup", () => this._onRematchClick());
 
     const menuBtn = this._matchOverObjects[6] as Phaser.GameObjects.Rectangle;
+    menuBtn.on("pointerover", () => { menuBtn.setScale(1.05); menuBtn.setFillStyle(0x555577); });
+    menuBtn.on("pointerout", () => { menuBtn.setScale(1.0); menuBtn.setFillStyle(0x444466); });
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
   }
 
@@ -1022,6 +1092,12 @@ export class GameScene extends Phaser.Scene {
         const b = 255;
         const r = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
         color = (r << 16) | (g << 8) | b;
+      } else if (this.ball.isBolt) {
+        // Bright Violet/Pink (t=1) -> White (t=0.5) -> Violet (t=0)
+        const r = 255;
+        const b = 255;
+        const g = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
+        color = (r << 16) | (g << 8) | b;
       } else {
         // bright yellow (t=1) → orange (t=0.5) → pure red (t<0.5)
         const r = 0xff;
@@ -1137,6 +1213,46 @@ export class GameScene extends Phaser.Scene {
     this._updateChargeBar(this._clientChargeBar, this._clientShoot, this.client.x - 20, this.client.y - PLAYER_RADIUS - 8);
 
     this._scoreText.setText(`${this.score.host}  —  ${this.score.client}`);
+  }
+
+  private _updateGhosts(delta: number): void {
+    // Spawn ghosts
+    const DASH_BURST = DASH_COOLDOWN - 200;
+    if (this.host.dashCooldownMs > DASH_BURST && Math.floor(this.time.now / 40) % 2 === 0) {
+      this._ghosts.push({
+        x: this.host.x,
+        y: this.host.y,
+        rotation: this._hostSprite.rotation,
+        frame: this._hostSprite.frame.name as unknown as number,
+        alpha: 0.5,
+        life: GameScene.GHOST_LIFETIME,
+        color: 0x00cc66,
+      });
+    }
+    if (this.client.dashCooldownMs > DASH_BURST && Math.floor(this.time.now / 40) % 2 === 0) {
+      this._ghosts.push({
+        x: this.client.x,
+        y: this.client.y,
+        rotation: this._clientSprite.rotation,
+        frame: this._clientSprite.frame.name as unknown as number,
+        alpha: 0.5,
+        life: GameScene.GHOST_LIFETIME,
+        color: 0xdd2244,
+      });
+    }
+
+    this._ghostGraphics.clear();
+    this._ghosts = this._ghosts.filter(g => {
+      g.life -= delta;
+      if (g.life <= 0) return false;
+      const t = g.life / GameScene.GHOST_LIFETIME;
+      this._ghostGraphics.fillStyle(g.color, g.alpha * t);
+      // Since we are using sprites with frames, but Graphics doesn't easily draw sprites,
+      // I'll just draw a tinted circle as a "ghost" for now to keep it lightweight,
+      // or I could use a pool of sprites. Let's do tinted circles for "juice" feel.
+      this._ghostGraphics.fillCircle(g.x, g.y, PLAYER_RADIUS);
+      return true;
+    });
   }
 
   private _updateDashRings(): void {
