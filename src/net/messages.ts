@@ -58,14 +58,15 @@ export function encodeMessage(msg: GameMessage): string | Uint8Array {
 
 export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameMessage | null {
   if (typeof raw !== "string") {
-    const buffer = raw instanceof Uint8Array ? raw.buffer : raw;
-    const view = new DataView(buffer);
-    const type = view.getUint8(0);
-    if (type === TYPE_STATE) {
-      return { type: "state", snapshot: decodeSnapshot(buffer) };
+    const view = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
+    const type = view[0];
+    const dv = new DataView(view.buffer, view.byteOffset, view.byteLength);
+
+    if (type === TYPE_STATE && view.byteLength === 119) {
+      return { type: "state", snapshot: decodeSnapshot(dv) };
     }
-    if (type === TYPE_INPUT) {
-      const { seq, input } = decodeInput(buffer);
+    if (type === TYPE_INPUT && view.byteLength === 14) {
+      const { seq, input } = decodeInput(dv);
       return { type: "input", seq, input };
     }
     return null;
@@ -128,8 +129,7 @@ function encodeSnapshot(s: GameState): Uint8Array {
   return new Uint8Array(buf);
 }
 
-function decodeSnapshot(buf: ArrayBufferLike): GameState {
-  const v = new DataView(buf);
+function decodeSnapshot(v: DataView): GameState {
   const t = v.getFloat32(1, true);
 
   const bFlags = v.getUint8(29);
@@ -200,8 +200,7 @@ function encodeInput(seq: number, i: InputState): Uint8Array {
   return new Uint8Array(buf);
 }
 
-function decodeInput(buf: ArrayBufferLike): { seq: number; input: InputState } {
-  const v = new DataView(buf);
+function decodeInput(v: DataView): { seq: number; input: InputState } {
   const seq = v.getUint32(1, true);
   const flags = v.getUint8(13);
   return {

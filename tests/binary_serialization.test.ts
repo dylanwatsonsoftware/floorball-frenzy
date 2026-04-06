@@ -59,7 +59,7 @@ describe("Binary Serialization", () => {
     expect(encoded).toBeInstanceOf(Uint8Array);
     expect((encoded as Uint8Array).length).toBe(119);
 
-    const decoded = decodeMessage((encoded as Uint8Array).buffer);
+    const decoded = decodeMessage(encoded);
     expect(decoded?.type).toBe("state");
     if (decoded?.type === "state") {
       const s = decoded.snapshot;
@@ -81,7 +81,7 @@ describe("Binary Serialization", () => {
     expect(encoded).toBeInstanceOf(Uint8Array);
     expect((encoded as Uint8Array).length).toBe(14);
 
-    const decoded = decodeMessage((encoded as Uint8Array).buffer);
+    const decoded = decodeMessage(encoded);
     expect(decoded?.type).toBe("input");
     if (decoded?.type === "input") {
       expect(decoded.seq).toBe(1234);
@@ -89,6 +89,26 @@ describe("Binary Serialization", () => {
       expect(decoded.input.wrist).toBe(true);
       expect(decoded.input.slap).toBe(false);
       expect(decoded.input.dash).toBe(true);
+    }
+  });
+
+  it("correctly decodes binary messages from a sliced Uint8Array (non-zero byteOffset)", () => {
+    const encoded = encodeMessage({ type: "input", seq: 5678, input: mockInput }) as Uint8Array;
+
+    // Create a larger buffer and place the encoded message at an offset
+    const padding = 10;
+    const largerBuf = new ArrayBuffer(encoded.byteLength + padding * 2);
+    const largerView = new Uint8Array(largerBuf);
+    largerView.set(encoded, padding);
+
+    const sliced = largerView.subarray(padding, padding + encoded.byteLength);
+    expect(sliced.byteOffset).toBe(padding);
+
+    const decoded = decodeMessage(sliced);
+    expect(decoded?.type).toBe("input");
+    if (decoded?.type === "input") {
+      expect(decoded.seq).toBe(5678);
+      expect(decoded.input.moveX).toBeCloseTo(mockInput.moveX, 2);
     }
   });
 

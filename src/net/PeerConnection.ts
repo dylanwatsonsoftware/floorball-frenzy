@@ -79,8 +79,20 @@ export class PeerConnection {
 
   send(msg: GameMessage): void {
     if (this._channel?.readyState === "open") {
-      const payload = encodeMessage(msg);
-      this._channel.send(payload as any);
+      // If network is congested (bufferedAmount > 8KB), drop lossy snapshot messages
+      if (msg.type === "state" && this._channel.bufferedAmount > 8192) {
+        return;
+      }
+      try {
+        const payload = encodeMessage(msg);
+        this._channel.send(payload as any);
+      } catch (err: any) {
+        if (err.name === "QuotaExceededError") {
+          log(this._role, "DataChannel quota exceeded, dropping message");
+        } else {
+          log(this._role, "DataChannel send error:", err);
+        }
+      }
     }
   }
 
