@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- Viewport managed by 'scream' in src/main.ts -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Floorball Frenzy</title>
@@ -64,6 +64,9 @@
       /* Hide when browser has no fullscreen API (e.g. iOS Safari) */
       .no-fullscreen #fs-btn { display: none; }
     </style>
+    <script>
+      window.global = window;
+    </script>
   </head>
   <body>
     <button id="fs-btn" title="Toggle fullscreen">&#x26F6;</button>
