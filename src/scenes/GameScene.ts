@@ -1053,11 +1053,10 @@ export class GameScene extends Phaser.Scene {
 
       let color = 0xff0000;
       if (this.ball.isPerfect) {
-        // Cyan (t=1) -> White (t=0.5) -> Cyan (t=0)
-        const g = 255;
-        const b = 255;
-        const r = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
-        color = (r << 16) | (g << 8) | b;
+        // bright yellow (t=1) → orange (t=0.5) → pure red (t<0.5)
+        const r = 0xff;
+        const g = t > 0.5 ? Math.round((t - 0.5) * 2 * 220) : 0;
+        color = (r << 16) | (g << 8);
       } else if (this.ball.isBolt) {
         // Bright Violet/Pink (t=1) -> White (t=0.5) -> Violet (t=0)
         const r = 255;
@@ -1065,10 +1064,11 @@ export class GameScene extends Phaser.Scene {
         const g = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
         color = (r << 16) | (g << 8) | b;
       } else {
-        // bright yellow (t=1) → orange (t=0.5) → pure red (t<0.5)
-        const r = 0xff;
-        const g = t > 0.5 ? Math.round((t - 0.5) * 2 * 220) : 0;
-        color = (r << 16) | (g << 8);
+        // Cyan (t=1) -> White (t=0.5) -> Cyan (t=0)
+        const g = 255;
+        const b = 255;
+        const r = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
+        color = (r << 16) | (g << 8) | b;
       }
 
       this._fireGraphics.fillStyle(color, Math.min(1, t * 1.1));
