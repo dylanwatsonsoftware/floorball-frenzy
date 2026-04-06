@@ -906,10 +906,12 @@ export class GameScene extends Phaser.Scene {
       this._isGoalPause = true;
       this._updateWinStreak(scorer);
       this.time.delayedCall(1000, () => this._showMatchOver(scorer));
+      this.cameras.main.shake(500, 0.02);
     } else {
       this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
       this._frozenMs = 1500;
       this._isGoalPause = true;
+      this.cameras.main.shake(250, 0.01);
     }
     this._playGoalCheer(isWin);
   }
