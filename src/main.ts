@@ -11,12 +11,11 @@ import { OnlineGameScene } from "./scenes/OnlineGameScene";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 1280,
-  height: 720,
+  width: "100%",
+  height: "100%",
   backgroundColor: "#1a1a2e",
   scale: {
-    mode: Phaser.Scale.EXPAND,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    mode: Phaser.Scale.RESIZE,
     fullscreenTarget: 'parent',
     expandParent: true,
   },

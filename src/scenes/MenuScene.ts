@@ -17,18 +17,24 @@ function timeAgo(ms: number): string {
   return `${Math.floor(s / 60)}m ago`;
 }
 
-const W = 1280;
-const H = 720;
 const GREEN = 0x36b346;
 
 export class MenuScene extends Phaser.Scene {
   private _mainMenuObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyObjs: Phaser.GameObjects.GameObject[] = [];
+  private _hostingObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyAutoRefresh: Phaser.Time.TimerEvent | null = null;
+  private _isLobbyVisible = false;
+  private _isHostingVisible = false;
+  private _hostNameInput: string = "";
 
   constructor() {
     super({ key: "MenuScene" });
   }
+
+  get w(): number { return this.scale.width; }
+  get h(): number { return this.scale.height; }
+  get isPortrait(): boolean { return this.h > this.w; }
 
   create(): void {
     const hashCode = window.location.hash.slice(1).toUpperCase();
@@ -37,19 +43,49 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
-    const centerCamera = () => {
-      const extraW = Math.max(0, this.scale.width - W);
-      this.cameras.main.scrollX = -Math.floor(extraW / 2);
-    };
-    centerCamera();
-    this.scale.on("resize", centerCamera);
-    this.events.once("shutdown", () => this.scale.off("resize", centerCamera));
+    this._hostNameInput = localStorage.getItem("floorball:gameName") ?? "";
+
+    this._render();
+    this.scale.on("resize", () => this._render());
+    this.events.once("shutdown", () => this.scale.off("resize"));
+  }
+
+  private _render(): void {
+    this._cleanup();
 
     const menuStart = this.children.list.length;
     this._drawBackground();
     this._drawTitle();
     this._drawButtons();
     this._mainMenuObjs = (this.children.list as Phaser.GameObjects.GameObject[]).slice(menuStart);
+
+    if (this._isLobbyVisible) {
+      this._mainMenuObjs.forEach(o => (o as unknown as { setVisible(v: boolean): void }).setVisible(false));
+      void this._showLobby();
+    }
+
+    if (this._isHostingVisible) {
+        this._drawHostingModal();
+    }
+  }
+
+  private _cleanup(): void {
+    this._mainMenuObjs.forEach(o => o.destroy());
+    this._mainMenuObjs = [];
+
+    if (this._lobbyAutoRefresh) {
+      this._lobbyAutoRefresh.destroy();
+      this._lobbyAutoRefresh = null;
+    }
+    this._lobbyObjs.forEach(o => o.destroy());
+    this._lobbyObjs = [];
+
+    this._hostingObjs.forEach(o => o.destroy());
+    this._hostingObjs = [];
+
+    // Clean up any remaining hosting inputs
+    const hostingInputs = document.querySelectorAll('.hosting-input');
+    hostingInputs.forEach(el => el.remove());
   }
 
   // ─── Main menu ──────────────────────────────────────────────────────────────
@@ -57,112 +93,166 @@ export class MenuScene extends Phaser.Scene {
   private _drawBackground(): void {
     const gfx = this.add.graphics();
     gfx.fillGradientStyle(0x0a0f0a, 0x0a0f0a, 0x061208, 0x061208, 1);
-    gfx.fillRect(0, 0, W, H);
+    gfx.fillRect(0, 0, this.w, this.h);
+
+    const margin = this.isPortrait ? 20 : 50;
     gfx.lineStyle(2, 0x36b346, 0.18);
-    gfx.strokeRoundedRect(50, 50, W - 100, H - 100, 55);
+    gfx.strokeRoundedRect(margin, margin, this.w - margin * 2, this.h - margin * 2, this.isPortrait ? 30 : 55);
+
     gfx.lineStyle(1, 0x36b346, 0.12);
-    gfx.lineBetween(W / 2, 50, W / 2, H - 50);
-    gfx.strokeCircle(W / 2, H / 2, 80);
+    if (this.isPortrait) {
+        gfx.lineBetween(margin, this.h / 2, this.w - margin, this.h / 2);
+    } else {
+        gfx.lineBetween(this.w / 2, margin, this.w / 2, this.h - margin);
+    }
+
+    gfx.strokeCircle(this.w / 2, this.h / 2, this.isPortrait ? 60 : 80);
+
     gfx.lineStyle(1, 0x36b346, 0.15);
-    gfx.strokeRect(50, H / 2 - 44, 50, 88);
-    gfx.strokeRect(W - 100, H / 2 - 44, 50, 88);
+    if (this.isPortrait) {
+        gfx.strokeRect(this.w / 2 - 44, margin, 88, 50);
+        gfx.strokeRect(this.w / 2 - 44, this.h - margin - 50, 88, 50);
+    } else {
+        gfx.strokeRect(margin, this.h / 2 - 44, 50, 88);
+        gfx.strokeRect(this.w - margin - 50, this.h / 2 - 44, 50, 88);
+    }
+
     gfx.fillStyle(0x36b346, 0.04);
-    gfx.fillCircle(W / 2, H / 2, 260);
+    gfx.fillCircle(this.w / 2, this.h / 2, this.isPortrait ? 180 : 260);
   }
 
   private _drawTitle(): void {
+    const cx = this.w / 2;
     const hasLogo = this.textures.exists("logo");
-    if (hasLogo) this.add.image(W / 2, 105, "logo").setOrigin(0.5).setDisplaySize(168, 168);
-    const titleY = hasLogo ? 218 : 108;
-    this.add.text(W / 2 + 3, titleY + 3, "FLOORBALL FRENZY", {
-      fontSize: "60px", fontStyle: "bold", color: "#000000",
-    } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5).setAlpha(0.4);
-    this.add.text(W / 2, titleY, "FLOORBALL FRENZY", {
-      fontSize: "60px", fontStyle: "bold", color: "#ffffff",
-      stroke: "#1e7a29", strokeThickness: 6,
-    }).setOrigin(0.5);
-    this.add.text(W / 2, titleY + 54, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
-      fontSize: "16px", color: "#ffffff", letterSpacing: 2,
-    }).setOrigin(0.5);
+
+    if (this.isPortrait) {
+        if (hasLogo) this.add.image(cx, this.h * 0.15, "logo").setOrigin(0.5).setDisplaySize(140, 140);
+        const titleY = hasLogo ? this.h * 0.28 : this.h * 0.2;
+
+        this.add.text(cx + 2, titleY + 2, "FLOORBALL\nFRENZY", {
+            fontSize: "48px", fontStyle: "bold", color: "#000000", align: "center",
+        } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5).setAlpha(0.4);
+
+        this.add.text(cx, titleY, "FLOORBALL\nFRENZY", {
+            fontSize: "48px", fontStyle: "bold", color: "#ffffff", align: "center",
+            stroke: "#1e7a29", strokeThickness: 6,
+        }).setOrigin(0.5);
+
+        this.add.text(cx, titleY + 80, "LAMBS FLOORBALL CLUB\nFirst to 5 goals wins", {
+            fontSize: "14px", color: "#ffffff", letterSpacing: 1, align: "center",
+        }).setOrigin(0.5);
+    } else {
+        if (hasLogo) this.add.image(cx, 105, "logo").setOrigin(0.5).setDisplaySize(168, 168);
+        const titleY = hasLogo ? 218 : 108;
+        this.add.text(cx + 3, titleY + 3, "FLOORBALL FRENZY", {
+            fontSize: "60px", fontStyle: "bold", color: "#000000",
+        } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5).setAlpha(0.4);
+        this.add.text(cx, titleY, "FLOORBALL FRENZY", {
+            fontSize: "60px", fontStyle: "bold", color: "#ffffff",
+            stroke: "#1e7a29", strokeThickness: 6,
+        }).setOrigin(0.5);
+        this.add.text(cx, titleY + 54, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
+            fontSize: "16px", color: "#ffffff", letterSpacing: 2,
+        }).setOrigin(0.5);
+    }
   }
 
   private _drawButtons(): void {
-    // Two buttons: Play Online (green) + Local Match
-    this._makeButton(W / 2, H / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
-      const el = document.documentElement;
-      if (el.requestFullscreen) {
-        void el.requestFullscreen().catch(() => { });
-      }
-      if (screen.orientation?.lock) {
-        void screen.orientation.lock("landscape").catch(() => { });
-      }
-      void this._showLobby();
-    });
+    const cx = this.w / 2;
 
-    this._makeButton(W / 2, H / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
-      this.scene.start("GameScene", { mode: "local" });
-    });
+    if (this.isPortrait) {
+        const startY = this.h * 0.55;
+        const spacing = 110;
+
+        this._makeButton(cx, startY, "🌐  Play Online", "BROWSE & CREATE GAMES", GREEN, 0x1e7a29, () => {
+            this._requestFullscreen();
+            void this._showLobby();
+        });
+
+        this._makeButton(cx, startY + spacing, "⚡  Local Match", "SAME DEVICE · 2 PLAYERS", 0x2255aa, 0x112244, () => {
+            this.scene.start("GameScene", { mode: "local" });
+        });
+    } else {
+        this._makeButton(cx, this.h / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
+            this._requestFullscreen();
+            void this._showLobby();
+        });
+
+        this._makeButton(cx, this.h / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
+            this.scene.start("GameScene", { mode: "local" });
+        });
+    }
 
     this._drawCommitInfo();
+  }
+
+  private _requestFullscreen(): void {
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+      void el.requestFullscreen().catch(() => { });
+    }
   }
 
   private _drawCommitInfo(): void {
     const diffMs = Date.now() - Number(__GIT_DATE__) * 1000;
     const m = Math.floor(diffMs / 60000);
     const ago = m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`;
-    this.add.text(W / 2, H - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
-      fontSize: "15px", color: "#ffffff",
+    this.add.text(this.w / 2, this.h - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
+      fontSize: this.isPortrait ? "10px" : "15px", color: "#ffffff",
     }).setOrigin(0.5, 1);
   }
 
   // ─── Lobby (full-screen) ────────────────────────────────────────────────────
 
   private async _showLobby(): Promise<void> {
+    this._isLobbyVisible = true;
     this._mainMenuObjs.forEach(o => (o as unknown as { setVisible(v: boolean): void }).setVisible(false));
 
-    const cx = W / 2;
+    const cx = this.w / 2;
 
     // Full-screen background
     const bg = this.add.graphics().setDepth(9);
     bg.fillGradientStyle(0x0a0f0a, 0x0a0f0a, 0x061208, 0x061208, 1);
-    bg.fillRect(0, 0, W, H);
+    bg.fillRect(0, 0, this.w, this.h);
     bg.lineStyle(1, 0x36b346, 0.1);
-    bg.strokeRoundedRect(30, 30, W - 60, H - 60, 50);
+    bg.strokeRoundedRect(20, 20, this.w - 40, this.h - 40, 30);
 
     // Title
-    const titleTxt = this.add.text(cx, 68, "JOIN A GAME", {
-      fontSize: "30px", color: "#00cc66", fontStyle: "bold", letterSpacing: 4,
+    const titleTxt = this.add.text(cx, this.isPortrait ? 50 : 68, "JOIN A GAME", {
+      fontSize: this.isPortrait ? "24px" : "30px", color: "#00cc66", fontStyle: "bold", letterSpacing: 4,
     }).setOrigin(0.5).setDepth(10);
 
     const divGfx = this.add.graphics().setDepth(10);
     divGfx.lineStyle(1, 0x224433, 0.7);
-    divGfx.lineBetween(80, 108, W - 80, 108);
+    const divY = this.isPortrait ? 80 : 108;
+    divGfx.lineBetween(40, divY, this.w - 40, divY);
 
-    const statusTxt = this.add.text(cx, H / 2, "Loading…", {
+    const statusTxt = this.add.text(cx, this.h / 2, "Loading…", {
       fontSize: "20px", color: "#556688", align: "center",
     }).setOrigin(0.5).setDepth(10);
 
     // ── Bottom action bar ──────────────────────────────────────────────────────
-    const BAR_Y = H - 52;
+    const BAR_Y = this.h - (this.isPortrait ? 70 : 52);
+    const BTN_W = this.isPortrait ? (this.w - 60) / 3 : 180;
 
-    const backBg = this.add.rectangle(cx - 370, BAR_Y, 180, 48, 0x111111, 1)
+    const backBg = this.add.rectangle(cx - (this.isPortrait ? BTN_W + 10 : 370), BAR_Y, this.isPortrait ? BTN_W : 180, 48, 0x111111, 1)
       .setStrokeStyle(1, 0x444444, 1).setInteractive({ useHandCursor: true }).setDepth(10);
-    const backTxt = this.add.text(cx - 370, BAR_Y, "‹  BACK", {
-      fontSize: "16px", color: "#888888", fontStyle: "bold",
+    const backTxt = this.add.text(backBg.x, BAR_Y, this.isPortrait ? "BACK" : "‹  BACK", {
+      fontSize: this.isPortrait ? "14px" : "16px", color: "#888888", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
     backTxt.disableInteractive();
 
-    const refreshBg = this.add.rectangle(cx, BAR_Y, 180, 48, 0x1a44bb, 1)
+    const refreshBg = this.add.rectangle(cx, BAR_Y, this.isPortrait ? BTN_W : 180, 48, 0x1a44bb, 1)
       .setStrokeStyle(1, 0x6699ff, 0.7).setInteractive({ useHandCursor: true }).setDepth(10);
-    const refreshTxt = this.add.text(cx, BAR_Y, "↻  REFRESH", {
-      fontSize: "16px", color: "#ffffff", fontStyle: "bold",
+    const refreshTxt = this.add.text(cx, BAR_Y, this.isPortrait ? "REFRESH" : "↻  REFRESH", {
+      fontSize: this.isPortrait ? "14px" : "16px", color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
     refreshTxt.disableInteractive();
 
-    const newGameBg = this.add.rectangle(cx + 370, BAR_Y, 240, 48, GREEN, 1)
+    const newGameBg = this.add.rectangle(cx + (this.isPortrait ? BTN_W + 10 : 370), BAR_Y, this.isPortrait ? BTN_W : 240, 48, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(10);
-    const newGameTxt = this.add.text(cx + 370, BAR_Y, "✚  CREATE NEW GAME", {
-      fontSize: "15px", color: "#000000", fontStyle: "bold",
+    const newGameTxt = this.add.text(newGameBg.x, BAR_Y, this.isPortrait ? "CREATE" : "✚  CREATE NEW GAME", {
+      fontSize: this.isPortrait ? "14px" : "15px", color: "#000000", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
     newGameTxt.disableInteractive();
 
@@ -179,7 +269,7 @@ export class MenuScene extends Phaser.Scene {
 
     newGameBg.on("pointerover", () => newGameBg.setFillStyle(0x55dd77));
     newGameBg.on("pointerout", () => newGameBg.setFillStyle(GREEN));
-    newGameBg.on("pointerup", () => this._startHosting());
+    newGameBg.on("pointerup", () => { this._isHostingVisible = true; this._drawHostingModal(); });
 
     // ── Game rows (rebuilt on every refresh) ──────────────────────────────────
     let rowObjs: Phaser.GameObjects.GameObject[] = [];
@@ -188,6 +278,7 @@ export class MenuScene extends Phaser.Scene {
     const loadGames = async (): Promise<void> => {
       rowObjs.forEach(o => o.destroy());
       rowObjs = [];
+      if (!this._isLobbyVisible) return;
       statusTxt.setText("Loading…").setVisible(true);
 
       let games: LobbyEntry[];
@@ -207,15 +298,15 @@ export class MenuScene extends Phaser.Scene {
       knownRoomIds = new Set(games.map(g => g.roomId));
 
       if (games.length === 0) {
-        statusTxt.setText("No open games right now.\nPress CREATE NEW GAME to start one!");
+        statusTxt.setText("No open games right now.\nPress CREATE to start one!");
         return;
       }
       statusTxt.setVisible(false);
 
       const ROW_H = 70;
-      const ROW_W = W - 160;
-      const rowsTop = 130;
-      const max = Math.min(games.length, 7);
+      const ROW_W = this.w - (this.isPortrait ? 60 : 160);
+      const rowsTop = this.isPortrait ? 100 : 130;
+      const max = Math.min(games.length, this.isPortrait ? 6 : 7);
 
       for (let i = 0; i < max; i++) {
         const game = games[i];
@@ -226,19 +317,19 @@ export class MenuScene extends Phaser.Scene {
           .setStrokeStyle(1, 0x1a2233, 1).setDepth(10);
 
         // Coloured dot
-        const dot = this.add.circle(cx - ROW_W / 2 + 30, rowY, 10, GREEN, 0.7).setDepth(11);
+        const dot = this.add.circle(cx - ROW_W / 2 + 25, rowY, 8, GREEN, 0.7).setDepth(11);
 
-        const nameTxt = this.add.text(cx - ROW_W / 2 + 56, rowY, game.hostName, {
-          fontSize: "20px", color: "#ffffff", fontStyle: "bold",
+        const nameTxt = this.add.text(cx - ROW_W / 2 + 45, rowY, game.hostName, {
+          fontSize: this.isPortrait ? "16px" : "20px", color: "#ffffff", fontStyle: "bold",
         }).setOrigin(0, 0.5).setDepth(11);
 
-        const ageTxt = this.add.text(cx + 80, rowY, timeAgo(Date.now() - game.createdAt), {
-          fontSize: "15px", color: "#556688",
+        const ageTxt = this.add.text(cx + (this.isPortrait ? 20 : 80), rowY, timeAgo(Date.now() - game.createdAt), {
+          fontSize: "14px", color: "#556688",
         }).setOrigin(0.5, 0.5).setDepth(11);
 
-        const joinBg = this.add.rectangle(cx + ROW_W / 2 - 70, rowY, 120, 44, GREEN, 1)
+        const joinBg = this.add.rectangle(cx + ROW_W / 2 - (this.isPortrait ? 45 : 70), rowY, this.isPortrait ? 80 : 120, 44, GREEN, 1)
           .setInteractive({ useHandCursor: true }).setDepth(11);
-        const joinTxt = this.add.text(cx + ROW_W / 2 - 70, rowY, "JOIN", {
+        const joinTxt = this.add.text(joinBg.x, rowY, "JOIN", {
           fontSize: "17px", color: "#000000", fontStyle: "bold",
         }).setOrigin(0.5).setDepth(12);
         joinTxt.disableInteractive();
@@ -263,24 +354,25 @@ export class MenuScene extends Phaser.Scene {
 
     await loadGames();
 
-    const autoRefresh = this.time.addEvent({ delay: 5000, loop: true, callback: () => { void loadGames(); } });
-    this._lobbyAutoRefresh = autoRefresh;
+    if (this._lobbyAutoRefresh) this._lobbyAutoRefresh.destroy();
+    this._lobbyAutoRefresh = this.time.addEvent({ delay: 5000, loop: true, callback: () => { void loadGames(); } });
   }
 
   private _hideLobby(): void {
+    this._isLobbyVisible = false;
     if (this._lobbyAutoRefresh) { this._lobbyAutoRefresh.destroy(); this._lobbyAutoRefresh = null; }
     this._lobbyObjs.forEach(o => o.destroy());
     this._lobbyObjs = [];
     this._mainMenuObjs.forEach(o => (o as unknown as { setVisible(v: boolean): void }).setVisible(true));
   }
 
-  private _startHosting(): void {
-    const saved = localStorage.getItem("floorball:gameName") ?? "";
-    const cx = W / 2;
-    const cy = H / 2;
-    const MW = 480, MH = 220;
+  private _drawHostingModal(): void {
+    const cx = this.w / 2;
+    const cy = this.h / 2;
+    const MW = Math.min(this.w - 40, 480);
+    const MH = this.isPortrait ? 280 : 220;
 
-    const overlay = this.add.rectangle(cx, cy, W, H, 0x000000, 0.75).setDepth(20).setInteractive();
+    const overlay = this.add.rectangle(cx, cy, this.w, this.h, 0x000000, 0.75).setDepth(20).setInteractive();
 
     const modalGfx = this.add.graphics().setDepth(21);
     modalGfx.fillStyle(0x0d1a12, 1);
@@ -293,42 +385,50 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(22);
 
     const el = document.createElement("input");
+    el.className = "hosting-input";
     Object.assign(el.style, {
       position: "fixed", left: "50%", top: "50%",
       transform: "translate(-50%, -50%)",
-      width: "340px", height: "44px", background: "#0a0f0a",
+      width: `${Math.min(this.w - 80, 340)}px`, height: "44px", background: "#0a0f0a",
       border: "1px solid #36b346", borderRadius: "8px",
       color: "#ffffff", fontSize: "20px", padding: "0 12px",
       outline: "none", fontFamily: "monospace", textAlign: "center",
       zIndex: "9999", boxSizing: "border-box",
     });
     el.maxLength = 50;
-    el.value = saved;
+    el.value = this._hostNameInput;
     el.placeholder = "Game name…";
     document.body.appendChild(el);
     el.addEventListener("focus", () => this.input.keyboard?.disableGlobalCapture());
-    el.addEventListener("blur", () => this.input.keyboard?.enableGlobalCapture());
+    el.addEventListener("blur", () => {
+        this.input.keyboard?.enableGlobalCapture();
+        this._hostNameInput = el.value;
+    });
     setTimeout(() => { el.focus(); el.select(); }, 50);
 
-    const okBg = this.add.rectangle(cx + 90, cy + MH / 2 - 40, 140, 44, GREEN, 1)
+    const okY = this.isPortrait ? cy + 40 : cy + MH / 2 - 40;
+    const okBg = this.add.rectangle(cx + (this.isPortrait ? 0 : 90), okY, 140, 44, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(22);
-    const okTxt = this.add.text(cx + 90, cy + MH / 2 - 40, "OK", {
+    const okTxt = this.add.text(okBg.x, okY, "OK", {
       fontSize: "17px", color: "#000000", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
 
-    const cancelBg = this.add.rectangle(cx - 90, cy + MH / 2 - 40, 140, 44, 0x111111, 1)
+    const cancelY = this.isPortrait ? cy + 95 : cy + MH / 2 - 40;
+    const cancelBg = this.add.rectangle(cx - (this.isPortrait ? 0 : 90), cancelY, 140, 44, 0x111111, 1)
       .setStrokeStyle(1, 0x555555, 1).setInteractive({ useHandCursor: true }).setDepth(22);
-    const cancelTxt = this.add.text(cx - 90, cy + MH / 2 - 40, "CANCEL", {
+    const cancelTxt = this.add.text(cancelBg.x, cancelY, "CANCEL", {
       fontSize: "17px", color: "#888888", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
+
     okTxt.disableInteractive();
     cancelTxt.disableInteractive();
 
-    const promptObjs = [overlay, modalGfx, titleTxt, okBg, okTxt, cancelBg, cancelTxt];
-    const destroy = () => { el.remove(); promptObjs.forEach(o => o.destroy()); };
+    this._hostingObjs = [overlay, modalGfx, titleTxt, okBg, okTxt, cancelBg, cancelTxt];
+    const destroy = () => { this._isHostingVisible = false; el.remove(); this._hostingObjs.forEach(o => o.destroy()); this._hostingObjs = []; };
 
     const confirm = () => {
       const hostName = el.value.trim() || "Game";
+      this._hostNameInput = hostName;
       destroy();
       localStorage.setItem("floorball:gameName", hostName);
       const roomId = randomRoomId();
@@ -352,6 +452,10 @@ export class MenuScene extends Phaser.Scene {
     el.addEventListener("keydown", (e) => {
       if (e.key === "Enter") confirm();
       if (e.key === "Escape") destroy();
+    });
+
+    el.addEventListener("input", () => {
+        this._hostNameInput = el.value;
     });
   }
 
@@ -380,7 +484,8 @@ export class MenuScene extends Phaser.Scene {
     color: number, colorDark: number,
     onClick: () => void,
   ): void {
-    const W_BTN = 520, H_BTN = 76;
+    const W_BTN = this.isPortrait ? this.w * 0.85 : 520;
+    const H_BTN = this.isPortrait ? 85 : 76;
     const colorHex = `#${color.toString(16).padStart(6, "0")}`;
 
     const glow = this.add.rectangle(x, y, W_BTN + 8, H_BTN + 8, color, 0).setStrokeStyle(3, color, 0.25);
@@ -396,12 +501,12 @@ export class MenuScene extends Phaser.Scene {
     const accentGfx = this.add.graphics();
     accentGfx.lineStyle(2, color, 0.6);
     accentGfx.lineBetween(x - W_BTN / 2 + 12, y - H_BTN / 2 + 1, x + W_BTN / 2 - 12, y - H_BTN / 2 + 1);
-    const title = this.add.text(x, y - 12, label, {
-      fontSize: "26px", fontStyle: "bold", color: "#ffffff",
+    const title = this.add.text(x, y - (this.isPortrait ? 15 : 12), label, {
+      fontSize: this.isPortrait ? "24px" : "26px", fontStyle: "bold", color: "#ffffff",
       shadow: { offsetX: 0, offsetY: 1, color: colorHex, blur: 8, stroke: false, fill: true },
     }).setOrigin(0.5);
-    const sub = this.add.text(x, y + 18, sublabel, {
-      fontSize: "12px", color: "#ffffff", letterSpacing: 3,
+    const sub = this.add.text(x, y + (this.isPortrait ? 22 : 18), sublabel, {
+      fontSize: this.isPortrait ? "11px" : "12px", color: "#ffffff", letterSpacing: this.isPortrait ? 2 : 3,
     }).setOrigin(0.5);
     title.disableInteractive();
     sub.disableInteractive();
