@@ -169,6 +169,7 @@ export class GameScene extends Phaser.Scene {
   // Dribble state
   protected _hostDribblePhase = 0;
   protected _clientDribblePhase = 0;
+  protected _ballScalePulse = 1.0;
   protected _hostHasPossession = false;
   protected _clientHasPossession = false;
 
@@ -212,6 +213,7 @@ export class GameScene extends Phaser.Scene {
     this._elapsedMs = 0;
     this._hostSlapWasDown = false;
     this._clientSlapWasDown = false;
+    this._ballScalePulse = 1.0;
   }
 
   create(): void {
@@ -450,6 +452,9 @@ export class GameScene extends Phaser.Scene {
     this._hostShotAnimMs = Math.max(0, this._hostShotAnimMs - delta);
     this._clientShotAnimMs = Math.max(0, this._clientShotAnimMs - delta);
 
+    // Decay ball pulse
+    this._ballScalePulse = 1.0 + (this._ballScalePulse - 1.0) * Math.pow(0.85, delta / 16.67);
+
     // Update ball orientation quaternion from rolling this frame
     const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
     if (ballSpeed > 5) {
@@ -680,12 +685,12 @@ export class GameScene extends Phaser.Scene {
       this.ball.vx += (player.vx - this.ball.vx) * 0.25;
       this.ball.vy += (player.vy - this.ball.vy) * 0.25;
 
-      // Pull toward blade tip: 30% of distance per step, capped at 12px
+      // Pull toward blade tip: 18% of distance per step, capped at 7px
       const dx = bladeTipX - this.ball.x;
       const dy = bladeTipY - this.ball.y;
       const dist = Math.hypot(dx, dy);
       if (dist > 0.1) {
-        const moveDist = Math.min(dist * 0.30, 12);
+        const moveDist = Math.min(dist * 0.18, 7);
         this.ball.x += (dx / dist) * moveDist;
         this.ball.y += (dy / dist) * moveDist;
       }
@@ -710,12 +715,12 @@ export class GameScene extends Phaser.Scene {
     this.ball.vx += (player.vx - this.ball.vx) * 0.25;
     this.ball.vy += (player.vy - this.ball.vy) * 0.25;
 
-    // Pull toward dribble target: 30% of distance per step, capped at 12px
+    // Pull toward dribble target: 18% of distance per step, capped at 7px
     const dx = targetX - this.ball.x;
     const dy = targetY - this.ball.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.1) {
-      const moveDist = Math.min(dist * 0.30, 12);
+      const moveDist = Math.min(dist * 0.18, 7);
       this.ball.x += (dx / dist) * moveDist;
       this.ball.y += (dy / dist) * moveDist;
     }
@@ -725,6 +730,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Spawns a brief visual effect on the ball for a one-touch shot. */
   private _spawnOneTouchJuice(): void {
+    this._ballScalePulse = 1.4;
     // Brief particle burst on the ball
     const visualY = this.ball.y - this.ball.z * 0.6;
     for (let i = 0; i < 8; i++) {
@@ -1162,7 +1168,7 @@ export class GameScene extends Phaser.Scene {
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
-    const displayR = BALL_RADIUS * (1 + this.ball.z * 0.003);
+    const displayR = BALL_RADIUS * (1 + this.ball.z * 0.003) * this._ballScalePulse;
     const depth = 6 + this.ball.z * 0.01;
     this._ballGraphics.clear().setPosition(this.ball.x, visualY).setDepth(depth);
 

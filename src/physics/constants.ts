@@ -52,7 +52,7 @@ export const PLAYER_FRICTION  = 0.90;
 
 // ─── Ball ─────────────────────────────────────────────────────────────────────
 export const BALL_RADIUS    = 10;
-export const BALL_FRICTION  = 0.94;
+export const BALL_FRICTION  = 0.92;
 export const BALL_BOUNCE    = 0.8;
 export const GRAVITY        = 900;
 export const BALL_BOUNCE_Z  = 0.5;
