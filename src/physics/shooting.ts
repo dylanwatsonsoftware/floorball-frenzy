@@ -87,6 +87,7 @@ export function wristShot(
   oneTouch: boolean,
   playerVx = 0,
   playerVy = 0,
+  lift = 0,
 ): void {
   let power = SHOOT_BASE_POWER * 1.8;
   if (oneTouch) power *= ONE_TOUCH_MULTIPLIER;
@@ -97,5 +98,5 @@ export function wristShot(
 
   ball.vx = nx * power + playerVx;
   ball.vy = ny * power + playerVy;
-  ball.vz = 0;
+  ball.vz = lift;
 }

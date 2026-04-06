@@ -88,5 +88,12 @@ export const BOLT_FRICTION_POWER = 0.5;
 export const ONE_TOUCH_WINDOW      = 300;
 export const ONE_TOUCH_MULTIPLIER  = 1.25;
 
+// ─── Heat ─────────────────────────────────────────────────────────────────────
+export const HEAT_MAX = 100;
+export const HEAT_DURATION_MS = 6000;
+export const HEAT_ONETOUCH = 15;
+export const HEAT_STEAL = 25;
+export const HEAT_PERFECT = 25;
+
 // ─── Fixed timestep ───────────────────────────────────────────────────────────
 export const FIXED_DT = 1 / 60;

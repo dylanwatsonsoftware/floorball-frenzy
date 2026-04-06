@@ -10,6 +10,7 @@ import {
   FIELD_BOTTOM,
   DASH_FORCE,
   DASH_COOLDOWN,
+  HEAT_MAX,
 } from "./constants";
 
 export interface PlayerExtended extends Player {
@@ -48,10 +49,14 @@ export function stepPlayer(
     player.vy += (input.moveY / len) * PLAYER_ACCEL * dt;
   }
 
+  // Heat bonus (15% speed boost)
+  const isHeat = player.heat >= HEAT_MAX;
+  const maxSpeed = isHeat ? PLAYER_MAX_SPEED * 1.15 : PLAYER_MAX_SPEED;
+
   // Clamp to max speed
   const speed = Math.hypot(player.vx, player.vy);
-  if (speed > PLAYER_MAX_SPEED) {
-    const scale = PLAYER_MAX_SPEED / speed;
+  if (speed > maxSpeed) {
+    const scale = maxSpeed / speed;
     player.vx *= scale;
     player.vy *= scale;
   }
@@ -83,6 +88,7 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     aimY: 0,
     dashCooldownMs: 0,
     chargeMs: 0,
+    heat: 0,
     input: { moveX: 0, moveY: 0, wrist: false, slap: false, dash: false },
   };
 }

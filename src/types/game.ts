@@ -27,6 +27,7 @@ export interface Player {
   aimY: number;
   dashCooldownMs: number;
   chargeMs: number;
+  heat: number;
   input: InputState;
 }
 
