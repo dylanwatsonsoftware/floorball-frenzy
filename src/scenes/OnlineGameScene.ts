@@ -358,7 +358,9 @@ export class OnlineGameScene extends GameScene {
     this.score.client = s1.state.score.client;
 
     // Soft reconciliation for local player (the client)
-    this._reconcileLocalPlayer(s1.state.players.client);
+    // Use the newest available authoritative state for reconciliation
+    const newest = this._snapshotBuffer[this._snapshotBuffer.length - 1];
+    this._reconcileLocalPlayer(newest.state.players.client);
   }
 
   private _reconcileLocalPlayer(authoritative: Player): void {
@@ -450,6 +452,7 @@ export class OnlineGameScene extends GameScene {
         if (this._startedCountdown && !this._matchOverObjects.length) return;
         this._startedCountdown = true;
         this._connected = true;
+        this._snapshotBuffer = [];
         this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
         this._statusText?.setText("");
         this._clearMatchOver();
@@ -462,6 +465,11 @@ export class OnlineGameScene extends GameScene {
       }
       case "state": {
         if (!this._isHost) {
+          const last = this._snapshotBuffer[this._snapshotBuffer.length - 1];
+          if (last && msg.snapshot.t <= last.t) {
+            return; // Drop out-of-order or duplicate state
+          }
+
           this._snapshotBuffer.push({
             t: msg.snapshot.t,
             arrival: performance.now(),
@@ -616,6 +624,7 @@ export class OnlineGameScene extends GameScene {
   }
 
   private _startCountdown(): void {
+    this._snapshotBuffer = [];
     this._resetRound();
     this._countdownMs = 4000; // 3…2…1… then GO! for 1s
     this._lastCountdownLabel = "";

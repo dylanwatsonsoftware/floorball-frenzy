@@ -600,8 +600,10 @@ export class GameScene extends Phaser.Scene {
 
     this._updateLastTouch();
 
-    const goal = stepBall(this.ball, dt);
-    if (goal) this._onGoal(goal);
+    if (!isClientPrediction) {
+      const goal = stepBall(this.ball, dt);
+      if (goal) this._onGoal(goal);
+    }
   }
 
   protected _updateLastTouch(): void {
