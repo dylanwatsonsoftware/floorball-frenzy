@@ -6,7 +6,6 @@ describe("Binary Serialization", () => {
   const mockInput: InputState = {
     moveX: 0.5,
     moveY: -0.8,
-    wrist: true,
     slap: false,
     dash: true,
   };
@@ -86,7 +85,6 @@ describe("Binary Serialization", () => {
     if (decoded?.type === "input") {
       expect(decoded.seq).toBe(1234);
       expect(decoded.input.moveX).toBeCloseTo(mockInput.moveX, 2);
-      expect(decoded.input.wrist).toBe(true);
       expect(decoded.input.slap).toBe(false);
       expect(decoded.input.dash).toBe(true);
     }

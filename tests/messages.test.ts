@@ -49,7 +49,7 @@ describe("encode/decode roundtrip", () => {
     {
       type: "input",
       seq: 42,
-      input: { moveX: 1, moveY: -0.5, wrist: false, slap: true, dash: false },
+      input: { moveX: 1, moveY: -0.5, slap: true, dash: false },
     },
   ];
 

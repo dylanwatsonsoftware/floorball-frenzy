@@ -50,9 +50,6 @@ export class OnlineGameScene extends GameScene {
   private _opponentRequestedRematch = false;
   private _rematchText: Phaser.GameObjects.Text | null = null;
 
-  private _pendingWristShot = false;      // client → host: latched on key-down
-  private _pendingClientWrist = false;    // host side: set when any input msg has wrist:true
-
   protected override get _isAuthoritative(): boolean {
     return this._isHost;
   }
@@ -71,8 +68,6 @@ export class OnlineGameScene extends GameScene {
     this._snapshotTimer = 0;
     this._pingTimer = 0;
     this._inputSeq = 0;
-    this._pendingWristShot = false;
-    this._pendingClientWrist = false;
     this._startedCountdown = false;
 
     this._hostAim = { x: 1, y: 0 };
@@ -195,22 +190,6 @@ export class OnlineGameScene extends GameScene {
 
     this._buildSharePanel();
 
-    // GameScene.create() binds Q→host and comma→client for local 2-player.
-    // In online mode each machine controls only one player, so replace those
-    // bindings with role-correct ones.
-    this._wasd.wrist.removeAllListeners("down");
-    this._arrows.wrist.removeAllListeners("down");
-
-    if (this._isHost) {
-      // Host controls the green player; comma key does nothing locally.
-      this._wasd.wrist.on("down", () => this._doWristShot("host"));
-    } else {
-      // Client controls the black player; either Q or comma works.
-      // Also latch _pendingWristShot so the host sees the rising edge even if
-      // the key is pressed and released within a single fixed-step interval.
-      this._wasd.wrist.on("down", () => { this._doWristShot("client"); this._pendingWristShot = true; });
-      this._arrows.wrist.on("down", () => { this._doWristShot("client"); this._pendingWristShot = true; });
-    }
   }
 
   update(time: number, delta: number): void {
@@ -278,10 +257,6 @@ export class OnlineGameScene extends GameScene {
     this._elapsedMs += elapsedMs;
 
     if (this._isHost) {
-      if (this._pendingClientWrist) {
-        this._pendingClientWrist = false;
-        this._doWristShot("client");
-      }
       const hostInput = this._readHostInput();
       const clientInput = this.client.input || NEUTRAL_INPUT;
       this._runPhysics(hostInput, clientInput, dt, elapsedMs);
@@ -397,23 +372,38 @@ export class OnlineGameScene extends GameScene {
     if (w.up.isDown || a.up.isDown) my -= 1;
     if (w.down.isDown || a.down.isDown) my += 1;
 
-    if (this._hostJoy.isActive()) {
-      mx = this._hostJoy.value.x;
-      my = this._hostJoy.value.y;
+    if (this._controlMode === "follow") {
+      // Follow-touch steering: move toward pointer if active and not over a button
+      const pts = [this.input.pointer1, this.input.pointer2, this.input.pointer3];
+      const localPlayer = this._isHost ? this.host : this.client;
+      for (const pointer of pts) {
+        if (pointer.isDown && !this._hostButtons.contains(pointer.worldX, pointer.worldY)) {
+          const dx = pointer.worldX - localPlayer.x;
+          const dy = pointer.worldY - localPlayer.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 15) {
+            mx = dx / dist;
+            my = dy / dist;
+          } else {
+            mx = 0;
+            my = 0;
+          }
+          break;
+        }
+      }
+    } else {
+      // Virtual joystick steering
+      if (this._hostJoy.isActive()) {
+        mx = this._hostJoy.value.x;
+        my = this._hostJoy.value.y;
+      }
     }
 
     const touch = this._hostButtons.read();
-    if (touch.wrist) { this._doWristShot("client"); this._pendingWristShot = true; }
-
-    // Latch: wrist is true for exactly one input packet after the key/button
-    // was pressed, regardless of how quickly it was released.
-    const wrist = this._pendingWristShot;
-    this._pendingWristShot = false;
 
     return {
       moveX: mx,
       moveY: my,
-      wrist,
       slap: w.slap.isDown || a.slap.isDown || touch.slapHeld,
       dash: w.dash.isDown || a.dash.isDown || touch.dash,
     };
@@ -484,7 +474,6 @@ export class OnlineGameScene extends GameScene {
       }
       case "input": {
         if (this._isHost) {
-          if (msg.input.wrist) this._pendingClientWrist = true;
           this.client.input = msg.input;
         }
         break;

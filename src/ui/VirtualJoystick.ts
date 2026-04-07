@@ -3,20 +3,21 @@ import { normaliseJoystick, deadZone } from "./joystickMath";
 import type { Vec2 } from "./joystickMath";
 
 const DEAD = 0.12; // dead-zone threshold
+const GLOW = 0x00e5ff;
 
 export class VirtualJoystick {
   /** Current normalised stick value (-1..1 each axis). */
   readonly value: Vec2 = { x: 0, y: 0 };
 
+  /** If false, the joystick won't show or capture input. */
+  enabled = true;
+
   private _base: Phaser.GameObjects.Arc;
   private _knob: Phaser.GameObjects.Arc;
-  private _ghostBase: Phaser.GameObjects.Arc | null = null;
-  private _ghostKnob: Phaser.GameObjects.Arc | null = null;
   private _pointer: Phaser.Input.Pointer | null = null;
   private _originX = 0;
   private _originY = 0;
   private readonly _radius: number;
-  /** Touch zone in world coordinates: only activate if touch starts within this rectangle. */
   private readonly _zone: Phaser.Geom.Rectangle;
 
   constructor(
@@ -25,34 +26,20 @@ export class VirtualJoystick {
     zoneY: number,
     zoneW: number,
     zoneH: number,
-    radius = 55,
-    /** Default ghost position in world coordinates — shown when joystick is idle. */
-    defaultX?: number,
-    defaultY?: number,
+    radius = 60
   ) {
     this._radius = radius;
     this._zone = new Phaser.Geom.Rectangle(zoneX, zoneY, zoneW, zoneH);
 
-    // Ghost indicator at default position (always visible when joystick is idle)
-    if (defaultX !== undefined && defaultY !== undefined) {
-      this._ghostBase = scene.add
-        .circle(defaultX, defaultY, radius, 0x000000, 0.18)
-        .setStrokeStyle(2, 0xffffff, 0.25)
-        .setDepth(19);
-      this._ghostKnob = scene.add
-        .circle(defaultX, defaultY, radius * 0.42, 0xffffff, 0.22)
-        .setDepth(20);
-    }
-
-    // Active visuals — hidden until touch starts
+    // Modern visuals matching ActionButtons
     this._base = scene.add
-      .circle(0, 0, radius, 0x000000, 0.25)
-      .setStrokeStyle(2, 0xffffff, 0.4)
+      .circle(0, 0, radius, 0x07070f, 0.4)
+      .setStrokeStyle(2, GLOW, 0.4)
       .setDepth(20)
       .setVisible(false);
 
     this._knob = scene.add
-      .circle(0, 0, radius * 0.42, 0xffffff, 0.55)
+      .circle(0, 0, radius * 0.4, 0xffffff, 0.8)
       .setDepth(21)
       .setVisible(false);
 
@@ -63,15 +50,17 @@ export class VirtualJoystick {
   }
 
   private _onDown(p: Phaser.Input.Pointer): void {
-    if (this._pointer !== null) return; // already tracking a finger
+    if (!this.enabled || this._pointer !== null) return;
+    // Only activate if not handled by buttons and within zone
     if (!this._zone.contains(p.worldX, p.worldY)) return;
+
+    // We check button containment in GameScene to avoid circular deps or passing buttons here
+    // but the scene's input system will emit for all pointers.
 
     this._pointer = p;
     this._originX = p.worldX;
     this._originY = p.worldY;
 
-    this._ghostBase?.setVisible(false);
-    this._ghostKnob?.setVisible(false);
     this._base.setPosition(p.worldX, p.worldY).setVisible(true);
     this._knob.setPosition(p.worldX, p.worldY).setVisible(true);
   }
@@ -95,8 +84,6 @@ export class VirtualJoystick {
     this.value.y = 0;
     this._base.setVisible(false);
     this._knob.setVisible(false);
-    this._ghostBase?.setVisible(true);
-    this._ghostKnob?.setVisible(true);
   }
 
   isActive(): boolean {

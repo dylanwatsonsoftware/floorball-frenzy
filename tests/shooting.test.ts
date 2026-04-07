@@ -3,11 +3,9 @@ import {
   createShootState,
   updateShootCharge,
   releaseShot,
-  wristShot,
 } from "../src/physics/shooting";
 import type { Ball } from "../src/types/game";
 import {
-  SHOOT_BASE_POWER,
   SHOOT_MAX_CHARGE_MS,
   ONE_TOUCH_MULTIPLIER,
 } from "../src/physics/constants";
@@ -130,21 +128,3 @@ describe("releaseShot — direction and power", () => {
   });
 });
 
-describe("wristShot", () => {
-  it("fires ball at base power with no lift", () => {
-    const ball = makeBall();
-    wristShot(ball, 1, 0, false);
-    expect(ball.vx).toBeCloseTo(SHOOT_BASE_POWER * 1.8, 2);
-    expect(ball.vz).toBe(0);
-  });
-
-  it("applies one-touch bonus", () => {
-    const ballNormal = makeBall();
-    wristShot(ballNormal, 1, 0, false);
-
-    const ballBonus = makeBall();
-    wristShot(ballBonus, 1, 0, true);
-
-    expect(ballBonus.vx).toBeCloseTo(ballNormal.vx * ONE_TOUCH_MULTIPLIER, 2);
-  });
-});

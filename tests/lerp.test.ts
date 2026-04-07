@@ -3,7 +3,7 @@ import { lerpState } from "../src/net/lerp";
 import type { GameState, Player, InputState } from "../src/types/game";
 
 function makeInput(): InputState {
-  return { moveX: 0, moveY: 0, wrist: false, slap: false, dash: false };
+  return { moveX: 0, moveY: 0, slap: false, dash: false };
 }
 function makePlayer(x: number, y: number): Player {
   return { id: "p", x, y, vx: 0, vy: 0, aimX: 1, aimY: 0, dashCooldownMs: 0, chargeMs: 0, input: makeInput() };

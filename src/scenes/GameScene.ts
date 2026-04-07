@@ -14,7 +14,6 @@ import {
   createShootState,
   updateShootCharge,
   releaseShot,
-  wristShot,
 } from "../physics/shooting";
 import type { ShootState } from "../physics/shooting";
 import { VirtualJoystick } from "../ui/VirtualJoystick";
@@ -98,6 +97,7 @@ export class GameScene extends Phaser.Scene {
   // Touch UI (present on mobile; keyboard still works on desktop)
   protected _hostJoy!: VirtualJoystick;
   protected _hostButtons!: ActionButtons;
+  protected _controlMode: "stick" | "follow" = "stick";
 
   // Graphics / display objects
   private _field!: Phaser.GameObjects.Graphics;
@@ -106,6 +106,7 @@ export class GameScene extends Phaser.Scene {
   private _hostSprite!: Phaser.GameObjects.Sprite;
   private _clientSprite!: Phaser.GameObjects.Sprite;
   private _ballGraphics!: Phaser.GameObjects.Graphics;
+  private _indicatorGraphics!: Phaser.GameObjects.Graphics;
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
@@ -131,8 +132,6 @@ export class GameScene extends Phaser.Scene {
     x: number; y: number; vx: number; vy: number;
     life: number; maxLife: number; size: number;
   }> = [];
-  private _hostChargeBar!: Phaser.GameObjects.Rectangle;
-  private _clientChargeBar!: Phaser.GameObjects.Rectangle;
   private _scoreText!: Phaser.GameObjects.Text;
   protected _messageText!: Phaser.GameObjects.Text;
 
@@ -161,11 +160,6 @@ export class GameScene extends Phaser.Scene {
   private static readonly GHOST_LIFETIME = 360;
   private _ghostGraphics!: Phaser.GameObjects.Graphics;
 
-  // Pending wrist shot: counts down after key-down, fires when it hits 0
-  protected _hostPendingWristMs = 0;
-  protected _clientPendingWristMs = 0;
-  private static readonly WRIST_DELAY_MS = 160;
-
   // Dribble state
   protected _hostDribblePhase = 0;
   protected _clientDribblePhase = 0;
@@ -186,7 +180,6 @@ export class GameScene extends Phaser.Scene {
     left: Phaser.Input.Keyboard.Key;
     right: Phaser.Input.Keyboard.Key;
     dash: Phaser.Input.Keyboard.Key;
-    wrist: Phaser.Input.Keyboard.Key;
     slap: Phaser.Input.Keyboard.Key;
   };
   protected _arrows!: {
@@ -195,7 +188,6 @@ export class GameScene extends Phaser.Scene {
     left: Phaser.Input.Keyboard.Key;
     right: Phaser.Input.Keyboard.Key;
     dash: Phaser.Input.Keyboard.Key;
-    wrist: Phaser.Input.Keyboard.Key;
     slap: Phaser.Input.Keyboard.Key;
   };
 
@@ -204,6 +196,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data: { mode: GameMode }): void {
+    this._controlMode = (localStorage.getItem("floorball:controls") as "stick" | "follow") || "stick";
     this._mode = data.mode ?? "local";
     this.score = { host: 0, client: 0 };
     this._accumulator = 0;
@@ -248,26 +241,12 @@ export class GameScene extends Phaser.Scene {
     this._fireGraphics = this.add.graphics().setDepth(5.5);
     // Ball drawn each frame via Graphics for physically correct rolling animation
     this._ballGraphics = this.add.graphics().setDepth(6);
+    this._indicatorGraphics = this.add.graphics().setDepth(4.4); // Below everything else but visible
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
     this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(1.26).setOrigin(0.5, 0.56);
     this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(1.26).setOrigin(0.5, 0.56);
-
-    // Charge bars (shown above each player when charging slap)
-    const BAR_W = 40;
-    const BAR_H = 5;
-    this._hostChargeBar = this.add
-      .rectangle(this.host.x, this.host.y - PLAYER_RADIUS - 8, 0, BAR_H, 0xffff00)
-      .setOrigin(0, 0.5)
-      .setDepth(5);
-    this._clientChargeBar = this.add
-      .rectangle(this.client.x, this.client.y - PLAYER_RADIUS - 8, 0, BAR_H, 0xffff00)
-      .setOrigin(0, 0.5)
-      .setDepth(5);
-    // store max width for scaling
-    (this._hostChargeBar as Phaser.GameObjects.Rectangle & { maxW: number }).maxW = BAR_W;
-    (this._clientChargeBar as Phaser.GameObjects.Rectangle & { maxW: number }).maxW = BAR_W;
 
     // ── Top HUD bar ────────────────────────────────────────────────────────────
     const HUD_H = 95;
@@ -325,17 +304,6 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(16);
 
-    // ── Bottom keyboard hints (local only) ─────────────────────────────────────
-    if (this._mode === "local") {
-      this.add.text(FIELD_LEFT, FIELD_BOTTOM + 10,
-        "Green: WASD · Shift dash · Q wrist · E slap", {
-        fontSize: "13px", color: "#444466",
-      });
-      this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 10,
-        "Black: Arrows · Space dash · , wrist · . slap", {
-        fontSize: "13px", color: "#444466",
-      }).setOrigin(1, 0);
-    }
 
     // Keyboard bindings
     const kb = this.input.keyboard!;
@@ -345,7 +313,6 @@ export class GameScene extends Phaser.Scene {
       left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.A),
       right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.D),
       dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
-      wrist: kb.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
       slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.E),
     };
     this._arrows = {
@@ -354,13 +321,8 @@ export class GameScene extends Phaser.Scene {
       left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
       right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
       dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      wrist: kb.addKey(Phaser.Input.Keyboard.KeyCodes.COMMA),
       slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.PERIOD),
     };
-
-    // Wrist shots on key-down
-    this._wasd.wrist.on("down", () => this._doWristShot("host"));
-    this._arrows.wrist.on("down", () => this._doWristShot("client"));
 
     kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC).on("down", () => {
       this._confirmLeave();
@@ -392,11 +354,13 @@ export class GameScene extends Phaser.Scene {
     this.scale.on("resize", applyScroll);
     this.events.once("shutdown", () => this.scale.off("resize", applyScroll));
 
-    // Touch UI — joystick zone in world coordinates covers left 60% from screen left edge.
-    // Ghost indicator shows at bottom-left so players know the joystick exists before touching.
-    const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
-    this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 55, 150, 580);
+    // Touch UI — buttons are always present
     this._hostButtons = new ActionButtons(this, 1210, 360);
+
+    // Joystick only if in stick mode
+    const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
+    this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 60);
+    this._hostJoy.enabled = (this._controlMode === "stick");
 
     // Initialize Animations
     this._createAnimations();
@@ -474,6 +438,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._syncSprites();
+    this._updateIndicators();
     this._updateGhosts(delta);
     this._updateFire(delta);
   }
@@ -501,16 +466,6 @@ export class GameScene extends Phaser.Scene {
     elapsedMs: number,
     isClientPrediction = false
   ): void {
-    // Tick pending wrist shot timers; fire when they expire
-    if (this._hostPendingWristMs > 0) {
-      this._hostPendingWristMs -= elapsedMs;
-      if (this._hostPendingWristMs <= 0) this._executeWristShot("host");
-    }
-    if (this._clientPendingWristMs > 0) {
-      this._clientPendingWristMs -= elapsedMs;
-      if (this._clientPendingWristMs <= 0) this._executeWristShot("client");
-    }
-
     if (hostInput.moveX !== 0 || hostInput.moveY !== 0) {
       this._hostAim = { x: hostInput.moveX, y: hostInput.moveY };
     }
@@ -752,47 +707,6 @@ export class GameScene extends Phaser.Scene {
     this.ball.y = player.y + stick.y * STICK_REACH + aNy * PLAYER_RADIUS * 0.84;
   }
 
-  /** Called on key-down: plays animation immediately, arms the pending timer. */
-  protected _doWristShot(who: "host" | "client"): void {
-    if (this._frozenMs > 0) return;
-    if (who === "host") {
-      this._hostShotAnimMs = 180;
-      this._hostPendingWristMs = GameScene.WRIST_DELAY_MS;
-    } else {
-      this._clientShotAnimMs = 180;
-      this._clientPendingWristMs = GameScene.WRIST_DELAY_MS;
-    }
-  }
-
-  /** Called from the physics loop after the delay expires: actually fires the shot. */
-  protected _executeWristShot(who: "host" | "client"): void {
-    if (this._frozenMs > 0) return;
-    const player = who === "host" ? this.host : this.client;
-    const distToBall = Math.hypot(this.ball.x - player.x, this.ball.y - player.y);
-    if (distToBall > STICK_REACH * 2.2) return;
-
-    this._snapBallToBlade(who);
-    const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
-    const isOT = this._isOneTouch(who);
-    if (isOT) this._spawnOneTouchJuice();
-
-    const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200;
-    wristShot(this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
-    if (isBolt) {
-      this.ball.vx *= BOLT_SHOT_BOOST;
-      this.ball.vy *= BOLT_SHOT_BOOST;
-      this.ball.isBolt = true;
-      this.ball.boltTimerMs = BOLT_SHOT_DURATION_MS;
-      this._spawnPerfectJuice(this.ball.x, this.ball.y); // reuse perfect juice for bolt shots
-    } else {
-      this.ball.isBolt = false;
-      this.ball.boltTimerMs = 0;
-    }
-
-    this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
-    if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
-    else this._clientShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
-  }
 
   protected _doSlapShot(who: "host" | "client"): void {
     // Always play the swing animation on release
@@ -840,19 +754,37 @@ export class GameScene extends Phaser.Scene {
     if (k.up.isDown) my -= 1;
     if (k.down.isDown) my += 1;
 
-    // Merge touch joystick (takes priority when active)
-    if (this._hostJoy.isActive()) {
-      mx = this._hostJoy.value.x;
-      my = this._hostJoy.value.y;
+    if (this._controlMode === "follow") {
+      // Follow-touch steering: move toward pointer if active and not over a button
+      const pts = [this.input.pointer1, this.input.pointer2, this.input.pointer3];
+      for (const pointer of pts) {
+        if (pointer.isDown && !this._hostButtons.contains(pointer.worldX, pointer.worldY)) {
+          const dx = pointer.worldX - this.host.x;
+          const dy = pointer.worldY - this.host.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 15) {
+            mx = dx / dist;
+            my = dy / dist;
+          } else {
+            mx = 0;
+            my = 0;
+          }
+          break;
+        }
+      }
+    } else {
+      // Virtual joystick steering
+      if (this._hostJoy.isActive()) {
+        mx = this._hostJoy.value.x;
+        my = this._hostJoy.value.y;
+      }
     }
 
     const touch = this._hostButtons.read();
-    if (touch.wrist) this._doWristShot("host");
 
     return {
       moveX: mx,
       moveY: my,
-      wrist: k.wrist.isDown,
       slap: k.slap.isDown || touch.slapHeld,
       dash: k.dash.isDown || touch.dash,
     };
@@ -866,7 +798,7 @@ export class GameScene extends Phaser.Scene {
     if (k.right.isDown) mx += 1;
     if (k.up.isDown) my -= 1;
     if (k.down.isDown) my += 1;
-    return { moveX: mx, moveY: my, wrist: k.wrist.isDown, slap: k.slap.isDown, dash: k.dash.isDown };
+    return { moveX: mx, moveY: my, slap: k.slap.isDown, dash: k.dash.isDown };
   }
 
   protected _onPlayerPlayerContact(p1: PlayerExtended, p2: PlayerExtended): void {
@@ -1161,6 +1093,73 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  protected _updateIndicators(): void {
+    const g = this._indicatorGraphics;
+    g.clear();
+
+    const drawForPlayer = (
+      player: PlayerExtended,
+      aim: { x: number; y: number },
+      isLocal: boolean,
+      shootState: ShootState,
+      hasPossession: boolean
+    ) => {
+      // 1. Aim direction indicator — solid thick line that grows with charge
+      // Only appears when charging AND has possession
+      if (shootState.charging && hasPossession) {
+        const nx = aim.x;
+        const ny = aim.y;
+        const chargeRatio = Math.min(shootState.chargeMs / SHOOT_MAX_CHARGE_MS_LOCAL, 1);
+        const maxLen = 140;
+        const lineLen = 30 + chargeRatio * maxLen;
+
+        // Visual origin is the ball center
+        const bx = this.ball.x;
+        const by = this.ball.y - this.ball.z * 0.6;
+
+        g.lineStyle(6, 0xffff00, 0.8);
+        g.lineBetween(bx, by, bx + nx * lineLen, by + ny * lineLen);
+
+        // Arrow head
+        const arrowSize = 10;
+        const ax = bx + nx * lineLen;
+        const ay = by + ny * lineLen;
+        const angle = Math.atan2(ny, nx);
+        g.fillStyle(0xffff00, 0.8);
+        g.beginPath();
+        g.moveTo(ax, ay);
+        g.lineTo(ax - arrowSize * Math.cos(angle - 0.5), ay - arrowSize * Math.sin(angle - 0.5));
+        g.lineTo(ax - arrowSize * Math.cos(angle + 0.5), ay - arrowSize * Math.sin(angle + 0.5));
+        g.closePath();
+        g.fillPath();
+      }
+
+      // 2. Ownership "YOU" indicator
+      if (isLocal) {
+        g.lineStyle(3, 0xffff00, 0.8);
+        g.strokeCircle(player.x, player.y, PLAYER_RADIUS + 5);
+
+        // Small triangle above
+        const ty = player.y - PLAYER_RADIUS - 15;
+        g.fillStyle(0xffff00, 1);
+        g.fillTriangle(
+          player.x - 6, ty - 8,
+          player.x + 6, ty - 8,
+          player.x, ty
+        );
+      }
+    };
+
+    if (this._mode === "local") {
+      drawForPlayer(this.host, this._hostAimSmooth, true, this._hostShoot, this._hostHasPossession);
+      drawForPlayer(this.client, this._clientAimSmooth, false, this._clientShoot, this._clientHasPossession);
+    } else {
+      const isHostLocal = this._isAuthoritative;
+      drawForPlayer(this.host, this._hostAimSmooth, isHostLocal, this._hostShoot, this._hostHasPossession);
+      drawForPlayer(this.client, this._clientAimSmooth, !isHostLocal, this._clientShoot, this._clientHasPossession);
+    }
+  }
+
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
@@ -1208,10 +1207,6 @@ export class GameScene extends Phaser.Scene {
 
     // Dash cooldown rings
     this._updateDashRings();
-
-    // Charge bars
-    this._updateChargeBar(this._hostChargeBar, this._hostShoot, this.host.x - 20, this.host.y - PLAYER_RADIUS - 8);
-    this._updateChargeBar(this._clientChargeBar, this._clientShoot, this.client.x - 20, this.client.y - PLAYER_RADIUS - 8);
 
     this._scoreText.setText(`${this.score.host}  —  ${this.score.client}`);
   }
@@ -1270,21 +1265,6 @@ export class GameScene extends Phaser.Scene {
       gfx.beginPath();
       gfx.arc(player.x, player.y, r, start, end, false);
       gfx.strokePath();
-    }
-  }
-
-  private _updateChargeBar(
-    bar: Phaser.GameObjects.Rectangle,
-    shoot: ShootState,
-    x: number,
-    y: number
-  ): void {
-    const MAX_W = 40;
-    if (shoot.charging && shoot.chargeMs > 0) {
-      const ratio = Math.min(shoot.chargeMs / SHOOT_MAX_CHARGE_MS_LOCAL, 1);
-      bar.setPosition(x, y).setSize(MAX_W * ratio, 5).setVisible(true);
-    } else {
-      bar.setVisible(false);
     }
   }
 

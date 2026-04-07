@@ -15,10 +15,10 @@ import {
   FIXED_DT,
 } from "../src/physics/constants";
 
-const noInput: InputState = { moveX: 0, moveY: 0, wrist: false, slap: false, dash: false };
+const noInput: InputState = { moveX: 0, moveY: 0, slap: false, dash: false };
 
 function rightInput(): InputState {
-  return { moveX: 1, moveY: 0, wrist: false, slap: false, dash: false };
+  return { moveX: 1, moveY: 0, slap: false, dash: false };
 }
 
 describe("createPlayer", () => {
@@ -100,14 +100,14 @@ describe("stepPlayer — boundary clamping", () => {
 describe("stepPlayer — dash", () => {
   it("applies dash impulse in movement direction", () => {
     const p = createPlayer("p1", 640, 360);
-    const input: InputState = { moveX: 1, moveY: 0, wrist: false, slap: false, dash: true };
+    const input: InputState = { moveX: 1, moveY: 0, slap: false, dash: true };
     stepPlayer(p, input, FIXED_DT, FIXED_DT * 1000);
     expect(p.vx).toBeGreaterThan(DASH_FORCE * 0.5); // at least half after friction
   });
 
   it("sets dashCooldownMs after a dash", () => {
     const p = createPlayer("p1", 640, 360);
-    const input: InputState = { moveX: 1, moveY: 0, wrist: false, slap: false, dash: true };
+    const input: InputState = { moveX: 1, moveY: 0, slap: false, dash: true };
     stepPlayer(p, input, FIXED_DT, FIXED_DT * 1000);
     expect(p.dashCooldownMs).toBeGreaterThan(0);
   });
@@ -115,7 +115,7 @@ describe("stepPlayer — dash", () => {
   it("does not dash again while cooldown active", () => {
     const p = createPlayer("p1", 640, 360);
     p.dashCooldownMs = DASH_COOLDOWN;
-    const input: InputState = { moveX: 1, moveY: 0, wrist: false, slap: false, dash: true };
+    const input: InputState = { moveX: 1, moveY: 0, slap: false, dash: true };
     const vxBefore = p.vx;
     stepPlayer(p, input, FIXED_DT, FIXED_DT * 1000);
     // impulse should NOT have been added

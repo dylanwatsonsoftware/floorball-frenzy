@@ -116,7 +116,6 @@ function encodeSnapshot(s: GameState): Uint8Array {
     v.setFloat32(offset + 32, p.input.moveX, true);
     v.setFloat32(offset + 36, p.input.moveY, true);
     let pFlags = 0;
-    if (p.input.wrist) pFlags |= 1;
     if (p.input.slap) pFlags |= 2;
     if (p.input.dash) pFlags |= 4;
     v.setUint8(offset + 40, pFlags);
@@ -164,7 +163,6 @@ function decodeSnapshot(v: DataView): GameState {
       input: {
         moveX: v.getFloat32(offset + 32, true),
         moveY: v.getFloat32(offset + 36, true),
-        wrist: !!(pFlags & 1),
         slap: !!(pFlags & 2),
         dash: !!(pFlags & 4),
       },
@@ -195,7 +193,6 @@ function encodeInput(seq: number, i: InputState): Uint8Array {
   v.setFloat32(5, i.moveX, true);
   v.setFloat32(9, i.moveY, true);
   let flags = 0;
-  if (i.wrist) flags |= 1;
   if (i.slap) flags |= 2;
   if (i.dash) flags |= 4;
   v.setUint8(13, flags);
@@ -210,7 +207,6 @@ function decodeInput(v: DataView): { seq: number; input: InputState } {
     input: {
       moveX: v.getFloat32(5, true),
       moveY: v.getFloat32(9, true),
-      wrist: !!(flags & 1),
       slap: !!(flags & 2),
       dash: !!(flags & 4),
     },
