@@ -132,8 +132,6 @@ export class GameScene extends Phaser.Scene {
     x: number; y: number; vx: number; vy: number;
     life: number; maxLife: number; size: number;
   }> = [];
-  private _hostChargeBar!: Phaser.GameObjects.Rectangle;
-  private _clientChargeBar!: Phaser.GameObjects.Rectangle;
   private _scoreText!: Phaser.GameObjects.Text;
   protected _messageText!: Phaser.GameObjects.Text;
 
@@ -250,21 +248,6 @@ export class GameScene extends Phaser.Scene {
     this._hostSprite = this.add.sprite(this.host.x, this.host.y, "char_host").setDepth(5).setScale(1.26).setOrigin(0.5, 0.56);
     this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(1.26).setOrigin(0.5, 0.56);
 
-    // Charge bars (shown above each player when charging slap)
-    const BAR_W = 40;
-    const BAR_H = 5;
-    this._hostChargeBar = this.add
-      .rectangle(this.host.x, this.host.y - PLAYER_RADIUS - 8, 0, BAR_H, 0xffff00)
-      .setOrigin(0, 0.5)
-      .setDepth(5);
-    this._clientChargeBar = this.add
-      .rectangle(this.client.x, this.client.y - PLAYER_RADIUS - 8, 0, BAR_H, 0xffff00)
-      .setOrigin(0, 0.5)
-      .setDepth(5);
-    // store max width for scaling
-    (this._hostChargeBar as Phaser.GameObjects.Rectangle & { maxW: number }).maxW = BAR_W;
-    (this._clientChargeBar as Phaser.GameObjects.Rectangle & { maxW: number }).maxW = BAR_W;
-
     // ── Top HUD bar ────────────────────────────────────────────────────────────
     const HUD_H = 95;
     const hudGfx = this.add.graphics().setDepth(14);
@@ -321,17 +304,6 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(16);
 
-    // ── Bottom keyboard hints (local only) ─────────────────────────────────────
-    if (this._mode === "local") {
-      this.add.text(FIELD_LEFT, FIELD_BOTTOM + 10,
-        "Green: WASD · Shift DASH · E SLAP", {
-        fontSize: "13px", color: "#444466",
-      });
-      this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 10,
-        "Black: Arrows · Space DASH · . SLAP", {
-        fontSize: "13px", color: "#444466",
-      }).setOrigin(1, 0);
-    }
 
     // Keyboard bindings
     const kb = this.input.keyboard!;
@@ -388,6 +360,7 @@ export class GameScene extends Phaser.Scene {
     // Joystick only if in stick mode
     const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
     this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 60);
+    this._hostJoy.enabled = (this._controlMode === "stick");
 
     // Initialize Animations
     this._createAnimations();
@@ -1122,22 +1095,41 @@ export class GameScene extends Phaser.Scene {
     const g = this._indicatorGraphics;
     g.clear();
 
-    const drawForPlayer = (player: PlayerExtended, aim: { x: number; y: number }, isLocal: boolean) => {
-      // 1. Aim direction indicator (dashed-like line)
-      const nx = aim.x;
-      const ny = aim.y;
+    const drawForPlayer = (
+      player: PlayerExtended,
+      aim: { x: number; y: number },
+      isLocal: boolean,
+      shootState: ShootState,
+      hasPossession: boolean
+    ) => {
+      // 1. Aim direction indicator — solid thick line that grows with charge
+      // Only appears when charging AND has possession
+      if (shootState.charging && hasPossession) {
+        const nx = aim.x;
+        const ny = aim.y;
+        const chargeRatio = Math.min(shootState.chargeMs / SHOOT_MAX_CHARGE_MS_LOCAL, 1);
+        const maxLen = 140;
+        const lineLen = 30 + chargeRatio * maxLen;
 
-      g.lineStyle(2, 0xffffff, 0.4);
-      // Draw a "dashed" line by drawing small segments
-      for (let i = 0; i < 4; i++) {
-        const start = 25 + i * 12;
-        const end = start + 6;
-        g.lineBetween(
-          player.x + nx * start,
-          player.y + ny * start,
-          player.x + nx * end,
-          player.y + ny * end
-        );
+        // Visual origin is the ball center
+        const bx = this.ball.x;
+        const by = this.ball.y - this.ball.z * 0.6;
+
+        g.lineStyle(6, 0xffff00, 0.8);
+        g.lineBetween(bx, by, bx + nx * lineLen, by + ny * lineLen);
+
+        // Arrow head
+        const arrowSize = 10;
+        const ax = bx + nx * lineLen;
+        const ay = by + ny * lineLen;
+        const angle = Math.atan2(ny, nx);
+        g.fillStyle(0xffff00, 0.8);
+        g.beginPath();
+        g.moveTo(ax, ay);
+        g.lineTo(ax - arrowSize * Math.cos(angle - 0.5), ay - arrowSize * Math.sin(angle - 0.5));
+        g.lineTo(ax - arrowSize * Math.cos(angle + 0.5), ay - arrowSize * Math.sin(angle + 0.5));
+        g.closePath();
+        g.fillPath();
       }
 
       // 2. Ownership "YOU" indicator
@@ -1157,12 +1149,12 @@ export class GameScene extends Phaser.Scene {
     };
 
     if (this._mode === "local") {
-      drawForPlayer(this.host, this._hostAimSmooth, true);
-      drawForPlayer(this.client, this._clientAimSmooth, false);
+      drawForPlayer(this.host, this._hostAimSmooth, true, this._hostShoot, this._hostHasPossession);
+      drawForPlayer(this.client, this._clientAimSmooth, false, this._clientShoot, this._clientHasPossession);
     } else {
-      const isHostLocal = this._isAuthoritative; // Use _isAuthoritative to avoid (this as any)
-      drawForPlayer(this.host, this._hostAimSmooth, isHostLocal);
-      drawForPlayer(this.client, this._clientAimSmooth, !isHostLocal);
+      const isHostLocal = this._isAuthoritative;
+      drawForPlayer(this.host, this._hostAimSmooth, isHostLocal, this._hostShoot, this._hostHasPossession);
+      drawForPlayer(this.client, this._clientAimSmooth, !isHostLocal, this._clientShoot, this._clientHasPossession);
     }
   }
 
@@ -1213,10 +1205,6 @@ export class GameScene extends Phaser.Scene {
 
     // Dash cooldown rings
     this._updateDashRings();
-
-    // Charge bars
-    this._updateChargeBar(this._hostChargeBar, this._hostShoot, this.host.x - 20, this.host.y - PLAYER_RADIUS - 8);
-    this._updateChargeBar(this._clientChargeBar, this._clientShoot, this.client.x - 20, this.client.y - PLAYER_RADIUS - 8);
 
     this._scoreText.setText(`${this.score.host}  —  ${this.score.client}`);
   }
@@ -1275,21 +1263,6 @@ export class GameScene extends Phaser.Scene {
       gfx.beginPath();
       gfx.arc(player.x, player.y, r, start, end, false);
       gfx.strokePath();
-    }
-  }
-
-  private _updateChargeBar(
-    bar: Phaser.GameObjects.Rectangle,
-    shoot: ShootState,
-    x: number,
-    y: number
-  ): void {
-    const MAX_W = 40;
-    if (shoot.charging && shoot.chargeMs > 0) {
-      const ratio = Math.min(shoot.chargeMs / SHOOT_MAX_CHARGE_MS_LOCAL, 1);
-      bar.setPosition(x, y).setSize(MAX_W * ratio, 5).setVisible(true);
-    } else {
-      bar.setVisible(false);
     }
   }
 

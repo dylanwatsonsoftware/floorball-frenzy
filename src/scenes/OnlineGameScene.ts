@@ -284,10 +284,11 @@ export class OnlineGameScene extends GameScene {
     if (this._controlMode === "follow") {
       // Follow-touch steering: move toward pointer if active and not over a button
       const pts = [this.input.pointer1, this.input.pointer2, this.input.pointer3];
+      const localPlayer = this._isHost ? this.host : this.client;
       for (const pointer of pts) {
         if (pointer.isDown && !this._hostButtons.contains(pointer.worldX, pointer.worldY)) {
-          const dx = pointer.worldX - this.client.x;
-          const dy = pointer.worldY - this.client.y;
+          const dx = pointer.worldX - localPlayer.x;
+          const dy = pointer.worldY - localPlayer.y;
           const dist = Math.hypot(dx, dy);
           if (dist > 15) {
             mx = dx / dist;

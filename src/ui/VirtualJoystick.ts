@@ -9,6 +9,9 @@ export class VirtualJoystick {
   /** Current normalised stick value (-1..1 each axis). */
   readonly value: Vec2 = { x: 0, y: 0 };
 
+  /** If false, the joystick won't show or capture input. */
+  enabled = true;
+
   private _base: Phaser.GameObjects.Arc;
   private _knob: Phaser.GameObjects.Arc;
   private _pointer: Phaser.Input.Pointer | null = null;
@@ -47,7 +50,7 @@ export class VirtualJoystick {
   }
 
   private _onDown(p: Phaser.Input.Pointer): void {
-    if (this._pointer !== null) return;
+    if (!this.enabled || this._pointer !== null) return;
     // Only activate if not handled by buttons and within zone
     if (!this._zone.contains(p.worldX, p.worldY)) return;
 

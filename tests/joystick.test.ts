@@ -15,7 +15,9 @@ describe("joystickMath — normaliseJoystick", () => {
     expect(v.y).toBe(0);
   });
 
-  expect(normaliseJoystick(100, 100, 100, 150, 50).y).toBe(1);
+  it("returns vertical unit vector", () => {
+    expect(normaliseJoystick(100, 100, 100, 150, 50).y).toBe(1);
+  });
 
   it("clamps magnitude to 1 when touch is beyond radius", () => {
     const v = normaliseJoystick(0, 0, 1000, 0, 50);
