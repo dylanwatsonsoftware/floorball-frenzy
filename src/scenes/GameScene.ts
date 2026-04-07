@@ -241,7 +241,7 @@ export class GameScene extends Phaser.Scene {
     this._fireGraphics = this.add.graphics().setDepth(5.5);
     // Ball drawn each frame via Graphics for physically correct rolling animation
     this._ballGraphics = this.add.graphics().setDepth(6);
-    this._indicatorGraphics = this.add.graphics().setDepth(4.4); // Below everything else but visible
+    this._indicatorGraphics = this.add.graphics().setDepth(10); // Above players and ball
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
@@ -1104,34 +1104,50 @@ export class GameScene extends Phaser.Scene {
       shootState: ShootState,
       hasPossession: boolean
     ) => {
-      // 1. Aim direction indicator — solid thick line that grows with charge
+      // 1. Aim direction indicator — gradient arrow that grows with charge
       // Only appears when charging AND has possession
       if (shootState.charging && hasPossession) {
         const nx = aim.x;
         const ny = aim.y;
+        const px = -ny; // Perpendicular
+        const py = nx;
+
         const chargeRatio = Math.min(shootState.chargeMs / SHOOT_MAX_CHARGE_MS_LOCAL, 1);
         const maxLen = 140;
         const lineLen = 30 + chargeRatio * maxLen;
+        const headLen = 20;
+        const stemW = 8;
+        const headW = 24;
 
         // Visual origin is the ball center
         const bx = this.ball.x;
         const by = this.ball.y - this.ball.z * 0.6;
 
-        g.lineStyle(6, 0xffff00, 0.8);
-        g.lineBetween(bx, by, bx + nx * lineLen, by + ny * lineLen);
-
-        // Arrow head
-        const arrowSize = 10;
         const ax = bx + nx * lineLen;
         const ay = by + ny * lineLen;
-        const angle = Math.atan2(ny, nx);
-        g.fillStyle(0xffff00, 0.8);
+        const hx = ax - nx * headLen;
+        const hy = ay - ny * headLen;
+
+        // Orange to Yellow gradient
+        g.fillGradientStyle(0xff8800, 0xffff00, 0xff8800, 0xffff00, 0.9, 0.9, 0.9, 0.9);
+
         g.beginPath();
-        g.moveTo(ax, ay);
-        g.lineTo(ax - arrowSize * Math.cos(angle - 0.5), ay - arrowSize * Math.sin(angle - 0.5));
-        g.lineTo(ax - arrowSize * Math.cos(angle + 0.5), ay - arrowSize * Math.sin(angle + 0.5));
+        // Arrow Stem
+        g.moveTo(bx + px * (stemW/2), by + py * (stemW/2));
+        g.lineTo(hx + px * (stemW/2), hy + py * (stemW/2));
+        // Arrow Head
+        g.lineTo(hx + px * (headW/2), hy + py * (headW/2));
+        g.lineTo(ax, ay);
+        g.lineTo(hx - px * (headW/2), hy - py * (headW/2));
+        // Back down stem
+        g.lineTo(hx - px * (stemW/2), hy - py * (stemW/2));
+        g.lineTo(bx - px * (stemW/2), by - py * (stemW/2));
         g.closePath();
         g.fillPath();
+
+        // Optional thin white outline for pop
+        g.lineStyle(1, 0xffffff, 0.4);
+        g.strokePath();
       }
 
       // 2. Ownership "YOU" indicator
