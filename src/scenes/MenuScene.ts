@@ -25,12 +25,15 @@ export class MenuScene extends Phaser.Scene {
   private _mainMenuObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyAutoRefresh: Phaser.Time.TimerEvent | null = null;
+  private _controlMode: "stick" | "follow" = "stick";
 
   constructor() {
     super({ key: "MenuScene" });
   }
 
   create(): void {
+    this._controlMode = (localStorage.getItem("floorball:controls") as "stick" | "follow") || "stick";
+
     const hashCode = window.location.hash.slice(1).toUpperCase();
     if (hashCode.length > 0) {
       this.scene.start("OnlineGameScene", { mode: "online", roomId: hashCode, role: "client" });
@@ -49,6 +52,7 @@ export class MenuScene extends Phaser.Scene {
     this._drawBackground();
     this._drawTitle();
     this._drawButtons();
+    this._drawControlToggle();
     this._mainMenuObjs = (this.children.list as Phaser.GameObjects.GameObject[]).slice(menuStart);
   }
 
@@ -84,6 +88,42 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(W / 2, titleY + 54, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
       fontSize: "16px", color: "#ffffff", letterSpacing: 2,
     }).setOrigin(0.5);
+  }
+
+  private _drawControlToggle(): void {
+    const cx = W / 2;
+    const cy = H - 120;
+
+    this.add.text(cx, cy - 35, "STEERING MODE", {
+      fontSize: "14px", color: "#556688", fontStyle: "bold", letterSpacing: 2
+    }).setOrigin(0.5);
+
+    this.add.rectangle(cx, cy, 280, 50, 0x111111, 1).setStrokeStyle(1, 0x333333, 1);
+
+    const stickBtn = this.add.text(cx - 70, cy, "STICK", {
+      fontSize: "18px", fontStyle: "bold", color: this._controlMode === "stick" ? "#ffffff" : "#444466"
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    const followBtn = this.add.text(cx + 70, cy, "FOLLOW", {
+      fontSize: "18px", fontStyle: "bold", color: this._controlMode === "follow" ? "#ffffff" : "#444466"
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    const updateVisuals = () => {
+      stickBtn.setColor(this._controlMode === "stick" ? "#ffffff" : "#444466");
+      followBtn.setColor(this._controlMode === "follow" ? "#ffffff" : "#444466");
+    };
+
+    stickBtn.on("pointerup", () => {
+      this._controlMode = "stick";
+      localStorage.setItem("floorball:controls", "stick");
+      updateVisuals();
+    });
+
+    followBtn.on("pointerup", () => {
+      this._controlMode = "follow";
+      localStorage.setItem("floorball:controls", "follow");
+      updateVisuals();
+    });
   }
 
   private _drawButtons(): void {

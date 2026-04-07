@@ -16,6 +16,7 @@ import {
   releaseShot,
 } from "../physics/shooting";
 import type { ShootState } from "../physics/shooting";
+import { VirtualJoystick } from "../ui/VirtualJoystick";
 import { ActionButtons } from "../ui/ActionButtons";
 import {
   FIELD_LEFT,
@@ -94,7 +95,9 @@ export class GameScene extends Phaser.Scene {
   private static readonly SHOT_COOLDOWN_MS = 200;
 
   // Touch UI (present on mobile; keyboard still works on desktop)
+  protected _hostJoy!: VirtualJoystick;
   protected _hostButtons!: ActionButtons;
+  protected _controlMode: "stick" | "follow" = "stick";
 
   // Graphics / display objects
   private _field!: Phaser.GameObjects.Graphics;
@@ -195,6 +198,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data: { mode: GameMode }): void {
+    this._controlMode = (localStorage.getItem("floorball:controls") as "stick" | "follow") || "stick";
     this._mode = data.mode ?? "local";
     this.score = { host: 0, client: 0 };
     this._accumulator = 0;
@@ -378,8 +382,12 @@ export class GameScene extends Phaser.Scene {
     this.scale.on("resize", applyScroll);
     this.events.once("shutdown", () => this.scale.off("resize", applyScroll));
 
-    // Touch UI — steering follows finger touch anywhere on screen (unless button is pressed)
+    // Touch UI — buttons are always present
     this._hostButtons = new ActionButtons(this, 1210, 360);
+
+    // Joystick only if in stick mode
+    const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
+    this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 60);
 
     // Initialize Animations
     this._createAnimations();
@@ -771,23 +779,29 @@ export class GameScene extends Phaser.Scene {
     if (k.up.isDown) my -= 1;
     if (k.down.isDown) my += 1;
 
-    // Follow-touch steering: move toward pointer if active and not over a button
-    // Check all pointers to support multi-touch (e.g. steering with one finger while holding SLAP with another)
-    const pts = [this.input.pointer1, this.input.pointer2, this.input.pointer3];
-    for (const pointer of pts) {
-      if (pointer.isDown && !this._hostButtons.contains(pointer.worldX, pointer.worldY)) {
-        const dx = pointer.worldX - this.host.x;
-        const dy = pointer.worldY - this.host.y;
-        const dist = Math.hypot(dx, dy);
-        // Only move if further than 15px from touch point to prevent jitter
-        if (dist > 15) {
-          mx = dx / dist;
-          my = dy / dist;
-        } else {
-          mx = 0;
-          my = 0;
+    if (this._controlMode === "follow") {
+      // Follow-touch steering: move toward pointer if active and not over a button
+      const pts = [this.input.pointer1, this.input.pointer2, this.input.pointer3];
+      for (const pointer of pts) {
+        if (pointer.isDown && !this._hostButtons.contains(pointer.worldX, pointer.worldY)) {
+          const dx = pointer.worldX - this.host.x;
+          const dy = pointer.worldY - this.host.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 15) {
+            mx = dx / dist;
+            my = dy / dist;
+          } else {
+            mx = 0;
+            my = 0;
+          }
+          break;
         }
-        break; // Use the first valid pointer found for movement
+      }
+    } else {
+      // Virtual joystick steering
+      if (this._hostJoy.isActive()) {
+        mx = this._hostJoy.value.x;
+        my = this._hostJoy.value.y;
       }
     }
 

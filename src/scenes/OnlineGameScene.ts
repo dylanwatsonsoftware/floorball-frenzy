@@ -281,22 +281,29 @@ export class OnlineGameScene extends GameScene {
     if (w.up.isDown || a.up.isDown) my -= 1;
     if (w.down.isDown || a.down.isDown) my += 1;
 
-    // Follow-touch steering: move toward pointer if active and not over a button
-    const pts = [this.input.pointer1, this.input.pointer2, this.input.pointer3];
-    for (const pointer of pts) {
-      if (pointer.isDown && !this._hostButtons.contains(pointer.worldX, pointer.worldY)) {
-        const dx = pointer.worldX - this.client.x;
-        const dy = pointer.worldY - this.client.y;
-        const dist = Math.hypot(dx, dy);
-        // Only move if further than 15px from touch point to prevent jitter
-        if (dist > 15) {
-          mx = dx / dist;
-          my = dy / dist;
-        } else {
-          mx = 0;
-          my = 0;
+    if (this._controlMode === "follow") {
+      // Follow-touch steering: move toward pointer if active and not over a button
+      const pts = [this.input.pointer1, this.input.pointer2, this.input.pointer3];
+      for (const pointer of pts) {
+        if (pointer.isDown && !this._hostButtons.contains(pointer.worldX, pointer.worldY)) {
+          const dx = pointer.worldX - this.client.x;
+          const dy = pointer.worldY - this.client.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 15) {
+            mx = dx / dist;
+            my = dy / dist;
+          } else {
+            mx = 0;
+            my = 0;
+          }
+          break;
         }
-        break;
+      }
+    } else {
+      // Virtual joystick steering
+      if (this._hostJoy.isActive()) {
+        mx = this._hostJoy.value.x;
+        my = this._hostJoy.value.y;
       }
     }
 
