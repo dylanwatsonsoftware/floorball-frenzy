@@ -359,8 +359,14 @@ export class GameScene extends Phaser.Scene {
       const worldH = 720;
 
       const zoom = Math.min(sw / worldW, sh / worldH);
-      this.cameras.main.setZoom(zoom);
-      this.cameras.main.centerOn(worldW / 2, worldH / 2);
+      const cam = this.cameras.main;
+      cam.setSize(sw, sh);
+      cam.setZoom(zoom);
+
+      // Explicitly calculate scroll so (worldW/2, worldH/2) is at the center of the camera viewport
+      const cx = worldW / 2;
+      const cy = worldH / 2;
+      cam.setScroll(cx - (sw / zoom) / 2, cy - (sh / zoom) / 2);
 
       this._renderHUD();
       this._updateTouchUI();
