@@ -100,6 +100,13 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this._makeButton(W / 2, H / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
+      const el = document.documentElement;
+      if (el.requestFullscreen) {
+        void el.requestFullscreen().catch(() => { });
+      }
+      if (screen.orientation?.lock) {
+        void screen.orientation.lock("landscape").catch(() => { });
+      }
       this.scene.start("GameScene", { mode: "local" });
     });
 
