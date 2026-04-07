@@ -22,6 +22,7 @@ const GREEN = 0x36b346;
 export class MenuScene extends Phaser.Scene {
   private _mainMenuObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyObjs: Phaser.GameObjects.GameObject[] = [];
+  private _lobbyRowObjs: Phaser.GameObjects.GameObject[] = [];
   private _hostingObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyAutoRefresh: Phaser.Time.TimerEvent | null = null;
   private _isLobbyVisible = false;
@@ -79,6 +80,8 @@ export class MenuScene extends Phaser.Scene {
     }
     this._lobbyObjs.forEach(o => o.destroy());
     this._lobbyObjs = [];
+    this._lobbyRowObjs.forEach(o => o.destroy());
+    this._lobbyRowObjs = [];
 
     this._hostingObjs.forEach(o => o.destroy());
     this._hostingObjs = [];
@@ -142,17 +145,23 @@ export class MenuScene extends Phaser.Scene {
             fontSize: "14px", color: "#ffffff", letterSpacing: 1, align: "center",
         }).setOrigin(0.5);
     } else {
-        if (hasLogo) this.add.image(cx, 105, "logo").setOrigin(0.5).setDisplaySize(168, 168);
-        const titleY = hasLogo ? 218 : 108;
+        const logoSize = Math.min(this.h * 0.35, 168);
+        if (hasLogo) this.add.image(cx, this.h * 0.2, "logo").setOrigin(0.5).setDisplaySize(logoSize, logoSize);
+
+        const titleY = hasLogo ? this.h * 0.42 : this.h * 0.25;
+        const fontSize = Math.min(this.h * 0.15, 60);
+
         this.add.text(cx + 3, titleY + 3, "FLOORBALL FRENZY", {
-            fontSize: "60px", fontStyle: "bold", color: "#000000",
+            fontSize: `${fontSize}px`, fontStyle: "bold", color: "#000000",
         } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5).setAlpha(0.4);
+
         this.add.text(cx, titleY, "FLOORBALL FRENZY", {
-            fontSize: "60px", fontStyle: "bold", color: "#ffffff",
+            fontSize: `${fontSize}px`, fontStyle: "bold", color: "#ffffff",
             stroke: "#1e7a29", strokeThickness: 6,
         }).setOrigin(0.5);
-        this.add.text(cx, titleY + 54, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
-            fontSize: "16px", color: "#ffffff", letterSpacing: 2,
+
+        this.add.text(cx, titleY + fontSize * 0.9, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
+            fontSize: `${Math.max(12, fontSize * 0.25)}px`, color: "#ffffff", letterSpacing: 2,
         }).setOrigin(0.5);
     }
   }
@@ -173,12 +182,15 @@ export class MenuScene extends Phaser.Scene {
             this.scene.start("GameScene", { mode: "local" });
         });
     } else {
-        this._makeButton(cx, this.h / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
+        const startY = this.h * 0.7;
+        const spacing = Math.min(this.h * 0.2, 115);
+
+        this._makeButton(cx, startY, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
             this._requestFullscreen();
             void this._showLobby();
         });
 
-        this._makeButton(cx, this.h / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
+        this._makeButton(cx, startY + spacing, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
             this.scene.start("GameScene", { mode: "local" });
         });
     }
@@ -272,12 +284,11 @@ export class MenuScene extends Phaser.Scene {
     newGameBg.on("pointerup", () => { this._isHostingVisible = true; this._drawHostingModal(); });
 
     // ── Game rows (rebuilt on every refresh) ──────────────────────────────────
-    let rowObjs: Phaser.GameObjects.GameObject[] = [];
     let knownRoomIds: Set<string> | null = null; // null = first load, no ding
 
     const loadGames = async (): Promise<void> => {
-      rowObjs.forEach(o => o.destroy());
-      rowObjs = [];
+      this._lobbyRowObjs.forEach(o => o.destroy());
+      this._lobbyRowObjs = [];
       if (!this._isLobbyVisible) return;
       statusTxt.setText("Loading…").setVisible(true);
 
@@ -346,10 +357,8 @@ export class MenuScene extends Phaser.Scene {
           this.scene.start("OnlineGameScene", { mode: "online", roomId: game.roomId, role: "client" });
         });
 
-        rowObjs.push(rowBg, dot, nameTxt, ageTxt, joinBg, joinTxt);
+        this._lobbyRowObjs.push(rowBg, dot, nameTxt, ageTxt, joinBg, joinTxt);
       }
-
-      this._lobbyObjs.push(...rowObjs);
     };
 
     await loadGames();
@@ -484,8 +493,8 @@ export class MenuScene extends Phaser.Scene {
     color: number, colorDark: number,
     onClick: () => void,
   ): void {
-    const W_BTN = this.isPortrait ? this.w * 0.85 : 520;
-    const H_BTN = this.isPortrait ? 85 : 76;
+    const W_BTN = this.isPortrait ? this.w * 0.85 : Math.min(this.w * 0.7, 520);
+    const H_BTN = this.isPortrait ? 85 : Math.min(this.h * 0.18, 76);
     const colorHex = `#${color.toString(16).padStart(6, "0")}`;
 
     const glow = this.add.rectangle(x, y, W_BTN + 8, H_BTN + 8, color, 0).setStrokeStyle(3, color, 0.25);
