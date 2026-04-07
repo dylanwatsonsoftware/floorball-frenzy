@@ -25,12 +25,14 @@ export class MenuScene extends Phaser.Scene {
   private _mainMenuObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyAutoRefresh: Phaser.Time.TimerEvent | null = null;
+  private _isStarting = false;
 
   constructor() {
     super({ key: "MenuScene" });
   }
 
   create(): void {
+    this._isStarting = false;
     const hashCode = window.location.hash.slice(1).toUpperCase();
     if (hashCode.length > 0) {
       this.scene.start("OnlineGameScene", { mode: "online", roomId: hashCode, role: "client" });
@@ -89,24 +91,50 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtons(): void {
     // Two buttons: Play Online (green) + Local Match
     this._makeButton(W / 2, H / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, async () => {
-      const el = document.documentElement;
+      if (this._isStarting) return;
+      console.log("[Menu] Play Online clicked");
+
       try {
-        if (el.requestFullscreen) await el.requestFullscreen();
-      } catch (e) { /* ignore */ }
-      try {
-        if (screen.orientation?.lock) await screen.orientation.lock("landscape");
-      } catch (e) { /* ignore */ }
+        const el = document.documentElement;
+        if (el.requestFullscreen) {
+          console.log("[Menu] Requesting Fullscreen");
+          await el.requestFullscreen();
+        }
+        if (screen.orientation?.lock) {
+          console.log("[Menu] Locking Orientation");
+          await Promise.race([
+            screen.orientation.lock("landscape"),
+            new Promise(resolve => setTimeout(resolve, 800))
+          ]);
+        }
+      } catch (err) {
+        console.warn("[Menu] Fullscreen/Orientation failed", err);
+      }
+
+      console.log("[Menu] Showing Lobby");
       void this._showLobby();
     });
 
-    this._makeButton(W / 2, H / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, async () => {
-      const el = document.documentElement;
-      try {
-        if (el.requestFullscreen) await el.requestFullscreen();
-      } catch (e) { /* ignore */ }
-      try {
-        if (screen.orientation?.lock) await screen.orientation.lock("landscape");
-      } catch (e) { /* ignore */ }
+    this._makeButton(W / 2, H / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
+      if (this._isStarting) return;
+      this._isStarting = true;
+      console.log("[Menu] Local Match clicked");
+
+      const attemptVisuals = async () => {
+        try {
+          const el = document.documentElement;
+          if (el.requestFullscreen) await el.requestFullscreen();
+          if (screen.orientation?.lock) {
+            await Promise.race([
+              screen.orientation.lock("landscape"),
+              new Promise(resolve => setTimeout(resolve, 600))
+            ]);
+          }
+        } catch (e) { /* ignore */ }
+      };
+
+      void attemptVisuals();
+      console.log("[Menu] Transitioning to GameScene");
       this.scene.start("GameScene", { mode: "local" });
     });
 

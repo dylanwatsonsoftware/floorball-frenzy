@@ -179,6 +179,9 @@ export class GameScene extends Phaser.Scene {
     return this._mode === "local";
   }
 
+  constructor(key = "GameScene") {
+    super({ key });
+  }
 
   // Keys
   protected _wasd!: {
@@ -200,11 +203,9 @@ export class GameScene extends Phaser.Scene {
     slap: Phaser.Input.Keyboard.Key;
   };
 
-  constructor() {
-    super({ key: "GameScene" });
-  }
 
   init(data: { mode: GameMode }): void {
+    console.log("[GameScene] init", data.mode);
     this._mode = data.mode ?? "local";
     this.score = { host: 0, client: 0 };
     this._accumulator = 0;
@@ -217,6 +218,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    console.log("[GameScene] create");
     const midX = (FIELD_LEFT + FIELD_RIGHT) / 2;
     const midY = (FIELD_TOP + FIELD_BOTTOM) / 2;
 

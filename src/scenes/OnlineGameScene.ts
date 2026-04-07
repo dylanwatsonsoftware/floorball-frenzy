@@ -51,11 +51,11 @@ export class OnlineGameScene extends GameScene {
   }
 
   constructor() {
-    super();
-    this.sys.settings.key = "OnlineGameScene";
+    super("OnlineGameScene");
   }
 
   init(data: { mode: "online"; roomId: string; role: "host" | "client" }): void {
+    console.log("[OnlineGameScene] init", data.role, data.roomId);
     super.init({ mode: "online" });
     this._isHost = data.role === "host";
     this._roomId = data.roomId;
@@ -144,6 +144,7 @@ export class OnlineGameScene extends GameScene {
   }
 
   create(): void {
+    console.log("[OnlineGameScene] create");
     super.create();
     this.events.once("shutdown", this.shutdown, this);
 
