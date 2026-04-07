@@ -455,7 +455,6 @@ export class OnlineGameScene extends GameScene {
     const sh = this.scale.height;
     const zoom = this.cameras.main.zoom;
     const uiW = sw / zoom;
-    const uiH = sh / zoom;
     const isPortrait = sh > sw;
     const cx = 640, cy = 360;
     const uiScale = 1 / zoom;
@@ -580,6 +579,11 @@ export class OnlineGameScene extends GameScene {
     if (this._countdownText) {
         this._countdownText.setPosition(cx, cy);
         this._countdownText.setFontSize(Math.round((sh > sw ? 80 : 120) * uiScale));
+    }
+
+    // Refresh share panel if it's currently active (waiting for connection)
+    if (this._sharePanelObjects.length > 0 && (this._sharePanelObjects[0] as any).visible) {
+      this._buildSharePanel();
     }
   }
 

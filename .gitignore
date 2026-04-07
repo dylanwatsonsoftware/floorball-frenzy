@@ -2,3 +2,5 @@ dist
 node_modules
 .vite
 dev_server.log
+test-results/
+*.png
