@@ -15,7 +15,8 @@ export class VirtualJoystick {
   private _pointer: Phaser.Input.Pointer | null = null;
   private _originX = 0;
   private _originY = 0;
-  private readonly _radius: number;
+  private _radius: number;
+  private _baseRadius: number;
   /** Touch zone in world coordinates: only activate if touch starts within this rectangle. */
   private readonly _zone: Phaser.Geom.Rectangle;
 
@@ -30,6 +31,7 @@ export class VirtualJoystick {
     defaultX?: number,
     defaultY?: number,
   ) {
+    this._baseRadius = radius;
     this._radius = radius;
     this._zone = new Phaser.Geom.Rectangle(zoneX, zoneY, zoneW, zoneH);
 
@@ -60,6 +62,14 @@ export class VirtualJoystick {
     scene.input.on("pointermove", (p: Phaser.Input.Pointer) => this._onMove(p));
     scene.input.on("pointerup", (p: Phaser.Input.Pointer) => this._onUp(p));
     scene.input.on("pointerupoutside", (p: Phaser.Input.Pointer) => this._onUp(p));
+  }
+
+  setScale(scale: number): void {
+    this._base.setScale(scale);
+    this._knob.setScale(scale);
+    this._ghostBase?.setScale(scale);
+    this._ghostKnob?.setScale(scale);
+    this._radius = this._baseRadius * scale;
   }
 
   private _onDown(p: Phaser.Input.Pointer): void {
@@ -101,5 +111,18 @@ export class VirtualJoystick {
 
   isActive(): boolean {
     return this._pointer !== null;
+  }
+
+  reposition(
+    zoneX: number,
+    zoneY: number,
+    zoneW: number,
+    zoneH: number,
+    defaultX: number,
+    defaultY: number
+  ): void {
+    this._zone.setTo(zoneX, zoneY, zoneW, zoneH);
+    this._ghostBase?.setPosition(defaultX, defaultY);
+    this._ghostKnob?.setPosition(defaultX, defaultY);
   }
 }

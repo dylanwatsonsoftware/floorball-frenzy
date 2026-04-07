@@ -157,14 +157,14 @@ export class OnlineGameScene extends GameScene {
     }
 
     this._pingText = this.add
-      .text(1270, 10, "", { fontSize: "13px", color: "#888888" })
+      .text(0, 0, "", { fontSize: "13px", color: "#888888" })
       .setOrigin(1, 0)
-      .setDepth(15);
+      .setDepth(15).setScrollFactor(0);
 
     this._statusText = this.add
-      .text(640, 30, "", { fontSize: "18px", color: "#ff8800", stroke: "#000", strokeThickness: 2 })
+      .text(0, 0, "", { fontSize: "18px", color: "#ff8800", stroke: "#000", strokeThickness: 2 })
       .setOrigin(0.5, 0)
-      .setDepth(15);
+      .setDepth(15).setScrollFactor(0);
 
     this.add.text(640, 708,
       `Room: ${this._roomId} · ${this._isHost ? "Host (Green)" : "Client (Black)"}`, {
@@ -451,46 +451,59 @@ export class OnlineGameScene extends GameScene {
 
   /** Big centered panel shown while waiting to connect. Host sees share UI; client sees connecting UI. */
   private _buildSharePanel(): void {
+    const sw = this.scale.width;
+    const sh = this.scale.height;
+    const zoom = this.cameras.main.zoom;
+    const uiW = sw / zoom;
+    const uiH = sh / zoom;
+    const isPortrait = sh > sw;
     const cx = 640, cy = 360;
+    const uiScale = 1 / zoom;
+
+    this._sharePanelObjects.forEach(o => o.destroy());
+    this._sharePanelObjects = [];
 
     this._waitingBallQuat = [1, 0, 0, 0];
-    this._waitingBallGfx = this.add.graphics().setDepth(19);
+    if (!this._waitingBallGfx) {
+        this._waitingBallGfx = this.add.graphics().setDepth(19);
+    }
 
     if (!this._isHost) {
-      const overlay = this.add.rectangle(cx, cy, 520, 260, 0x000000, 0.8).setDepth(18);
-      const title = this.add.text(cx, cy - 70, "Connecting…", {
-        fontSize: "28px", color: "#ffffff", fontStyle: "bold",
+      const mw = Math.min(uiW - 40, 520) * uiScale;
+      const overlay = this.add.rectangle(cx, cy, mw, 260 * uiScale, 0x000000, 0.8).setDepth(18);
+      const title = this.add.text(cx, cy - 70 * uiScale, "Connecting…", {
+        fontSize: `${Math.round(28 * uiScale)}px`, color: "#ffffff", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(19);
-      const sub = this.add.text(cx, cy + 60, "Getting you into the game", {
-        fontSize: "16px", color: "#556688", align: "center",
+      const sub = this.add.text(cx, cy + 60 * uiScale, "Getting you into the game", {
+        fontSize: `${Math.round(16 * uiScale)}px`, color: "#556688", align: "center",
       }).setOrigin(0.5).setDepth(19);
       this._waitingTitleText = title;
       this._waitingSubText = sub;
-      this._sharePanelObjects = [overlay, title, sub, this._waitingBallGfx];
+      this._sharePanelObjects = [overlay, title, sub];
       return;
     }
 
     const shareUrl = `${window.location.origin}${window.location.pathname}#${this._roomId}`;
+    const mw = Math.min(uiW - 40, 560);
+    const overlay = this.add.rectangle(cx, cy, mw * uiScale, 340 * uiScale, 0x000000, 0.8).setDepth(18);
 
-    const overlay = this.add.rectangle(cx, cy, 560, 340, 0x000000, 0.8).setDepth(18);
-
-    const title = this.add.text(cx - 30, cy - 120, "Waiting for opponent", {
-      fontSize: "24px", color: "#ffffff", fontStyle: "bold",
+    const title = this.add.text(cx - 30 * uiScale, cy - 120 * uiScale, "Waiting for opponent", {
+      fontSize: `${Math.round(24 * uiScale)}px`, color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
     this._waitingTitleText = title;
 
     const gameName = localStorage.getItem("floorball:gameName") || this._roomId;
-    const roomLabel = this.add.text(cx, cy - 72, gameName, {
-      fontSize: "26px", color: "#aaaaff", fontStyle: "bold",
+    const roomLabel = this.add.text(cx, cy - 72 * uiScale, gameName, {
+      fontSize: `${Math.round(26 * uiScale)}px`, color: "#aaaaff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
 
-    const btnBg = this.add.rectangle(cx, cy, 440, 80, 0x1a44bb, 1)
-      .setStrokeStyle(2, 0x6699ff, 1)
+    const btnBg = this.add.rectangle(cx, cy, Math.min(mw - 40, 440) * uiScale, 80 * uiScale, 0x1a44bb, 1)
+      .setStrokeStyle(2 * uiScale, 0x6699ff, 1)
       .setInteractive({ useHandCursor: true })
       .setDepth(19);
 
-    const btnLabel = this.add.text(cx, cy, "📤  Share link with friend", {
-      fontSize: "22px", color: "#ffffff",
+    const btnLabel = this.add.text(cx, cy, isPortrait ? "📤  Share Link" : "📤  Share link with friend", {
+      fontSize: `${Math.round((isPortrait ? 20 : 22) * uiScale)}px`, color: "#ffffff",
     }).setOrigin(0.5).setDepth(19);
 
     btnBg.on("pointerup", () => {
@@ -503,11 +516,11 @@ export class OnlineGameScene extends GameScene {
       }
     });
 
-    const hint = this.add.text(cx, cy + 70, "Or copy the URL from your address bar", {
-      fontSize: "15px", color: "#556688",
+    const hint = this.add.text(cx, cy + 70 * uiScale, "Or copy URL from address bar", {
+      fontSize: `${Math.round(15 * uiScale)}px`, color: "#556688",
     }).setOrigin(0.5).setDepth(19);
 
-    this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint, this._waitingBallGfx];
+    this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint];
   }
 
   private _playCountdownBeep(label: string): void {
@@ -544,6 +557,30 @@ export class OnlineGameScene extends GameScene {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 1.2);
     } catch { /* audio not available */ }
+  }
+
+  protected override _renderHUD(): void {
+    super._renderHUD();
+    const sw = this.scale.width;
+    const sh = this.scale.height;
+    const zoom = this.cameras.main.zoom;
+    const uiW = sw / zoom;
+    const uiH = sh / zoom;
+    const cx = 640;
+    const cy = 360;
+    const topY = cy - uiH / 2;
+    const uiScale = 1 / zoom;
+
+    if (this._pingText) {
+        this._pingText.setPosition(cx + uiW / 2 - 10 * uiScale, topY + 10 * uiScale).setScale(uiScale);
+    }
+    if (this._statusText) {
+        this._statusText.setPosition(cx, topY + 30 * uiScale).setScale(uiScale);
+    }
+    if (this._countdownText) {
+        this._countdownText.setPosition(cx, cy);
+        this._countdownText.setFontSize(Math.round((sh > sw ? 80 : 120) * uiScale));
+    }
   }
 
   private _startCountdown(): void {

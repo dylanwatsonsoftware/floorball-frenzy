@@ -101,6 +101,8 @@ export class GameScene extends Phaser.Scene {
 
   // Graphics / display objects
   private _field!: Phaser.GameObjects.Graphics;
+  private _hudGfx!: Phaser.GameObjects.Graphics;
+  private _hudElements: Phaser.GameObjects.GameObject[] = [];
   private _hostStickSprite!: Phaser.GameObjects.Sprite;
   private _clientStickSprite!: Phaser.GameObjects.Sprite;
   private _hostSprite!: Phaser.GameObjects.Sprite;
@@ -269,49 +271,7 @@ export class GameScene extends Phaser.Scene {
     (this._hostChargeBar as Phaser.GameObjects.Rectangle & { maxW: number }).maxW = BAR_W;
     (this._clientChargeBar as Phaser.GameObjects.Rectangle & { maxW: number }).maxW = BAR_W;
 
-    // ── Top HUD bar ────────────────────────────────────────────────────────────
-    const HUD_H = 95;
-    const hudGfx = this.add.graphics().setDepth(14);
-
-    // Left team panel (green tint)
-    hudGfx.fillGradientStyle(0x0a2a18, 0x0a2a18, 0x06060e, 0x06060e, 1);
-    hudGfx.fillRect(0, 0, 640, HUD_H);
-    // Right team panel (red/dark tint)
-    hudGfx.fillGradientStyle(0x06060e, 0x06060e, 0x2a0a10, 0x2a0a10, 1);
-    hudGfx.fillRect(640, 0, 640, HUD_H);
-    // Bottom separator
-    hudGfx.lineStyle(1, 0xffffff, 0.12);
-    hudGfx.lineBetween(0, HUD_H, 1280, HUD_H);
-    // Team color accent lines along the top
-    hudGfx.lineStyle(3, 0x00cc66, 1);
-    hudGfx.lineBetween(0, 0, 560, 0);
-    hudGfx.lineStyle(3, 0xdd2244, 1);
-    hudGfx.lineBetween(720, 0, 1280, 0);
-    // Center score zone pill
-    hudGfx.fillStyle(0x08080f, 0.9);
-    hudGfx.fillRoundedRect(480, 8, 320, HUD_H - 16, 12);
-    hudGfx.lineStyle(1, 0xffffff, 0.12);
-    hudGfx.strokeRoundedRect(480, 8, 320, HUD_H - 16, 12);
-
-    // Team labels with color
-    this.add.text(200, HUD_H / 2, "HOME", { fontSize: "14px", color: "#00cc66", fontStyle: "bold", letterSpacing: 3 })
-      .setOrigin(0.5).setDepth(15);
-    this.add.text(1080, HUD_H / 2, "AWAY", { fontSize: "14px", color: "#dd2244", fontStyle: "bold", letterSpacing: 3 })
-      .setOrigin(0.5).setDepth(15);
-
-    // "SCORE" eyebrow inside pill
-    this.add
-      .text(640, 14, "SCORE", {
-        fontSize: "9px", color: "#555577", fontStyle: "bold", letterSpacing: 2,
-      })
-      .setOrigin(0.5, 0)
-      .setDepth(15);
-
-    // Score — updated every frame
-    this._scoreText = this.add
-      .text(640, 55, "0  —  0", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" })
-      .setOrigin(0.5)
-      .setDepth(15);
+    this._hudGfx = this.add.graphics().setDepth(14);
 
     // Goal / win message
     this._messageText = this.add
@@ -327,14 +287,15 @@ export class GameScene extends Phaser.Scene {
 
     // ── Bottom keyboard hints (local only) ─────────────────────────────────────
     if (this._mode === "local") {
-      this.add.text(FIELD_LEFT, FIELD_BOTTOM + 10,
+      const hintL = this.add.text(FIELD_LEFT, FIELD_BOTTOM + 10,
         "Green: WASD · Shift dash · Q wrist · E slap", {
         fontSize: "13px", color: "#444466",
-      });
-      this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 10,
+      }).setScrollFactor(1); // Keep it relative to field
+      const hintR = this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 10,
         "Black: Arrows · Space dash · , wrist · . slap", {
         fontSize: "13px", color: "#444466",
-      }).setOrigin(1, 0);
+      }).setOrigin(1, 0).setScrollFactor(1);
+      this._hudElements.push(hintL, hintR);
     }
 
     // Keyboard bindings
@@ -366,37 +327,48 @@ export class GameScene extends Phaser.Scene {
       this._confirmLeave();
     });
 
-    // Back button — top-left, inside HUD bar
+    // Back button
     const backBg = this.add
-      .rectangle(14, 47, 100, 38, 0x1a1a2e, 1)
+      .rectangle(0, 0, 100, 38, 0x1a1a2e, 1)
       .setOrigin(0, 0.5)
       .setStrokeStyle(1, 0x00e5ff, 0.35)
       .setInteractive({ useHandCursor: true })
-      .setDepth(16);
+      .setDepth(16)
+      .setData('isPermanent', true).setData('name', 'backBg');
     const backLabel = this.add
-      .text(64, 47, "‹ BACK", { fontSize: "14px", color: "#8888aa", fontStyle: "bold" })
+      .text(0, 0, "‹ BACK", { fontSize: "14px", color: "#8888aa", fontStyle: "bold" })
       .setOrigin(0.5)
-      .setDepth(16);
+      .setDepth(16)
+      .setData('isPermanent', true).setData('name', 'backLabel');
     backLabel.disableInteractive();
     backBg.on("pointerover", () => { backLabel.setColor("#ffffff"); backBg.setStrokeStyle(1, 0x00e5ff, 0.9); });
     backBg.on("pointerout", () => { backLabel.setColor("#8888aa"); backBg.setStrokeStyle(1, 0x00e5ff, 0.35); });
     backBg.on("pointerup", () => this._confirmLeave());
+    this._hudElements.push(backBg, backLabel);
 
-    // Center the 1280×720 game world in the available canvas on wider screens.
-    // Re-apply on every resize so mobile browser-chrome changes don't break it.
-    const applyScroll = () => {
-      const extra = Math.max(0, this.scale.width - 1280);
-      this.cameras.main.scrollX = -Math.floor(extra / 2);
+    // Touch UI
+    this._hostJoy = new VirtualJoystick(this, 0, 0, 0, 0, 55);
+    this._hostButtons = new ActionButtons(this, 0, 0);
+
+    // Responsive camera and HUD
+    const onResize = () => {
+      const sw = this.scale.width;
+      const sh = this.scale.height;
+
+      const worldW = 1280;
+      const worldH = 720;
+
+      const zoom = Math.min(sw / worldW, sh / worldH);
+      this.cameras.main.setZoom(zoom);
+      this.cameras.main.centerOn(worldW / 2, worldH / 2);
+
+      this._renderHUD();
+      this._updateTouchUI();
     };
-    applyScroll();
-    this.scale.on("resize", applyScroll);
-    this.events.once("shutdown", () => this.scale.off("resize", applyScroll));
+    onResize();
+    this.scale.on("resize", onResize);
+    this.events.once("shutdown", () => this.scale.off("resize", onResize));
 
-    // Touch UI — joystick zone in world coordinates covers left 60% from screen left edge.
-    // Ghost indicator shows at bottom-left so players know the joystick exists before touching.
-    const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
-    this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 55, 150, 580);
-    this._hostButtons = new ActionButtons(this, 1210, 360);
 
     // Initialize Animations
     this._createAnimations();
@@ -1415,6 +1387,127 @@ export class GameScene extends Phaser.Scene {
 
   shutdown(): void {
     history.replaceState(null, "", window.location.pathname);
+  }
+
+  protected _renderHUD(): void {
+    const sw = this.scale.width;
+    const sh = this.scale.height;
+    const isPortrait = sh > sw;
+
+    const zoom = this.cameras.main.zoom;
+    const uiW = sw / zoom;
+    const uiH = sh / zoom;
+    const cx = 640;
+    const cy = 360;
+
+    const uiScale = 1 / zoom;
+
+    this._hudGfx.clear();
+    this._hudElements.forEach(o => {
+        if (o.getData('isPermanent')) return;
+        o.destroy();
+    });
+    this._hudElements = this._hudElements.filter(o => o.active);
+
+    const HUD_H = (isPortrait ? 60 : 70) * uiScale;
+    const topY = cy - uiH / 2;
+
+    // ── HUD background ────────────────────────────────────────────────────────
+    this._hudGfx.fillGradientStyle(0x0a2a18, 0x0a2a18, 0x06060e, 0x06060e, 1);
+    this._hudGfx.fillRect(cx - uiW / 2, topY, uiW / 2, HUD_H);
+    this._hudGfx.fillGradientStyle(0x06060e, 0x06060e, 0x2a0a10, 0x2a0a10, 1);
+    this._hudGfx.fillRect(cx, topY, uiW / 2, HUD_H);
+
+    this._hudGfx.lineStyle(1 * uiScale, 0xffffff, 0.12);
+    this._hudGfx.lineBetween(cx - uiW / 2, topY + HUD_H, cx + uiW / 2, topY + HUD_H);
+
+    this._hudGfx.lineStyle(3 * uiScale, 0x00cc66, 1);
+    this._hudGfx.lineBetween(cx - uiW / 2, topY, cx - 80 * uiScale, topY);
+    this._hudGfx.lineStyle(3 * uiScale, 0xdd2244, 1);
+    this._hudGfx.lineBetween(cx + 80 * uiScale, topY, cx + uiW / 2, topY);
+
+    const pillW = (isPortrait ? 200 : 280) * uiScale;
+    const pillH = HUD_H - 12 * uiScale;
+    this._hudGfx.fillStyle(0x08080f, 0.9);
+    this._hudGfx.fillRoundedRect(cx - pillW / 2, topY + 6 * uiScale, pillW, pillH, 10 * uiScale);
+    this._hudGfx.lineStyle(1 * uiScale, 0xffffff, 0.12);
+    this._hudGfx.strokeRoundedRect(cx - pillW / 2, topY + 6 * uiScale, pillW, pillH, 10 * uiScale);
+
+    const labelY = topY + HUD_H / 2;
+    const homeLabel = this.add.text(cx - (isPortrait ? 130 : 180) * uiScale, labelY, "HOME", {
+        fontSize: `${Math.round(13 * uiScale)}px`, color: "#00cc66", fontStyle: "bold", letterSpacing: 2 * uiScale
+    }).setOrigin(0.5).setDepth(15);
+    const awayLabel = this.add.text(cx + (isPortrait ? 130 : 180) * uiScale, labelY, "AWAY", {
+        fontSize: `${Math.round(13 * uiScale)}px`, color: "#dd2244", fontStyle: "bold", letterSpacing: 2 * uiScale
+    }).setOrigin(0.5).setDepth(15);
+
+    const eyebrow = this.add.text(cx, topY + 10 * uiScale, "SCORE", {
+        fontSize: `${Math.round(9 * uiScale)}px`, color: "#555577", fontStyle: "bold", letterSpacing: 2 * uiScale,
+    }).setOrigin(0.5, 0).setDepth(15);
+
+    this._scoreText = this.add.text(cx, topY + HUD_H * 0.6,
+        `${this.score.host}  —  ${this.score.client}`,
+        { fontSize: `${Math.round(28 * uiScale)}px`, color: "#ffffff", fontStyle: "bold" }
+    ).setOrigin(0.5).setDepth(15);
+
+    if (this._mode === "local") {
+        const hintL = this.add.text(FIELD_LEFT, FIELD_BOTTOM + 15,
+            "Green: WASD · Shift dash · Q wrist · E slap", {
+            fontSize: "13px", color: "#444466",
+        });
+        const hintR = this.add.text(FIELD_RIGHT, FIELD_BOTTOM + 15,
+            "Black: Arrows · Space dash · , wrist · . slap", {
+            fontSize: "13px", color: "#444466",
+        }).setOrigin(1, 0);
+        this._hudElements.push(hintL, hintR);
+    }
+
+    const backBg = this._hudElements.find(o => o.getData('name') === 'backBg') as Phaser.GameObjects.Rectangle;
+    const backLabel = this._hudElements.find(o => o.getData('name') === 'backLabel') as Phaser.GameObjects.Text;
+    if (backBg && backLabel) {
+        const bW = 100 * uiScale;
+        const bH = 34 * uiScale;
+        backBg.setSize(bW, bH).setStrokeStyle(1 * uiScale, 0x00e5ff, 0.35);
+        backBg.setPosition(cx - uiW / 2 + 10 * uiScale, topY + HUD_H / 2);
+        backLabel.setPosition(backBg.x + bW / 2, topY + HUD_H / 2).setScale(uiScale);
+    }
+
+    this._hudElements.push(homeLabel, awayLabel, eyebrow, this._scoreText);
+
+    if (this._messageText) {
+        this._messageText.setPosition(cx, cy).setScale(uiScale);
+    }
+  }
+
+  protected _updateTouchUI(): void {
+    if (!this._hostJoy || !this._hostButtons) return;
+
+    const sw = this.scale.width;
+    const sh = this.scale.height;
+    const zoom = this.cameras.main.zoom;
+    const uiW = sw / zoom;
+    const uiH = sh / zoom;
+    const isPortrait = sh > sw;
+    const cx = 640;
+    const cy = 360;
+
+    const left = cx - uiW / 2;
+    const right = cx + uiW / 2;
+    const bottom = cy + uiH / 2;
+
+    // Scale UI elements based on zoom to keep them physical-sized on screen
+    const uiScale = Math.max(1, 1 / zoom * 0.8);
+    this._hostJoy.setScale(uiScale);
+
+    // Reposition joystick
+    const joyX = left + (isPortrait ? 70 : 110) * uiScale;
+    const joyY = bottom - (isPortrait ? 100 : 90) * uiScale;
+    this._hostJoy.reposition(left, cy - uiH / 2, uiW * 0.6, uiH, joyX, joyY);
+
+    // Reposition buttons
+    const btnX = right - (isPortrait ? 65 : 90) * uiScale;
+    const btnY = bottom - (isPortrait ? 150 : 130) * uiScale;
+    this._hostButtons.reposition(btnX, btnY, uiScale);
   }
 
   private _drawField(): void {

@@ -129,27 +129,34 @@ export class MenuScene extends Phaser.Scene {
     const hasLogo = this.textures.exists("logo");
 
     if (this.isPortrait) {
-        if (hasLogo) this.add.image(cx, this.h * 0.15, "logo").setOrigin(0.5).setDisplaySize(140, 140);
-        const titleY = hasLogo ? this.h * 0.28 : this.h * 0.2;
+        const logoSize = Math.min(this.w * 0.42, 180);
+        if (hasLogo) this.add.image(cx, this.h * 0.16, "logo").setOrigin(0.5).setDisplaySize(logoSize, logoSize);
+
+        const titleY = hasLogo ? this.h * 0.33 : this.h * 0.22;
+        const fontSize = Math.min(this.w * 0.17, 68);
+        const lineSpacing = -12;
 
         this.add.text(cx + 2, titleY + 2, "FLOORBALL\nFRENZY", {
-            fontSize: "48px", fontStyle: "bold", color: "#000000", align: "center",
+            fontSize: `${fontSize}px`, fontStyle: "bold", color: "#000000", align: "center",
+            lineSpacing
         } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5).setAlpha(0.4);
 
         this.add.text(cx, titleY, "FLOORBALL\nFRENZY", {
-            fontSize: "48px", fontStyle: "bold", color: "#ffffff", align: "center",
-            stroke: "#1e7a29", strokeThickness: 6,
+            fontSize: `${fontSize}px`, fontStyle: "bold", color: "#ffffff", align: "center",
+            stroke: "#1e7a29", strokeThickness: 8,
+            lineSpacing
         }).setOrigin(0.5);
 
-        this.add.text(cx, titleY + 80, "LAMBS FLOORBALL CLUB\nFirst to 5 goals wins", {
-            fontSize: "14px", color: "#ffffff", letterSpacing: 1, align: "center",
+        this.add.text(cx, titleY + fontSize * 1.1, "LAMBS FLOORBALL CLUB\nFirst to 5 goals wins", {
+            fontSize: "16px", color: "#ffffff", letterSpacing: 1, align: "center",
         }).setOrigin(0.5);
     } else {
-        const logoSize = Math.min(this.h * 0.35, 168);
-        if (hasLogo) this.add.image(cx, this.h * 0.2, "logo").setOrigin(0.5).setDisplaySize(logoSize, logoSize);
+        const logoSize = Math.min(this.h * 0.25, 120);
+        const logoY = this.h * 0.15;
+        if (hasLogo) this.add.image(cx, logoY, "logo").setOrigin(0.5).setDisplaySize(logoSize, logoSize);
 
-        const titleY = hasLogo ? this.h * 0.42 : this.h * 0.25;
-        const fontSize = Math.min(this.h * 0.15, 60);
+        const titleY = hasLogo ? logoY + logoSize * 0.8 : this.h * 0.2;
+        const fontSize = Math.min(this.h * 0.12, 48);
 
         this.add.text(cx + 3, titleY + 3, "FLOORBALL FRENZY", {
             fontSize: `${fontSize}px`, fontStyle: "bold", color: "#000000",
@@ -160,8 +167,8 @@ export class MenuScene extends Phaser.Scene {
             stroke: "#1e7a29", strokeThickness: 6,
         }).setOrigin(0.5);
 
-        this.add.text(cx, titleY + fontSize * 0.9, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
-            fontSize: `${Math.max(12, fontSize * 0.25)}px`, color: "#ffffff", letterSpacing: 2,
+        this.add.text(cx, titleY + fontSize * 0.85, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
+            fontSize: `${Math.max(11, fontSize * 0.25)}px`, color: "#ffffff", letterSpacing: 2,
         }).setOrigin(0.5);
     }
   }
@@ -170,8 +177,8 @@ export class MenuScene extends Phaser.Scene {
     const cx = this.w / 2;
 
     if (this.isPortrait) {
-        const startY = this.h * 0.55;
-        const spacing = 110;
+        const startY = this.h * 0.60;
+        const spacing = Math.min(this.h * 0.14, 115);
 
         this._makeButton(cx, startY, "🌐  Play Online", "BROWSE & CREATE GAMES", GREEN, 0x1e7a29, () => {
             this._requestFullscreen();
@@ -182,8 +189,8 @@ export class MenuScene extends Phaser.Scene {
             this.scene.start("GameScene", { mode: "local" });
         });
     } else {
-        const startY = this.h * 0.7;
-        const spacing = Math.min(this.h * 0.2, 115);
+        const startY = this.h * 0.65;
+        const spacing = Math.min(this.h * 0.18, 95);
 
         this._makeButton(cx, startY, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
             this._requestFullscreen();
@@ -314,10 +321,11 @@ export class MenuScene extends Phaser.Scene {
       }
       statusTxt.setVisible(false);
 
-      const ROW_H = 70;
+      const ROW_H = this.isPortrait ? 70 : Math.min(70, (this.h - 200) / 4);
       const ROW_W = this.w - (this.isPortrait ? 60 : 160);
-      const rowsTop = this.isPortrait ? 100 : 130;
-      const max = Math.min(games.length, this.isPortrait ? 6 : 7);
+      const rowsTop = this.isPortrait ? 100 : 115;
+      const maxAvailable = Math.floor((BAR_Y - rowsTop - 40) / ROW_H);
+      const max = Math.min(games.length, maxAvailable);
 
       for (let i = 0; i < max; i++) {
         const game = games[i];
@@ -493,8 +501,8 @@ export class MenuScene extends Phaser.Scene {
     color: number, colorDark: number,
     onClick: () => void,
   ): void {
-    const W_BTN = this.isPortrait ? this.w * 0.85 : Math.min(this.w * 0.7, 520);
-    const H_BTN = this.isPortrait ? 85 : Math.min(this.h * 0.18, 76);
+    const W_BTN = this.isPortrait ? Math.min(this.w * 0.88, 400) : Math.min(this.w * 0.7, 480);
+    const H_BTN = this.isPortrait ? Math.min(this.h * 0.11, 92) : Math.min(this.h * 0.18, 72);
     const colorHex = `#${color.toString(16).padStart(6, "0")}`;
 
     const glow = this.add.rectangle(x, y, W_BTN + 8, H_BTN + 8, color, 0).setStrokeStyle(3, color, 0.25);
@@ -507,15 +515,19 @@ export class MenuScene extends Phaser.Scene {
     drawGrad(0.18);
     const border = this.add.rectangle(x, y, W_BTN, H_BTN, 0x000000, 0)
       .setStrokeStyle(1.5, color, 0.7).setInteractive({ useHandCursor: true });
+
+    const titleSize = this.isPortrait ? Math.min(this.w * 0.065, 26) : 26;
+    const subSize = this.isPortrait ? Math.min(this.w * 0.03, 11) : 12;
+
     const accentGfx = this.add.graphics();
     accentGfx.lineStyle(2, color, 0.6);
     accentGfx.lineBetween(x - W_BTN / 2 + 12, y - H_BTN / 2 + 1, x + W_BTN / 2 - 12, y - H_BTN / 2 + 1);
-    const title = this.add.text(x, y - (this.isPortrait ? 15 : 12), label, {
-      fontSize: this.isPortrait ? "24px" : "26px", fontStyle: "bold", color: "#ffffff",
+    const title = this.add.text(x, y - (this.isPortrait ? H_BTN * 0.18 : 12), label, {
+      fontSize: `${titleSize}px`, fontStyle: "bold", color: "#ffffff",
       shadow: { offsetX: 0, offsetY: 1, color: colorHex, blur: 8, stroke: false, fill: true },
     }).setOrigin(0.5);
-    const sub = this.add.text(x, y + (this.isPortrait ? 22 : 18), sublabel, {
-      fontSize: this.isPortrait ? "11px" : "12px", color: "#ffffff", letterSpacing: this.isPortrait ? 2 : 3,
+    const sub = this.add.text(x, y + (this.isPortrait ? H_BTN * 0.22 : 18), sublabel, {
+      fontSize: `${subSize}px`, color: "#ffffff", letterSpacing: this.isPortrait ? 2 : 3,
     }).setOrigin(0.5);
     title.disableInteractive();
     sub.disableInteractive();
