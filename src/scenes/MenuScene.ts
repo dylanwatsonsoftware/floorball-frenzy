@@ -88,24 +88,24 @@ export class MenuScene extends Phaser.Scene {
 
   private _drawButtons(): void {
     // Two buttons: Play Online (green) + Local Match
-    this._makeButton(W / 2, H / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
-      const el = document.documentElement;
-      if (el.requestFullscreen) {
-        void el.requestFullscreen().catch(() => { });
-      }
-      if (screen.orientation?.lock) {
-        void screen.orientation.lock("landscape").catch(() => { });
+    this._makeButton(W / 2, H / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, async () => {
+      try {
+        const el = document.documentElement;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        if (screen.orientation?.lock) await screen.orientation.lock("landscape");
+      } catch (err) {
+        console.warn("Fullscreen/Orientation failed", err);
       }
       void this._showLobby();
     });
 
-    this._makeButton(W / 2, H / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
-      const el = document.documentElement;
-      if (el.requestFullscreen) {
-        void el.requestFullscreen().catch(() => { });
-      }
-      if (screen.orientation?.lock) {
-        void screen.orientation.lock("landscape").catch(() => { });
+    this._makeButton(W / 2, H / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, async () => {
+      try {
+        const el = document.documentElement;
+        if (el.requestFullscreen) await el.requestFullscreen();
+        if (screen.orientation?.lock) await screen.orientation.lock("landscape");
+      } catch (err) {
+        console.warn("Fullscreen/Orientation failed", err);
       }
       this.scene.start("GameScene", { mode: "local" });
     });
