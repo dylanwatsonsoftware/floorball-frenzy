@@ -89,24 +89,24 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtons(): void {
     // Two buttons: Play Online (green) + Local Match
     this._makeButton(W / 2, H / 2 + 30, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, async () => {
+      const el = document.documentElement;
       try {
-        const el = document.documentElement;
         if (el.requestFullscreen) await el.requestFullscreen();
+      } catch (e) { /* ignore */ }
+      try {
         if (screen.orientation?.lock) await screen.orientation.lock("landscape");
-      } catch (err) {
-        console.warn("Fullscreen/Orientation failed", err);
-      }
+      } catch (e) { /* ignore */ }
       void this._showLobby();
     });
 
     this._makeButton(W / 2, H / 2 + 145, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, async () => {
+      const el = document.documentElement;
       try {
-        const el = document.documentElement;
         if (el.requestFullscreen) await el.requestFullscreen();
+      } catch (e) { /* ignore */ }
+      try {
         if (screen.orientation?.lock) await screen.orientation.lock("landscape");
-      } catch (err) {
-        console.warn("Fullscreen/Orientation failed", err);
-      }
+      } catch (e) { /* ignore */ }
       this.scene.start("GameScene", { mode: "local" });
     });
 
