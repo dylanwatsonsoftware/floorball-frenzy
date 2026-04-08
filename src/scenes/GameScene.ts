@@ -43,6 +43,9 @@ import {
   PX_PER_M,
   STICK_REACH,
   DASH_COOLDOWN,
+  POSSESSION_PULL_FACTOR,
+  POSSESSION_PULL_CAP,
+  POSSESSION_VEL_COUPLING,
   DASH_STEAL_WINDOW,
   DASH_STEAL_FORCE,
   BOLT_SHOT_BOOST,
@@ -143,6 +146,8 @@ export class GameScene extends Phaser.Scene {
   // If true, the current freeze is for a goal/score (which resets the round)
   protected _isGoalPause = false;
 
+  protected _ballScalePulse = 1.0;
+
   // Shot animation (countdown ms per player; used by _drawSticks)
   protected _hostShotAnimMs = 0;
   protected _clientShotAnimMs = 0;
@@ -202,6 +207,7 @@ export class GameScene extends Phaser.Scene {
     this._accumulator = 0;
     this._frozenMs = 0;
     this._isGoalPause = false;
+    this._ballScalePulse = 1.0;
     this._elapsedMs = 0;
     this._hostSlapWasDown = false;
     this._clientSlapWasDown = false;
@@ -404,6 +410,13 @@ export class GameScene extends Phaser.Scene {
     // Cap delta so returning from a background tab doesn't cause a
     // multi-second catch-up spiral through hundreds of fixed steps.
     const clampedDelta = Math.min(delta, 200);
+
+    // Decay ball scale pulse
+    if (this._ballScalePulse > 1.0) {
+      this._ballScalePulse = 1.0 + (this._ballScalePulse - 1.0) * Math.pow(0.9, delta / 16.6);
+      if (this._ballScalePulse < 1.001) this._ballScalePulse = 1.0;
+    }
+
     this._accumulator += clampedDelta / 1000;
     while (this._accumulator >= FIXED_DT) {
       this._fixedUpdate(FIXED_DT);
@@ -632,17 +645,17 @@ export class GameScene extends Phaser.Scene {
       if (distToBlade > 75) return false;
       if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-      // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+      // Velocity coupling: total (0.1 from assist + coupling here)
       applyPossessionAssist(this.ball, player.vx, player.vy);
-      this.ball.vx += (player.vx - this.ball.vx) * 0.25;
-      this.ball.vy += (player.vy - this.ball.vy) * 0.25;
+      this.ball.vx += (player.vx - this.ball.vx) * POSSESSION_VEL_COUPLING;
+      this.ball.vy += (player.vy - this.ball.vy) * POSSESSION_VEL_COUPLING;
 
-      // Pull toward blade tip: 30% of distance per step, capped at 12px
+      // Pull toward blade tip: factor of distance per step, capped at PX
       const dx = bladeTipX - this.ball.x;
       const dy = bladeTipY - this.ball.y;
       const dist = Math.hypot(dx, dy);
       if (dist > 0.1) {
-        const moveDist = Math.min(dist * 0.30, 12);
+        const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP);
         this.ball.x += (dx / dist) * moveDist;
         this.ball.y += (dy / dist) * moveDist;
       }
@@ -662,17 +675,17 @@ export class GameScene extends Phaser.Scene {
 
     if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-    // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+    // Velocity coupling: total (0.1 from assist + coupling here)
     applyPossessionAssist(this.ball, player.vx, player.vy);
-    this.ball.vx += (player.vx - this.ball.vx) * 0.25;
-    this.ball.vy += (player.vy - this.ball.vy) * 0.25;
+    this.ball.vx += (player.vx - this.ball.vx) * POSSESSION_VEL_COUPLING;
+    this.ball.vy += (player.vy - this.ball.vy) * POSSESSION_VEL_COUPLING;
 
-    // Pull toward dribble target: 30% of distance per step, capped at 12px
+    // Pull toward dribble target: factor of distance per step, capped at PX
     const dx = targetX - this.ball.x;
     const dy = targetY - this.ball.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.1) {
-      const moveDist = Math.min(dist * 0.30, 12);
+      const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP);
       this.ball.x += (dx / dist) * moveDist;
       this.ball.y += (dy / dist) * moveDist;
     }
@@ -682,6 +695,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Spawns a brief visual effect on the ball for a one-touch shot. */
   private _spawnOneTouchJuice(): void {
+    this._ballScalePulse = 1.5;
     // Brief particle burst on the ball
     const visualY = this.ball.y - this.ball.z * 0.6;
     for (let i = 0; i < 8; i++) {
@@ -1179,7 +1193,7 @@ export class GameScene extends Phaser.Scene {
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
-    const displayR = BALL_RADIUS * (1 + this.ball.z * 0.003);
+    const displayR = BALL_RADIUS * (1 + this.ball.z * 0.003) * this._ballScalePulse;
     const depth = 6 + this.ball.z * 0.01;
     this._ballGraphics.clear().setPosition(this.ball.x, visualY).setDepth(depth);
 
