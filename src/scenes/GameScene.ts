@@ -109,6 +109,7 @@ export class GameScene extends Phaser.Scene {
   private _clientSprite!: Phaser.GameObjects.Sprite;
   private _ballGraphics!: Phaser.GameObjects.Graphics;
   private _indicatorGraphics!: Phaser.GameObjects.Graphics;
+  private _underPlayerGraphics!: Phaser.GameObjects.Graphics;
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
@@ -244,6 +245,7 @@ export class GameScene extends Phaser.Scene {
     // Ball drawn each frame via Graphics for physically correct rolling animation
     this._ballGraphics = this.add.graphics().setDepth(6);
     this._indicatorGraphics = this.add.graphics().setDepth(10); // Above players and ball
+    this._underPlayerGraphics = this.add.graphics().setDepth(4.4); // Below players (5)
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
@@ -1084,7 +1086,9 @@ export class GameScene extends Phaser.Scene {
 
   protected _updateIndicators(): void {
     const g = this._indicatorGraphics;
+    const gu = this._underPlayerGraphics;
     g.clear();
+    gu.clear();
 
     const drawForPlayer = (
       player: PlayerExtended,
@@ -1141,11 +1145,12 @@ export class GameScene extends Phaser.Scene {
 
       // 2. Ownership "YOU" indicator
       if (isLocal) {
-        g.lineStyle(3, 0xffff00, 0.8);
-        g.strokeCircle(player.x, player.y, PLAYER_RADIUS + 5);
+        // Yellow oval below the character
+        gu.lineStyle(3, 0xffff00, 0.8);
+        gu.strokeEllipse(player.x + 5, player.y + 30, 60, 30);
 
         // Small triangle above
-        const ty = player.y - PLAYER_RADIUS - 15;
+        const ty = player.y - PLAYER_RADIUS - 30;
         g.fillStyle(0xffff00, 1);
         g.fillTriangle(
           player.x - 6, ty - 8,
