@@ -347,25 +347,25 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10);
 
     // ── Bottom action bar ──────────────────────────────────────────────────────
-    const BAR_Y = viewH - (isPortrait ? 400 : 180);
+    const BAR_Y = viewH - (isPortrait ? 400 : 190);
     const BTN_SCALE = isPortrait ? 2.5 : 2.0;
 
     const bgH = isPortrait ? 116 : 48 * BTN_SCALE;
     const backWidth = isPortrait ? sw * 0.46 : 180 * BTN_SCALE;
-    const backX = isPortrait ? cx - sw * 0.25 : cx - 400;
+    const backX = isPortrait ? cx - sw * 0.25 : cx - (180 * BTN_SCALE / 2) - 15;
 
-    const smallBtnY = isPortrait ? BAR_Y + 150 : BAR_Y;
+    const smallBtnY = isPortrait ? BAR_Y + 150 : BAR_Y + 110;
     const ts = isPortrait ? 1.4 : 0.9;
 
     const b1 = this._makeButton(backX, smallBtnY, backWidth, bgH, "‹  BACK", "", 0x666677, 0x333344, () => this._hideLobby(), ts, 10);
 
-    const refreshX = isPortrait ? cx + sw * 0.25 : cx;
+    const refreshX = isPortrait ? cx + sw * 0.25 : cx + (180 * BTN_SCALE / 2) + 15;
     const b2 = this._makeButton(refreshX, smallBtnY, backWidth, bgH, "↻  REFRESH", "", 0x1a44bb, 0x051144, () => { void loadGames(); }, ts, 10);
 
     const newGameY = BAR_Y;
     const newH = isPortrait ? 132 : 48 * BTN_SCALE;
     const tsNew = isPortrait ? 1.5 : 0.9;
-    const b3 = this._makeButton(isPortrait ? cx : cx + 400, newGameY, isPortrait ? sw * 0.95 : 260 * BTN_SCALE, newH, "✚  CREATE NEW GAME", "", GREEN, 0x1e7a29, () => {
+    const b3 = this._makeButton(cx, newGameY, isPortrait ? sw * 0.95 : 260 * BTN_SCALE, newH, "✚  CREATE NEW GAME", "", GREEN, 0x1e7a29, () => {
       this._isHostingVisible = true;
       this._startHosting();
     }, tsNew, 10);
