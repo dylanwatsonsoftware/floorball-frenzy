@@ -420,6 +420,8 @@ export class OnlineGameScene extends GameScene {
           aimX: this.host.aimX, aimY: this.host.aimY,
           dashCooldownMs: this.host.dashCooldownMs,
           chargeMs: this.host.chargeMs,
+          heat: this.host.heat,
+          heatModeMs: this.host.heatModeMs,
           input: this.host.input,
         },
         client: {
@@ -428,6 +430,8 @@ export class OnlineGameScene extends GameScene {
           aimX: this.client.aimX, aimY: this.client.aimY,
           dashCooldownMs: this.client.dashCooldownMs,
           chargeMs: this.client.chargeMs,
+          heat: this.client.heat,
+          heatModeMs: this.client.heatModeMs,
           input: this.client.input,
         },
       },

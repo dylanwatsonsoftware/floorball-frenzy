@@ -64,7 +64,7 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
     const type = view[0];
     const dv = new DataView(view.buffer, view.byteOffset, view.byteLength);
 
-    if (type === TYPE_STATE && view.byteLength === 121) {
+    if (type === TYPE_STATE && view.byteLength === 137) {
       return { type: "state", snapshot: decodeSnapshot(dv) };
     }
     if (type === TYPE_INPUT && view.byteLength === 14) {
@@ -81,10 +81,10 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
   }
 }
 
-// ─── Binary Snapshot (121 bytes) ──────────────────────────────────────────────
+// ─── Binary Snapshot (137 bytes) ──────────────────────────────────────────────
 
 function encodeSnapshot(s: GameState): Uint8Array {
-  const buf = new ArrayBuffer(121);
+  const buf = new ArrayBuffer(137);
   const v = new DataView(buf);
   v.setUint8(0, TYPE_STATE);
   v.setFloat32(1, s.t, true);
@@ -113,19 +113,21 @@ function encodeSnapshot(s: GameState): Uint8Array {
     v.setFloat32(offset + 20, p.aimY, true);
     v.setFloat32(offset + 24, p.dashCooldownMs, true);
     v.setFloat32(offset + 28, p.chargeMs, true);
-    v.setFloat32(offset + 32, p.input.moveX, true);
-    v.setFloat32(offset + 36, p.input.moveY, true);
+    v.setFloat32(offset + 32, p.heat, true);
+    v.setFloat32(offset + 36, p.heatModeMs, true);
+    v.setFloat32(offset + 40, p.input.moveX, true);
+    v.setFloat32(offset + 44, p.input.moveY, true);
     let pFlags = 0;
     if (p.input.slap) pFlags |= 2;
     if (p.input.dash) pFlags |= 4;
-    v.setUint8(offset + 40, pFlags);
+    v.setUint8(offset + 48, pFlags);
   };
 
   writePlayer(s.players.host, 35);
-  writePlayer(s.players.client, 76);
+  writePlayer(s.players.client, 84);
 
-  v.setUint16(117, s.score.host, true);
-  v.setUint16(119, s.score.client, true);
+  v.setUint16(133, s.score.host, true);
+  v.setUint16(135, s.score.client, true);
 
   return new Uint8Array(buf);
 }
@@ -149,7 +151,6 @@ function decodeSnapshot(v: DataView): GameState {
   };
 
   const readPlayer = (offset: number, id: string): Player => {
-    const pFlags = v.getUint8(offset + 40);
     return {
       id,
       x: v.getFloat32(offset, true),
@@ -160,11 +161,13 @@ function decodeSnapshot(v: DataView): GameState {
       aimY: v.getFloat32(offset + 20, true),
       dashCooldownMs: v.getFloat32(offset + 24, true),
       chargeMs: v.getFloat32(offset + 28, true),
+      heat: v.getFloat32(offset + 32, true),
+      heatModeMs: v.getFloat32(offset + 36, true),
       input: {
-        moveX: v.getFloat32(offset + 32, true),
-        moveY: v.getFloat32(offset + 36, true),
-        slap: !!(pFlags & 2),
-        dash: !!(pFlags & 4),
+        moveX: v.getFloat32(offset + 40, true),
+        moveY: v.getFloat32(offset + 44, true),
+        slap: !!(v.getUint8(offset + 48) & 2),
+        dash: !!(v.getUint8(offset + 48) & 4),
       },
     };
   };
@@ -174,11 +177,11 @@ function decodeSnapshot(v: DataView): GameState {
     ball,
     players: {
       host: readPlayer(35, "host"),
-      client: readPlayer(76, "client"),
+      client: readPlayer(84, "client"),
     },
     score: {
-      host: v.getUint16(117, true),
-      client: v.getUint16(119, true),
+      host: v.getUint16(133, true),
+      client: v.getUint16(135, true),
     },
   };
 }

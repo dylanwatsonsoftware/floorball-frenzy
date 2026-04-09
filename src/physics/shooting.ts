@@ -53,8 +53,9 @@ export function releaseShot(
   oneTouch: boolean,
   playerVx = 0,
   playerVy = 0,
+  forcePerfect = false,
 ): boolean {
-  const isPerfect = Math.abs(state.chargeMs - SHOOT_MAX_CHARGE_MS) < PERFECT_SHOT_WINDOW;
+  const isPerfect = forcePerfect || Math.abs(state.chargeMs - SHOOT_MAX_CHARGE_MS) < PERFECT_SHOT_WINDOW;
 
   const t = Math.min(state.chargeMs / SHOOT_MAX_CHARGE_MS, 2); // 0..2
   // Triangle: ramp up 0→1, ramp down 1→2

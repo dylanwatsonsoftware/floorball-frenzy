@@ -10,6 +10,7 @@ import {
   FIELD_BOTTOM,
   DASH_FORCE,
   DASH_COOLDOWN,
+  HEAT_MODE_SPEED_BOOST,
 } from "./constants";
 
 export interface PlayerExtended extends Player {
@@ -31,6 +32,11 @@ export function stepPlayer(
     player.dashCooldownMs = Math.max(0, player.dashCooldownMs - elapsedMs);
   }
 
+  // Heat mode countdown
+  if (player.heatModeMs > 0) {
+    player.heatModeMs = Math.max(0, player.heatModeMs - elapsedMs);
+  }
+
   // Dash impulse — direction is move input; caller injects aim when standing still
   if (input.dash && player.dashCooldownMs === 0) {
     const len = Math.hypot(input.moveX, input.moveY);
@@ -48,10 +54,11 @@ export function stepPlayer(
     player.vy += (input.moveY / len) * PLAYER_ACCEL * dt;
   }
 
-  // Clamp to max speed
+  // Clamp to max speed (increased during heat mode)
+  const maxSpeed = player.heatModeMs > 0 ? PLAYER_MAX_SPEED * HEAT_MODE_SPEED_BOOST : PLAYER_MAX_SPEED;
   const speed = Math.hypot(player.vx, player.vy);
-  if (speed > PLAYER_MAX_SPEED) {
-    const scale = PLAYER_MAX_SPEED / speed;
+  if (speed > maxSpeed) {
+    const scale = maxSpeed / speed;
     player.vx *= scale;
     player.vy *= scale;
   }
@@ -83,6 +90,8 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     aimY: 0,
     dashCooldownMs: 0,
     chargeMs: 0,
+    heat: 0,
+    heatModeMs: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false },
   };
 }

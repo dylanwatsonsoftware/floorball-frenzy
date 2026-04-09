@@ -28,6 +28,7 @@ import {
   GOAL_LINE_LEFT,
   GOAL_LINE_RIGHT,
   PLAYER_RADIUS,
+  PLAYER_MAX_SPEED,
   BALL_RADIUS,
   FIXED_DT,
   ONE_TOUCH_WINDOW,
@@ -47,6 +48,11 @@ import {
   DASH_STEAL_FORCE,
   BOLT_SHOT_BOOST,
   BOLT_SHOT_DURATION_MS,
+  HEAT_MAX,
+  HEAT_ONE_TOUCH,
+  HEAT_STEAL,
+  HEAT_PERFECT,
+  HEAT_MODE_DURATION,
 } from "../physics/constants";
 
 const WINNING_SCORE = 5;
@@ -107,6 +113,7 @@ export class GameScene extends Phaser.Scene {
   private _clientSprite!: Phaser.GameObjects.Sprite;
   private _ballGraphics!: Phaser.GameObjects.Graphics;
   private _indicatorGraphics!: Phaser.GameObjects.Graphics;
+  private _heatMeterGraphics!: Phaser.GameObjects.Graphics;
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
@@ -205,6 +212,7 @@ export class GameScene extends Phaser.Scene {
     this._elapsedMs = 0;
     this._hostSlapWasDown = false;
     this._clientSlapWasDown = false;
+    this._fireParticles = [];
   }
 
   create(): void {
@@ -242,6 +250,7 @@ export class GameScene extends Phaser.Scene {
     // Ball drawn each frame via Graphics for physically correct rolling animation
     this._ballGraphics = this.add.graphics().setDepth(6);
     this._indicatorGraphics = this.add.graphics().setDepth(10); // Above players and ball
+    this._heatMeterGraphics = this.add.graphics().setDepth(15);
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
@@ -383,6 +392,22 @@ export class GameScene extends Phaser.Scene {
         frames: this.anims.generateFrameNumbers("char_client", { start: 0, end: 7 }),
         frameRate: 8,
         repeat: -1,
+      });
+    }
+  }
+
+  /** Spawns cyan particles for a wrist snap. */
+  private _spawnWristSnapJuice(): void {
+    const visualY = this.ball.y - this.ball.z * 0.6;
+    for (let i = 0; i < 12; i++) {
+      this._fireParticles.push({
+        x: this.ball.x,
+        y: visualY,
+        vx: (Math.random() - 0.5) * 600,
+        vy: (Math.random() - 0.5) * 600,
+        life: 250,
+        maxLife: 250,
+        size: 5 + Math.random() * 5,
       });
     }
   }
@@ -708,6 +733,43 @@ export class GameScene extends Phaser.Scene {
   }
 
 
+  protected _addHeat(who: "host" | "client", amount: number): void {
+    const player = who === "host" ? this.host : this.client;
+    if (player.heatModeMs > 0) return; // No gain during heat mode
+
+    player.heat = Math.min(HEAT_MAX, player.heat + amount);
+    if (player.heat >= HEAT_MAX) {
+      player.heat = 0;
+      player.heatModeMs = HEAT_MODE_DURATION;
+      this._onHeatModeStarted(who);
+    }
+  }
+
+  protected _onHeatModeStarted(who: "host" | "client"): void {
+    // Basic hit-stop on activation
+    this._frozenMs = 80;
+    this.cameras.main.shake(300, 0.015);
+    this.cameras.main.flash(400, 255, 170, 0, false);
+    this._playIgnitionSound();
+    // Visual pulse
+    const player = who === "host" ? this.host : this.client;
+    const ring = this.add.graphics().setDepth(20);
+    const data = { r: 10, a: 0.8 };
+    this.tweens.add({
+      targets: data,
+      r: 150,
+      a: 0,
+      duration: 400,
+      ease: "Cubic.out",
+      onUpdate: () => {
+        ring.clear();
+        ring.lineStyle(6, 0xffaa00, data.a);
+        ring.strokeCircle(player.x, player.y, data.r);
+      },
+      onComplete: () => ring.destroy(),
+    });
+  }
+
   protected _doSlapShot(who: "host" | "client"): void {
     // Always play the swing animation on release
     if (who === "host") this._hostShotAnimMs = 280;
@@ -722,10 +784,32 @@ export class GameScene extends Phaser.Scene {
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const player = who === "host" ? this.host : this.client;
     const isOT = this._isOneTouch(who);
-    if (isOT) this._spawnOneTouchJuice();
+    if (isOT) {
+      this._spawnOneTouchJuice();
+      this._addHeat(who, HEAT_ONE_TOUCH);
+    }
+
+    // Skill Shot: Quick-Release Wrist Snap
+    // Triggered by low charge (<150ms) while moving fast (>80% max speed)
+    const speed = Math.hypot(player.vx, player.vy);
+    const isWristSnap = state.chargeMs > 0 && state.chargeMs < 150 && speed > PLAYER_MAX_SPEED * 0.8;
+    if (isWristSnap) {
+      this._spawnWristSnapJuice();
+    }
+
     const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200;
-    const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
+    const forcePerfect = player.heatModeMs > 0;
+    let isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy, forcePerfect);
+
+    if (isWristSnap) {
+      this.ball.vx *= 1.15;
+      this.ball.vy *= 1.15;
+      isPerfect = true; // Wrist snap counts as a perfect hit for juice/heat
+    }
+
     this.ball.isPerfect = isPerfect;
+    if (isPerfect) this._addHeat(who, HEAT_PERFECT);
+
     if (isBolt) {
       this.ball.vx *= BOLT_SHOT_BOOST;
       this.ball.vy *= BOLT_SHOT_BOOST;
@@ -739,6 +823,9 @@ export class GameScene extends Phaser.Scene {
     if (isPerfect || isBolt) {
       this._spawnPerfectJuice(this.ball.x, this.ball.y);
       this._frozenMs = isPerfect ? 50 : 30; // Hit-stop
+      if (player.heatModeMs > 0 && isPerfect) {
+        this._playThunderSlapSound();
+      }
     }
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
@@ -816,6 +903,7 @@ export class GameScene extends Phaser.Scene {
   private _pokeBall(dashingPlayer: PlayerExtended): void {
     this.ball.vx = dashingPlayer.vx * DASH_STEAL_FORCE;
     this.ball.vy = dashingPlayer.vy * DASH_STEAL_FORCE;
+    this._addHeat(dashingPlayer.id as "host" | "client", HEAT_STEAL);
     this.ball.isPerfect = false;
     this.ball.isBolt = false;
     this.ball.boltTimerMs = 0;
@@ -852,12 +940,14 @@ export class GameScene extends Phaser.Scene {
       this._isGoalPause = true;
       this._updateWinStreak(scorer);
       this.time.delayedCall(1000, () => this._showMatchOver(scorer));
-      this.cameras.main.shake(500, 0.02);
+      this.cameras.main.shake(800, 0.03);
+      this.cameras.main.flash(500, 255, 255, 255);
     } else {
       this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
       this._frozenMs = 1500;
       this._isGoalPause = true;
-      this.cameras.main.shake(250, 0.01);
+      this.cameras.main.shake(400, 0.02);
+      this.cameras.main.flash(300, 255, 255, 255);
     }
     this._playGoalCheer(isWin);
   }
@@ -888,7 +978,8 @@ export class GameScene extends Phaser.Scene {
 
     // Rematch button
     const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, 0x00cc66, 1).setDepth(31).setInteractive({ useHandCursor: true });
-    const rematchText = this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const btnLabel = data.count > 0 && data.winner === winner ? "KEEP THE STREAK!" : "REMATCH";
+    const rematchText = this.add.text(cx, cy + 100, btnLabel, { fontSize: data.count > 0 && data.winner === winner ? "18px" : "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
 
     rematchBtn.on("pointerover", () => { rematchBtn.setScale(1.05); rematchBtn.setFillStyle(0x00ee77); });
     rematchBtn.on("pointerout", () => { rematchBtn.setScale(1.0); rematchBtn.setFillStyle(0x00cc66); });
@@ -927,6 +1018,63 @@ export class GameScene extends Phaser.Scene {
     btn.disableInteractive();
     btn.setAlpha(0.6);
     this.scene.restart();
+  }
+
+  private _playIgnitionSound(): void {
+    try {
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(100, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.4);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.1);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch { /* audio not available */ }
+  }
+
+  private _playThunderSlapSound(): void {
+    try {
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
+      // 1. Heavy wooden crack (filtered noise)
+      const duration = 0.4;
+      const bufLen = Math.ceil(ctx.sampleRate * duration);
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+      const noise = ctx.createBufferSource();
+      noise.buffer = buf;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 1500;
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.5, ctx.currentTime);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noise.start();
+
+      // 2. Bass thump (low freq sine)
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(120, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.2);
+      g.gain.setValueAtTime(0.6, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch { /* audio not available */ }
   }
 
   private _playGoalCheer(isWin: boolean): void {
@@ -1225,6 +1373,48 @@ export class GameScene extends Phaser.Scene {
     this._updateDashRings();
 
     this._scoreText.setText(`${this.score.host}  —  ${this.score.client}`);
+    this._drawHeatMeters();
+  }
+
+  private _drawHeatMeters(): void {
+    const g = this._heatMeterGraphics;
+    g.clear();
+
+    const drawMeter = (x: number, y: number, heat: number, heatModeMs: number, alignRight: boolean) => {
+      const W = 160;
+      const H = 8;
+      const bx = alignRight ? x - W : x;
+
+      // Background
+      g.fillStyle(0x000000, 0.5);
+      g.fillRoundedRect(bx, y, W, H, 4);
+
+      if (heatModeMs > 0) {
+        // Pulsing fire color for Heat Mode
+        const alpha = 0.7 + Math.sin(this.time.now / 50) * 0.3;
+        g.fillStyle(0xffaa00, alpha);
+        const progress = heatModeMs / HEAT_MODE_DURATION;
+        g.fillRoundedRect(bx, y, W * progress, H, 4);
+
+        // Graphics doesn't do text well, we'll just stick to the bar for now
+        // to avoid creating/destroying text objects in the update loop.
+      } else {
+        // Normal heat buildup (Cyan)
+        g.fillStyle(0x00ffff, 0.8);
+        const progress = heat / HEAT_MAX;
+        if (progress > 0) {
+          g.fillRoundedRect(bx, y, W * progress, H, 4);
+        }
+      }
+
+      // Outline
+      g.lineStyle(1, 0xffffff, 0.2);
+      g.strokeRoundedRect(bx, y, W, H, 4);
+    };
+
+    // Position meters below the scores in the HUD
+    drawMeter(480 + 15, 75, this.host.heat, this.host.heatModeMs, false);
+    drawMeter(800 - 15, 75, this.client.heat, this.client.heatModeMs, true);
   }
 
   private _updateGhosts(delta: number): void {
@@ -1304,7 +1494,7 @@ export class GameScene extends Phaser.Scene {
 
   protected _drawSticks(): void {
     const drawStick = (
-      player: { x: number; y: number },
+      player: PlayerExtended,
       aim: { x: number; y: number },
       sprite: Phaser.GameObjects.Sprite,
       animMs: number,
@@ -1387,6 +1577,24 @@ export class GameScene extends Phaser.Scene {
       sprite.setPosition(baseX, baseY);
       sprite.setRotation(Math.atan2(ny, nx));
       sprite.setFrame(6);
+
+      if (player.heatModeMs > 0) {
+        sprite.setTint(0xffaa00);
+        // Stick flame particles
+        if (Math.random() < 0.2) {
+          this._fireParticles.push({
+            x: baseX + (Math.random() - 0.5) * 10,
+            y: baseY + (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * 100,
+            vy: (Math.random() - 0.5) * 100,
+            life: 200,
+            maxLife: 200,
+            size: 4 + Math.random() * 4,
+          });
+        }
+      } else {
+        sprite.clearTint();
+      }
     };
 
     drawStick(this.host, this._hostAimSmooth, this._hostStickSprite, this._hostShotAnimMs, 280, this._hostShoot.chargeMs, this._hostShotAnimMs === 280, this._hostHasPossession, this._hostDribblePhase);
