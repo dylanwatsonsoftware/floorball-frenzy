@@ -112,7 +112,7 @@ export class GameScene extends Phaser.Scene {
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
-  protected static readonly DRIBBLE_AMP  = 22;          // px half-sweep width
+  protected static readonly DRIBBLE_AMP = 22;          // px half-sweep width
   protected static readonly DRIBBLE_FREQ = 3.2;         // tic-tacs per second
   protected static readonly DRIBBLE_DIST = STICK_REACH * 0.91; // how far in front
 
@@ -332,18 +332,18 @@ export class GameScene extends Phaser.Scene {
 
     // Back button — top-left, inside HUD bar
     const backBg = this.add
-      .rectangle(14, 47, 100, 38, 0x1a1a2e, 1)
+      .rectangle(14, 47, 100, 38, 0x3a3a55, 1)
       .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x00e5ff, 0.35)
+      .setStrokeStyle(1, 0x00e5ff, 0.5)
       .setInteractive({ useHandCursor: true })
       .setDepth(16);
     const backLabel = this.add
-      .text(64, 47, "‹ BACK", { fontSize: "14px", color: "#8888aa", fontStyle: "bold" })
+      .text(64, 47, "‹ BACK", { fontSize: "14px", color: "#aaaacc", fontStyle: "bold" })
       .setOrigin(0.5)
       .setDepth(16);
     backLabel.disableInteractive();
-    backBg.on("pointerover", () => { backLabel.setColor("#ffffff"); backBg.setStrokeStyle(1, 0x00e5ff, 0.9); });
-    backBg.on("pointerout", () => { backLabel.setColor("#8888aa"); backBg.setStrokeStyle(1, 0x00e5ff, 0.35); });
+    backBg.on("pointerover", () => { backLabel.setColor("#ffffff"); backBg.setStrokeStyle(1, 0x00e5ff, 1); backBg.setFillStyle(0x4a4a65, 1); });
+    backBg.on("pointerout", () => { backLabel.setColor("#aaaacc"); backBg.setStrokeStyle(1, 0x00e5ff, 0.5); backBg.setFillStyle(0x3a3a55, 1); });
     backBg.on("pointerup", () => this._confirmLeave());
 
     // Center the 1280×720 game world in the available canvas on wider screens.
@@ -702,7 +702,7 @@ export class GameScene extends Phaser.Scene {
   /** Snap ball to the static blade tip so shots always connect when possessed. */
   protected _snapBallToBlade(who: "host" | "client"): void {
     const player = who === "host" ? this.host : this.client;
-    const aim   = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
+    const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const stick = this._stickDir(player, aim);
     const aNx = stick.y, aNy = -stick.x;
     this.ball.x = player.x + stick.x * STICK_REACH + aNx * PLAYER_RADIUS * 0.84;
@@ -1135,15 +1135,15 @@ export class GameScene extends Phaser.Scene {
 
         g.beginPath();
         // Arrow Stem
-        g.moveTo(bx + px * (stemW/2), by + py * (stemW/2));
-        g.lineTo(hx + px * (stemW/2), hy + py * (stemW/2));
+        g.moveTo(bx + px * (stemW / 2), by + py * (stemW / 2));
+        g.lineTo(hx + px * (stemW / 2), hy + py * (stemW / 2));
         // Arrow Head
-        g.lineTo(hx + px * (headW/2), hy + py * (headW/2));
+        g.lineTo(hx + px * (headW / 2), hy + py * (headW / 2));
         g.lineTo(ax, ay);
-        g.lineTo(hx - px * (headW/2), hy - py * (headW/2));
+        g.lineTo(hx - px * (headW / 2), hy - py * (headW / 2));
         // Back down stem
-        g.lineTo(hx - px * (stemW/2), hy - py * (stemW/2));
-        g.lineTo(bx - px * (stemW/2), by - py * (stemW/2));
+        g.lineTo(hx - px * (stemW / 2), hy - py * (stemW / 2));
+        g.lineTo(bx - px * (stemW / 2), by - py * (stemW / 2));
         g.closePath();
         g.fillPath();
 
@@ -1278,7 +1278,7 @@ export class GameScene extends Phaser.Scene {
       const progress = 1 - player.dashCooldownMs / DASH_COOLDOWN;
       const r = PLAYER_RADIUS + 7;
       const start = -Math.PI / 2;
-      const end   = start + progress * Math.PI * 2;
+      const end = start + progress * Math.PI * 2;
       gfx.lineStyle(3, 0x00ff66, 0.85);
       gfx.beginPath();
       gfx.arc(player.x, player.y, r, start, end, false);

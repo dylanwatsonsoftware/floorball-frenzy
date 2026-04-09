@@ -116,10 +116,10 @@ export class OnlineGameScene extends GameScene {
     this._peer.onIceStateChange = (state) => {
       if (this._connected) return;
       const labels: Partial<Record<RTCIceConnectionState, string>> = {
-        checking:     "Checking connection…",
-        connected:    "Almost there…",
-        completed:    "Almost there…",
-        failed:       "Connection failed — retrying…",
+        checking: "Checking connection…",
+        connected: "Almost there…",
+        completed: "Almost there…",
+        failed: "Connection failed — retrying…",
         disconnected: "Connection lost — retrying…",
       };
       if (labels[state] && this._waitingTitleText) {
@@ -223,7 +223,7 @@ export class OnlineGameScene extends GameScene {
       this._countdownMs -= delta;
       const label = this._countdownMs > 3000 ? "3"
         : this._countdownMs > 2000 ? "2"
-        : this._countdownMs > 1000 ? "1" : "GO!";
+          : this._countdownMs > 1000 ? "1" : "GO!";
       if (label !== this._lastCountdownLabel) {
         this._lastCountdownLabel = label;
         this._playCountdownBeep(label);
@@ -626,7 +626,7 @@ export class OnlineGameScene extends GameScene {
     }).setOrigin(0.5).setDepth(26);
 
     const btnBg = this.add
-      .rectangle(cx, cy + 50, 320, 70, 0x1a44bb, 1)
+      .rectangle(cx, cy + 50, 320, 70, 0x2a55d4, 1)
       .setStrokeStyle(2, 0x6699ff, 1)
       .setInteractive({ useHandCursor: true })
       .setDepth(26);
@@ -636,8 +636,8 @@ export class OnlineGameScene extends GameScene {
     }).setOrigin(0.5).setDepth(26);
     btnLabel.disableInteractive();
 
-    btnBg.on("pointerover", () => btnBg.setFillStyle(0x2255cc, 1));
-    btnBg.on("pointerout", () => btnBg.setFillStyle(0x1a44bb, 1));
+    btnBg.on("pointerover", () => btnBg.setFillStyle(0x3a66e5, 1));
+    btnBg.on("pointerout", () => btnBg.setFillStyle(0x2a55d4, 1));
     btnBg.on("pointerup", () => this.scene.start("MenuScene"));
   }
 

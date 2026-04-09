@@ -180,7 +180,7 @@ export class MenuScene extends Phaser.Scene {
     const logoSize = Math.min(sw * 0.6, 380);
     if (hasLogo) this.add.image(sw / 2, sh * 0.2, "logo").setOrigin(0.5).setDisplaySize(logoSize, logoSize);
 
-    const titleY = hasLogo ? sh * 0.2 + logoSize/2 + 60 : sh * 0.2;
+    const titleY = hasLogo ? sh * 0.2 + logoSize / 2 + 60 : sh * 0.2;
     const titleSize = Math.floor(sw * 0.12);
 
     this.add.text(sw / 2 + 3, titleY + 3, "FLOORBALL\nFRENZY", {
@@ -338,8 +338,8 @@ export class MenuScene extends Phaser.Scene {
     const BAR_Y = viewH - (isPortrait ? 170 : 52);
     const BTN_SCALE = isPortrait ? 1.5 : 1.0;
 
-    const backBg = this.add.rectangle(isPortrait ? cx - sw * 0.26 : cx - 370, isPortrait ? BAR_Y : BAR_Y, (isPortrait ? sw * 0.44 : 180 * BTN_SCALE), (isPortrait ? 72 : 48 * BTN_SCALE), 0x333344, 1)
-      .setStrokeStyle(1, 0x555566, 1).setInteractive({ useHandCursor: true }).setDepth(10);
+    const backBg = this.add.rectangle(isPortrait ? cx - sw * 0.26 : cx - 370, isPortrait ? BAR_Y : BAR_Y, (isPortrait ? sw * 0.44 : 180 * BTN_SCALE), (isPortrait ? 72 : 48 * BTN_SCALE), 0x555566, 1)
+      .setStrokeStyle(1, 0x9999bb, 1).setInteractive({ useHandCursor: true }).setDepth(10);
     const backTxt = this.add.text(backBg.x, backBg.y, "‹  BACK", {
       fontSize: `${16 * BTN_SCALE}px`, color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
@@ -363,8 +363,8 @@ export class MenuScene extends Phaser.Scene {
     this._lobbyObjs = [bg, titleTxt, divGfx, statusTxt, backBg, backTxt, refreshBg, refreshTxt, newGameBg, newGameTxt];
 
     // ── Button interactions ───────────────────────────────────────────────────
-    backBg.on("pointerover", () => backBg.setFillStyle(0x444455));
-    backBg.on("pointerout", () => backBg.setFillStyle(0x333344));
+    backBg.on("pointerover", () => backBg.setFillStyle(0x666677));
+    backBg.on("pointerout", () => backBg.setFillStyle(0x555566));
     backBg.on("pointerup", () => this._hideLobby());
 
     refreshBg.on("pointerover", () => refreshBg.setStrokeStyle(1, 0xaaccff, 1));
@@ -525,13 +525,13 @@ export class MenuScene extends Phaser.Scene {
       zIndex: "9999", boxSizing: "border-box",
     });
 
-    const okBg = this.add.rectangle(cx + (isPortrait ? MW*0.25 : 90), cy + MH / 2 - 40, isPortrait ? MW*0.4 : 140, 44, GREEN, 1)
+    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : 90), cy + MH / 2 - 40, isPortrait ? MW * 0.4 : 140, 44, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(22);
     const okTxt = this.add.text(okBg.x, okBg.y, "OK", {
       fontSize: "17px", color: "#000000", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
 
-    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW*0.25 : 90), cy + MH / 2 - 40, isPortrait ? MW*0.4 : 140, 44, 0x111111, 1)
+    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : 90), cy + MH / 2 - 40, isPortrait ? MW * 0.4 : 140, 44, 0x111111, 1)
       .setStrokeStyle(1, 0x555555, 1).setInteractive({ useHandCursor: true }).setDepth(22);
     const cancelTxt = this.add.text(cancelBg.x, cancelBg.y, "CANCEL", {
       fontSize: "17px", color: "#888888", fontStyle: "bold",
