@@ -347,27 +347,33 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10);
 
     // ── Bottom action bar ──────────────────────────────────────────────────────
-    const BAR_Y = viewH - (isPortrait ? 170 : 52);
-    const BTN_SCALE = isPortrait ? 1.5 : 1.0;
+    const BAR_Y = viewH - (isPortrait ? 400 : 180);
+    const BTN_SCALE = isPortrait ? 2.5 : 2.0;
 
-    const backBg = this.add.rectangle(isPortrait ? cx - sw * 0.26 : cx - 370, isPortrait ? BAR_Y : BAR_Y, (isPortrait ? sw * 0.44 : 180 * BTN_SCALE), (isPortrait ? 72 : 48 * BTN_SCALE), 0x555566, 1)
+    const bgH = isPortrait ? 116 : 48 * BTN_SCALE;
+    const backWidth = isPortrait ? sw * 0.46 : 180 * BTN_SCALE;
+    const backX = isPortrait ? cx - sw * 0.25 : cx - 400;
+
+    const backBg = this.add.rectangle(backX, isPortrait ? BAR_Y : BAR_Y, backWidth, bgH, 0x555566, 1)
       .setStrokeStyle(1, 0x9999bb, 1).setInteractive({ useHandCursor: true }).setDepth(10);
-    const backTxt = this.add.text(backBg.x, backBg.y, "‹  BACK", {
+    const backTxt = this.add.text(backBg.x, backBg.y, "‹  Back", {
       fontSize: `${16 * BTN_SCALE}px`, color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
     backTxt.disableInteractive();
 
-    const refreshBg = this.add.rectangle(isPortrait ? cx + sw * 0.26 : cx, isPortrait ? BAR_Y : BAR_Y, (isPortrait ? sw * 0.44 : 180 * BTN_SCALE), (isPortrait ? 72 : 48 * BTN_SCALE), 0x1a44bb, 1)
+    const refreshX = isPortrait ? cx + sw * 0.25 : cx;
+    const refreshBg = this.add.rectangle(refreshX, isPortrait ? BAR_Y : BAR_Y, backWidth, bgH, 0x1a44bb, 1)
       .setStrokeStyle(1, 0x6699ff, 0.7).setInteractive({ useHandCursor: true }).setDepth(10);
-    const refreshTxt = this.add.text(refreshBg.x, refreshBg.y, "↻  REFRESH", {
+    const refreshTxt = this.add.text(refreshBg.x, refreshBg.y, "↻  Refresh", {
       fontSize: `${16 * BTN_SCALE}px`, color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
     refreshTxt.disableInteractive();
 
-    const newGameY = isPortrait ? BAR_Y + 100 : BAR_Y;
-    const newGameBg = this.add.rectangle(isPortrait ? cx : cx + 370, newGameY, isPortrait ? sw * 0.92 : 240, (isPortrait ? 80 : 48 * BTN_SCALE), GREEN, 1)
+    const newGameY = isPortrait ? BAR_Y + 140 : BAR_Y;
+    const newH = isPortrait ? 132 : 48 * BTN_SCALE;
+    const newGameBg = this.add.rectangle(isPortrait ? cx : cx + 400, newGameY, isPortrait ? sw * 0.95 : 260 * BTN_SCALE, newH, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(10);
-    const newGameTxt = this.add.text(newGameBg.x, newGameBg.y, "✚  CREATE NEW GAME", {
+    const newGameTxt = this.add.text(newGameBg.x, newGameBg.y, "✚  Create New Game", {
       fontSize: `${15 * BTN_SCALE}px`, color: "#000000", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
     newGameTxt.disableInteractive();
@@ -494,7 +500,7 @@ export class MenuScene extends Phaser.Scene {
     const cy = isPortrait ? sh / 2 : H / 2;
 
     const saved = this._savedGameName;
-    const MW = isPortrait ? sw * 0.9 : 480, MH = 220;
+    const MW = isPortrait ? sw * 0.95 : 600, MH = 500;
 
     const overlay = this.add.rectangle(cx, cy, isPortrait ? sw : W, isPortrait ? sh : H, 0x000000, 0.75).setDepth(20).setInteractive();
 
@@ -504,8 +510,8 @@ export class MenuScene extends Phaser.Scene {
     modalGfx.lineStyle(1, 0x36b346, 0.7);
     modalGfx.strokeRoundedRect(cx - MW / 2, cy - MH / 2, MW, MH, 16);
 
-    const titleTxt = this.add.text(cx, cy - MH / 2 + 36, "ENTER GAME NAME", {
-      fontSize: "20px", color: "#00cc66", fontStyle: "bold", letterSpacing: 3,
+    const titleTxt = this.add.text(cx, cy - MH / 2 + 76, "Enter Game Name", {
+      fontSize: "42px", color: "#00cc66", fontStyle: "bold", letterSpacing: 5,
     }).setOrigin(0.5).setDepth(22);
 
     let el = this._hostingInput;
@@ -514,7 +520,7 @@ export class MenuScene extends Phaser.Scene {
       this._hostingInput = el;
       el.maxLength = 50;
       el.value = saved;
-      el.placeholder = "Game name…";
+      el.placeholder = "Game Name...";
       document.body.appendChild(el);
       el.addEventListener("focus", () => this.input.keyboard?.disableGlobalCapture());
       el.addEventListener("blur", () => {
@@ -530,23 +536,23 @@ export class MenuScene extends Phaser.Scene {
     if (el) Object.assign(el.style, {
       position: "fixed", left: "50%", top: "50%",
       transform: "translate(-50%, -50%)",
-      width: isPortrait ? "280px" : "340px", height: "44px", background: "#0a0f0a",
+      width: isPortrait ? "90%" : "500px", height: "76px", background: "#0a0f0a",
       border: "1px solid #36b346", borderRadius: "8px",
-      color: "#ffffff", fontSize: "20px", padding: "0 12px",
+      color: "#ffffff", fontSize: "32px", padding: "0 16px",
       outline: "none", fontFamily: "monospace", textAlign: "center",
       zIndex: "9999", boxSizing: "border-box",
     });
 
-    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : 90), cy + MH / 2 - 40, isPortrait ? MW * 0.4 : 140, 44, GREEN, 1)
+    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : 130), cy + MH / 2 - 80, isPortrait ? MW * 0.45 : 220, 80, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(22);
-    const okTxt = this.add.text(okBg.x, okBg.y, "OK", {
-      fontSize: "17px", color: "#000000", fontStyle: "bold",
+    const okTxt = this.add.text(okBg.x, okBg.y, "Ok", {
+      fontSize: "32px", color: "#000000", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
 
-    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : 90), cy + MH / 2 - 40, isPortrait ? MW * 0.4 : 140, 44, 0x111111, 1)
+    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : 130), cy + MH / 2 - 80, isPortrait ? MW * 0.45 : 220, 80, 0x111111, 1)
       .setStrokeStyle(1, 0x555555, 1).setInteractive({ useHandCursor: true }).setDepth(22);
-    const cancelTxt = this.add.text(cancelBg.x, cancelBg.y, "CANCEL", {
-      fontSize: "17px", color: "#888888", fontStyle: "bold",
+    const cancelTxt = this.add.text(cancelBg.x, cancelBg.y, "Cancel", {
+      fontSize: "32px", color: "#888888", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
     okTxt.disableInteractive();
     cancelTxt.disableInteractive();

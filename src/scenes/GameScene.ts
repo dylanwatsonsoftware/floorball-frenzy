@@ -338,7 +338,7 @@ export class GameScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true })
       .setDepth(16);
     const backLabel = this.add
-      .text(64, 47, "‹ BACK", { fontSize: "14px", color: "#aaaacc", fontStyle: "bold" })
+      .text(64, 47, "‹ Back", { fontSize: "14px", color: "#aaaacc", fontStyle: "bold" })
       .setOrigin(0.5)
       .setDepth(16);
     backLabel.disableInteractive();
