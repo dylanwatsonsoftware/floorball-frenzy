@@ -10,6 +10,11 @@ import {
   FIELD_BOTTOM,
   DASH_FORCE,
   DASH_COOLDOWN,
+  HEAT_MAX,
+  HEAT_MODE_DURATION,
+  HEAT_MODE_SPEED_BOOST,
+  HEAT_MODE_DASH_COOLDOWN_MULT,
+  HEAT_DASH_BONUS,
 } from "./constants";
 
 export interface PlayerExtended extends Player {
@@ -26,10 +31,20 @@ export function stepPlayer(
   dt: number,
   elapsedMs: number
 ): void {
+  // Heat Mode decay
+  if (player.heatModeMs > 0) {
+    player.heatModeMs = Math.max(0, player.heatModeMs - elapsedMs);
+    if (player.heatModeMs === 0) {
+      player.heat = 0; // Reset heat when mode ends
+    }
+  }
+
   // Dash cooldown countdown
   if (player.dashCooldownMs > 0) {
     player.dashCooldownMs = Math.max(0, player.dashCooldownMs - elapsedMs);
   }
+
+  const isHeatMode = player.heatModeMs > 0;
 
   // Dash impulse — direction is move input; caller injects aim when standing still
   if (input.dash && player.dashCooldownMs === 0) {
@@ -38,7 +53,16 @@ export function stepPlayer(
       player.vx += (input.moveX / len) * DASH_FORCE;
       player.vy += (input.moveY / len) * DASH_FORCE;
     }
-    player.dashCooldownMs = DASH_COOLDOWN;
+    const cooldownMult = isHeatMode ? HEAT_MODE_DASH_COOLDOWN_MULT : 1;
+    player.dashCooldownMs = DASH_COOLDOWN * cooldownMult;
+
+    // Heat accumulation from dash
+    if (!isHeatMode) {
+      player.heat = Math.min(HEAT_MAX, player.heat + HEAT_DASH_BONUS);
+      if (player.heat >= HEAT_MAX) {
+        player.heatModeMs = HEAT_MODE_DURATION;
+      }
+    }
   }
 
   // Acceleration from input
@@ -49,9 +73,10 @@ export function stepPlayer(
   }
 
   // Clamp to max speed
+  const maxSpeed = isHeatMode ? PLAYER_MAX_SPEED * HEAT_MODE_SPEED_BOOST : PLAYER_MAX_SPEED;
   const speed = Math.hypot(player.vx, player.vy);
-  if (speed > PLAYER_MAX_SPEED) {
-    const scale = PLAYER_MAX_SPEED / speed;
+  if (speed > maxSpeed) {
+    const scale = maxSpeed / speed;
     player.vx *= scale;
     player.vy *= scale;
   }
@@ -83,6 +108,8 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     aimY: 0,
     dashCooldownMs: 0,
     chargeMs: 0,
+    heat: 0,
+    heatModeMs: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false },
   };
 }

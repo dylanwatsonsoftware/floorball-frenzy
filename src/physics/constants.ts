@@ -90,5 +90,19 @@ export const BOLT_FRICTION_POWER = 0.5;
 export const ONE_TOUCH_WINDOW      = 300;
 export const ONE_TOUCH_MULTIPLIER  = 1.25;
 
+// ─── Heat System ──────────────────────────────────────────────────────────────
+export const HEAT_MAX = 100;
+export const HEAT_DRIBBL_RATE = 8;     // heat per second of dribbling
+export const HEAT_DASH_BONUS = 5;      // one-time bonus per dash
+export const HEAT_GOAL_BONUS = 25;     // one-time bonus for scorer
+export const HEAT_MODE_DURATION = 6000;
+export const HEAT_MODE_SPEED_BOOST = 1.15;
+export const HEAT_MODE_DASH_COOLDOWN_MULT = 0.5;
+
+// ─── Wrist Snap ───────────────────────────────────────────────────────────────
+export const WRIST_SNAP_MAX_CHARGE = 150;
+export const WRIST_SNAP_MIN_SPEED_FRAC = 0.8;
+export const WRIST_SNAP_POWER_BOOST = 1.15;
+
 // ─── Fixed timestep ───────────────────────────────────────────────────────────
 export const FIXED_DT = 1 / 60;
