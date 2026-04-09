@@ -17,6 +17,18 @@ function timeAgo(ms: number): string {
   return `${Math.floor(s / 60)}m ago`;
 }
 
+function checkIsPortrait(sw: number, sh: number): boolean {
+  let isPortrait = sh > sw;
+  if (typeof navigator !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+    if (typeof window !== "undefined" && window.screen && window.screen.orientation) {
+      isPortrait = window.screen.orientation.type.startsWith("portrait");
+    } else if (typeof window !== "undefined" && window.screen) {
+      isPortrait = window.screen.height > window.screen.width;
+    }
+  }
+  return isPortrait;
+}
+
 const W = 1280;
 const H = 720;
 const GREEN = 0x36b346;
@@ -83,7 +95,7 @@ export class MenuScene extends Phaser.Scene {
 
     const sw = this.scale.width;
     const sh = this.scale.height;
-    const isPortrait = sh > sw;
+    const isPortrait = checkIsPortrait(sw, sh);
 
     // Center camera
     if (!isPortrait) {
@@ -309,7 +321,7 @@ export class MenuScene extends Phaser.Scene {
   private async _showLobby(): Promise<void> {
     const sw = this.scale.width;
     const sh = this.scale.height;
-    const isPortrait = sh > sw;
+    const isPortrait = checkIsPortrait(sw, sh);
     const cx = isPortrait ? sw / 2 : W / 2;
     const viewW = isPortrait ? sw : W;
     const viewH = isPortrait ? sh : H;
@@ -477,7 +489,7 @@ export class MenuScene extends Phaser.Scene {
   private _startHosting(): void {
     const sw = this.scale.width;
     const sh = this.scale.height;
-    const isPortrait = sh > sw;
+    const isPortrait = checkIsPortrait(sw, sh);
     const cx = isPortrait ? sw / 2 : W / 2;
     const cy = isPortrait ? sh / 2 : H / 2;
 
