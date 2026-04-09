@@ -52,7 +52,7 @@ export const PLAYER_FRICTION  = 0.90;
 
 // ─── Ball ─────────────────────────────────────────────────────────────────────
 export const BALL_RADIUS    = 10;
-export const BALL_FRICTION  = 0.94;
+export const BALL_FRICTION  = 0.92;
 export const BALL_BOUNCE    = 0.8;
 export const GRAVITY        = 900;
 export const BALL_BOUNCE_Z  = 0.5;
@@ -65,6 +65,8 @@ export const STICK_REACH  = PLAYER_RADIUS + STICK_LENGTH; // 48 px
 
 // ─── Possession ───────────────────────────────────────────────────────────────
 export const CONTROL_RADIUS = 40;
+export const POSSESSION_PULL_FACTOR = 0.18;
+export const POSSESSION_PULL_CAP = 7;
 
 // ─── Dash ─────────────────────────────────────────────────────────────────────
 export const DASH_FORCE    = 950;

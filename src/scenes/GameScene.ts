@@ -47,6 +47,8 @@ import {
   DASH_STEAL_FORCE,
   BOLT_SHOT_BOOST,
   BOLT_SHOT_DURATION_MS,
+  POSSESSION_PULL_FACTOR,
+  POSSESSION_PULL_CAP,
 } from "../physics/constants";
 
 const WINNING_SCORE = 5;
@@ -637,12 +639,12 @@ export class GameScene extends Phaser.Scene {
       this.ball.vx += (player.vx - this.ball.vx) * 0.25;
       this.ball.vy += (player.vy - this.ball.vy) * 0.25;
 
-      // Pull toward blade tip: 30% of distance per step, capped at 12px
+      // Pull toward blade tip: smoother interpolation to prevent teleporting
       const dx = bladeTipX - this.ball.x;
       const dy = bladeTipY - this.ball.y;
       const dist = Math.hypot(dx, dy);
       if (dist > 0.1) {
-        const moveDist = Math.min(dist * 0.30, 12);
+        const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP);
         this.ball.x += (dx / dist) * moveDist;
         this.ball.y += (dy / dist) * moveDist;
       }
@@ -667,12 +669,12 @@ export class GameScene extends Phaser.Scene {
     this.ball.vx += (player.vx - this.ball.vx) * 0.25;
     this.ball.vy += (player.vy - this.ball.vy) * 0.25;
 
-    // Pull toward dribble target: 30% of distance per step, capped at 12px
+    // Pull toward dribble target: smoother interpolation to prevent teleporting
     const dx = targetX - this.ball.x;
     const dy = targetY - this.ball.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.1) {
-      const moveDist = Math.min(dist * 0.30, 12);
+      const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP);
       this.ball.x += (dx / dist) * moveDist;
       this.ball.y += (dy / dist) * moveDist;
     }
