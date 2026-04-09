@@ -53,8 +53,16 @@ export class MenuScene extends Phaser.Scene {
     this.scale.on("resize", this._renderBound);
     this.events.once("shutdown", () => {
       this.scale.off("resize", this._renderBound);
-      this._cleanup();
+      this._cleanupAll();
     });
+  }
+
+  private _cleanupAll(): void {
+    this._cleanup();
+    if (this._hostingInput) {
+      this._hostingInput.remove();
+      this._hostingInput = null;
+    }
   }
 
   private _cleanup(): void {
@@ -67,10 +75,7 @@ export class MenuScene extends Phaser.Scene {
       this._lobbyAutoRefresh.destroy();
       this._lobbyAutoRefresh = null;
     }
-    if (this._hostingInput) {
-      this._hostingInput.remove();
-      this._hostingInput = null;
-    }
+    // Note: _hostingInput is NOT removed here to prevent keyboard flicker on mobile resize
   }
 
   private _render(): void {
@@ -96,6 +101,11 @@ export class MenuScene extends Phaser.Scene {
         this._startHosting();
       }
     } else {
+      // If we are not in lobby, hosting modal definitely shouldn't be there
+      if (this._hostingInput) {
+        this._hostingInput.remove();
+        this._hostingInput = null;
+      }
       this._drawMainMenu(isPortrait, sw, sh);
     }
   }
@@ -486,8 +496,25 @@ export class MenuScene extends Phaser.Scene {
       fontSize: "20px", color: "#00cc66", fontStyle: "bold", letterSpacing: 3,
     }).setOrigin(0.5).setDepth(22);
 
-    const el = document.createElement("input");
-    this._hostingInput = el;
+    let el = this._hostingInput;
+    if (!el) {
+      el = document.createElement("input");
+      this._hostingInput = el;
+      el.maxLength = 50;
+      el.value = saved;
+      el.placeholder = "Game name…";
+      document.body.appendChild(el);
+      el.addEventListener("focus", () => this.input.keyboard?.disableGlobalCapture());
+      el.addEventListener("blur", () => {
+        this._savedGameName = el.value;
+        this.input.keyboard?.enableGlobalCapture();
+      });
+      el.addEventListener("input", () => {
+        this._savedGameName = el.value;
+      });
+      setTimeout(() => { if (el) { el.focus(); el.select(); } }, 50);
+    }
+
     Object.assign(el.style, {
       position: "fixed", left: "50%", top: "50%",
       transform: "translate(-50%, -50%)",
@@ -497,19 +524,6 @@ export class MenuScene extends Phaser.Scene {
       outline: "none", fontFamily: "monospace", textAlign: "center",
       zIndex: "9999", boxSizing: "border-box",
     });
-    el.maxLength = 50;
-    el.value = saved;
-    el.placeholder = "Game name…";
-    document.body.appendChild(el);
-    el.addEventListener("focus", () => this.input.keyboard?.disableGlobalCapture());
-    el.addEventListener("blur", () => {
-      this._savedGameName = el.value;
-      this.input.keyboard?.enableGlobalCapture();
-    });
-    el.addEventListener("input", () => {
-      this._savedGameName = el.value;
-    });
-    setTimeout(() => { el.focus(); el.select(); }, 50);
 
     const okBg = this.add.rectangle(cx + (isPortrait ? MW*0.25 : 90), cy + MH / 2 - 40, isPortrait ? MW*0.4 : 140, 44, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(22);
@@ -528,14 +542,23 @@ export class MenuScene extends Phaser.Scene {
     this._hostingObjs = [overlay, modalGfx, titleTxt, okBg, okTxt, cancelBg, cancelTxt];
     const destroy = () => {
       this._isHostingVisible = false;
+      if (this._hostingInput) {
+        this._hostingInput.remove();
+        this._hostingInput = null;
+      }
       this._cleanup();
       this._render();
     };
 
     const confirm = () => {
+      if (!el) return;
       const hostName = el.value.trim() || "Game";
       this._isHostingVisible = false;
       this._savedGameName = hostName;
+      if (this._hostingInput) {
+        this._hostingInput.remove();
+        this._hostingInput = null;
+      }
       this._cleanup();
       localStorage.setItem("floorball:gameName", hostName);
       const roomId = randomRoomId();
@@ -557,10 +580,13 @@ export class MenuScene extends Phaser.Scene {
     cancelBg.on("pointerout", () => cancelBg.setStrokeStyle(1, 0x555555, 1));
     cancelBg.on("pointerup", destroy);
 
-    el.addEventListener("keydown", (e) => {
+    const onKeydown = (e: KeyboardEvent) => {
       if (e.key === "Enter") confirm();
       if (e.key === "Escape") destroy();
-    });
+    };
+    el.addEventListener("keydown", onKeydown);
+    // Cleanup the event listener on next render
+    this.events.once("render", () => { if (el) el.removeEventListener("keydown", onKeydown); });
   }
 
   // ─── Button factory ─────────────────────────────────────────────────────────
