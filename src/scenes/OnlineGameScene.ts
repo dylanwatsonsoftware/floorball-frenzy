@@ -550,30 +550,21 @@ export class OnlineGameScene extends GameScene {
       fontSize: "26px", color: "#aaaaff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19);
 
-    const btnBg = this.add.rectangle(cx, cy, 440, 80, 0x1a44bb, 1)
-      .setStrokeStyle(2, 0x6699ff, 1)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(19);
+    this._sharePanelObjects = [overlay, title, roomLabel, this._waitingBallGfx];
 
-    const btnLabel = this.add.text(cx, cy, "📤  Share link with friend", {
-      fontSize: "22px", color: "#ffffff",
-    }).setOrigin(0.5).setDepth(19);
+    // Lazy-load QR code from external API
+    const qrKey = `qr-${this._roomId}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(shareUrl)}`;
 
-    btnBg.on("pointerup", () => {
-      if (navigator.share) {
-        void navigator.share({ title: "Floorball Frenzy — join my game!", url: shareUrl })
-          .then(() => btnLabel.setText("✓  Shared!"))
-          .catch(() => { /* user cancelled */ });
-      } else {
-        window.prompt("Copy this link and send to your friend:", shareUrl);
-      }
+    this.load.image(qrKey, qrUrl);
+    this.load.once(`filecomplete-image-${qrKey}`, () => {
+      if (!this.scene.isActive("OnlineGameScene")) return;
+      const qrSprite = this.add.sprite(cx, cy + 45, qrKey).setDepth(19);
+      this._sharePanelObjects.push(qrSprite);
+      // If we already connected while loading, hide it immediately
+      if (this._connected) qrSprite.setVisible(false);
     });
-
-    const hint = this.add.text(cx, cy + 70, "Or copy the URL from your address bar", {
-      fontSize: "15px", color: "#556688",
-    }).setOrigin(0.5).setDepth(19);
-
-    this._sharePanelObjects = [overlay, title, roomLabel, btnBg, btnLabel, hint, this._waitingBallGfx];
+    this.load.start();
   }
 
   private _playCountdownBeep(label: string): void {
