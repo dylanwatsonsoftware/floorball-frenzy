@@ -7,6 +7,9 @@ import {
   ONE_TOUCH_MULTIPLIER,
   PERFECT_SHOT_WINDOW,
   PERFECT_SHOT_BOOST,
+  WRIST_SNAP_MAX_CHARGE,
+  WRIST_SNAP_MIN_SPEED_FRAC,
+  PLAYER_MAX_SPEED,
 } from "./constants";
 
 export interface ShootState {
@@ -53,14 +56,28 @@ export function releaseShot(
   oneTouch: boolean,
   playerVx = 0,
   playerVy = 0,
-): boolean {
-  const isPerfect = Math.abs(state.chargeMs - SHOOT_MAX_CHARGE_MS) < PERFECT_SHOT_WINDOW;
+  isHeatMode = false
+): { isPerfect: boolean; isWristSnap: boolean } {
+  const playerSpeed = Math.hypot(playerVx, playerVy);
+  const isWristSnap = state.chargeMs > 0 &&
+                      state.chargeMs < WRIST_SNAP_MAX_CHARGE &&
+                      playerSpeed > PLAYER_MAX_SPEED * WRIST_SNAP_MIN_SPEED_FRAC;
+
+  let isPerfect = Math.abs(state.chargeMs - SHOOT_MAX_CHARGE_MS) < PERFECT_SHOT_WINDOW;
+
+  // Heat mode or Wrist Snap automatically makes it a "Perfect" shot (Thunder Slap/Snap)
+  if (isHeatMode || isWristSnap) isPerfect = true;
 
   const t = Math.min(state.chargeMs / SHOOT_MAX_CHARGE_MS, 2); // 0..2
   // Triangle: ramp up 0→1, ramp down 1→2
-  const chargeFrac = t <= 1 ? t : 2 - t;
+  let chargeFrac = t <= 1 ? t : 2 - t;
+
+  // Wrist snap uses a minimum charge fraction for power if it triggered
+  if (isWristSnap && chargeFrac < 0.3) chargeFrac = 0.3;
+
   let power = SHOOT_BASE_POWER + chargeFrac * SHOOT_POWER_SCALE;
   if (oneTouch) power *= ONE_TOUCH_MULTIPLIER;
+  if (isWristSnap) power *= 1.15;
   if (isPerfect) power *= PERFECT_SHOT_BOOST;
 
   const len = Math.hypot(aimX, aimY);
@@ -74,6 +91,5 @@ export function releaseShot(
   state.chargeMs = 0;
   state.charging = false;
 
-  return isPerfect;
+  return { isPerfect, isWristSnap };
 }
-

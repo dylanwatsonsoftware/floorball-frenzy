@@ -306,6 +306,8 @@ export class OnlineGameScene extends GameScene {
     this.host.aimY = lerp(s0.state.players.host.aimY, s1.state.players.host.aimY);
     this.host.dashCooldownMs = s1.state.players.host.dashCooldownMs;
     this.host.chargeMs = s1.state.players.host.chargeMs;
+    this.host.heat = lerp(s0.state.players.host.heat, s1.state.players.host.heat);
+    this.host.heatModeMs = s1.state.players.host.heatModeMs;
     this.host.input = { ...s1.state.players.host.input };
 
     this._hostAim = { x: this.host.aimX, y: this.host.aimY };
@@ -420,6 +422,8 @@ export class OnlineGameScene extends GameScene {
           aimX: this.host.aimX, aimY: this.host.aimY,
           dashCooldownMs: this.host.dashCooldownMs,
           chargeMs: this.host.chargeMs,
+          heat: this.host.heat,
+          heatModeMs: this.host.heatModeMs,
           input: this.host.input,
         },
         client: {
@@ -428,6 +432,8 @@ export class OnlineGameScene extends GameScene {
           aimX: this.client.aimX, aimY: this.client.aimY,
           dashCooldownMs: this.client.dashCooldownMs,
           chargeMs: this.client.chargeMs,
+          heat: this.client.heat,
+          heatModeMs: this.client.heatModeMs,
           input: this.client.input,
         },
       },
@@ -465,6 +471,12 @@ export class OnlineGameScene extends GameScene {
             arrival: performance.now(),
             state: msg.snapshot
           });
+
+    if (!this._isHost) {
+      // Sync local player heat state directly from snapshot
+      this.client.heat = msg.snapshot.players.client.heat;
+      this.client.heatModeMs = msg.snapshot.players.client.heatModeMs;
+    }
           // Keep buffer small
           if (this._snapshotBuffer.length > 30) {
             this._snapshotBuffer.shift();

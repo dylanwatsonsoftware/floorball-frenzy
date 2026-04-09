@@ -88,5 +88,17 @@ export const BOLT_FRICTION_POWER = 0.5;
 export const ONE_TOUCH_WINDOW      = 300;
 export const ONE_TOUCH_MULTIPLIER  = 1.25;
 
+// ─── Heat System ──────────────────────────────────────────────────────────────
+export const HEAT_MAX           = 100;
+export const HEAT_ONE_TOUCH     = 15;
+export const HEAT_STEAL         = 25;
+export const HEAT_PERFECT_SHOT  = 25;
+export const HEAT_MODE_DURATION = 6000;
+export const HEAT_SPEED_BOOST   = 1.15;
+
+// ─── Skill Shots ──────────────────────────────────────────────────────────────
+export const WRIST_SNAP_MAX_CHARGE = 150;
+export const WRIST_SNAP_MIN_SPEED_FRAC = 0.8;
+
 // ─── Fixed timestep ───────────────────────────────────────────────────────────
 export const FIXED_DT = 1 / 60;

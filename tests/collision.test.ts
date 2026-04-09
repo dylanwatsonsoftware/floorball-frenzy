@@ -14,6 +14,8 @@ function makePlayer(overrides: Partial<PlayerExtended> = {}): PlayerExtended {
     aimX: 1, aimY: 0,
     dashCooldownMs: 0,
     chargeMs: 0,
+    heat: 0,
+    heatModeMs: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false },
     ...overrides,
   };
@@ -195,6 +197,7 @@ describe("resolvePlayerRectangleCollision", () => {
     const p = makePlayer({ x: 125, y: 210, vx: 0, vy: -100 });
     // Rect at 100, 100, w=50, h=100 (bottom edge at 200)
     // Closest point (125, 200). dist = 10, ny = 1.
+    // overlap = 10. p.y += 10 -> 210.
     resolvePlayerRectangleCollision(p, 100, 100, 50, 100);
     expect(p.y).toBeGreaterThanOrEqual(209.9);
     expect(p.vy).toBeGreaterThanOrEqual(0);

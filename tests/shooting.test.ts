@@ -127,4 +127,3 @@ describe("releaseShot — direction and power", () => {
     expect(s.charging).toBe(false);
   });
 });
-

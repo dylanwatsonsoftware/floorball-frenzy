@@ -10,6 +10,7 @@ import {
   FIELD_BOTTOM,
   DASH_FORCE,
   DASH_COOLDOWN,
+  HEAT_SPEED_BOOST,
 } from "./constants";
 
 export interface PlayerExtended extends Player {
@@ -49,9 +50,12 @@ export function stepPlayer(
   }
 
   // Clamp to max speed
+  let currentMaxSpeed = PLAYER_MAX_SPEED;
+  if (player.heatModeMs > 0) currentMaxSpeed *= HEAT_SPEED_BOOST;
+
   const speed = Math.hypot(player.vx, player.vy);
-  if (speed > PLAYER_MAX_SPEED) {
-    const scale = PLAYER_MAX_SPEED / speed;
+  if (speed > currentMaxSpeed) {
+    const scale = currentMaxSpeed / speed;
     player.vx *= scale;
     player.vy *= scale;
   }
@@ -59,6 +63,11 @@ export function stepPlayer(
   // Friction (always)
   player.vx *= PLAYER_FRICTION;
   player.vy *= PLAYER_FRICTION;
+
+  // Heat Mode countdown
+  if (player.heatModeMs > 0) {
+    player.heatModeMs = Math.max(0, player.heatModeMs - elapsedMs);
+  }
 
   // Integrate position
   player.x += player.vx * dt;
@@ -83,6 +92,8 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     aimY: 0,
     dashCooldownMs: 0,
     chargeMs: 0,
+    heat: 0,
+    heatModeMs: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false },
   };
 }
