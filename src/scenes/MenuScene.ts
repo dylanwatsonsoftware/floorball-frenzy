@@ -355,47 +355,22 @@ export class MenuScene extends Phaser.Scene {
     const backX = isPortrait ? cx - sw * 0.25 : cx - 400;
 
     const smallBtnY = isPortrait ? BAR_Y + 150 : BAR_Y;
-    const backBg = this.add.rectangle(backX, smallBtnY, backWidth, bgH, 0x555566, 1)
-      .setStrokeStyle(1, 0x9999bb, 1).setInteractive({ useHandCursor: true }).setDepth(10);
-    const backTxt = this.add.text(backBg.x, backBg.y, "‹  Back", {
-      fontSize: `${16 * BTN_SCALE}px`, color: "#ffffff", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(11);
-    backTxt.disableInteractive();
+    const ts = isPortrait ? 1.4 : 0.9;
+
+    const b1 = this._makeButton(backX, smallBtnY, backWidth, bgH, "‹  BACK", "", 0x666677, 0x333344, () => this._hideLobby(), ts, 10);
 
     const refreshX = isPortrait ? cx + sw * 0.25 : cx;
-    const refreshBg = this.add.rectangle(refreshX, smallBtnY, backWidth, bgH, 0x1a44bb, 1)
-      .setStrokeStyle(1, 0x6699ff, 0.7).setInteractive({ useHandCursor: true }).setDepth(10);
-    const refreshTxt = this.add.text(refreshBg.x, refreshBg.y, "↻  Refresh", {
-      fontSize: `${16 * BTN_SCALE}px`, color: "#ffffff", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(11);
-    refreshTxt.disableInteractive();
+    const b2 = this._makeButton(refreshX, smallBtnY, backWidth, bgH, "↻  REFRESH", "", 0x1a44bb, 0x051144, () => { void loadGames(); }, ts, 10);
 
     const newGameY = BAR_Y;
     const newH = isPortrait ? 132 : 48 * BTN_SCALE;
-    const newGameBg = this.add.rectangle(isPortrait ? cx : cx + 400, newGameY, isPortrait ? sw * 0.95 : 260 * BTN_SCALE, newH, GREEN, 1)
-      .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(10);
-    const newGameTxt = this.add.text(newGameBg.x, newGameBg.y, "✚  Create New Game", {
-      fontSize: `${15 * BTN_SCALE}px`, color: "#000000", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(11);
-    newGameTxt.disableInteractive();
-
-    this._lobbyObjs = [bg, titleTxt, divGfx, statusTxt, backBg, backTxt, refreshBg, refreshTxt, newGameBg, newGameTxt];
-
-    // ── Button interactions ───────────────────────────────────────────────────
-    backBg.on("pointerover", () => backBg.setFillStyle(0x666677));
-    backBg.on("pointerout", () => backBg.setFillStyle(0x555566));
-    backBg.on("pointerup", () => this._hideLobby());
-
-    refreshBg.on("pointerover", () => refreshBg.setStrokeStyle(1, 0xaaccff, 1));
-    refreshBg.on("pointerout", () => refreshBg.setStrokeStyle(1, 0x6699ff, 0.7));
-    refreshBg.on("pointerup", () => { void loadGames(); });
-
-    newGameBg.on("pointerover", () => newGameBg.setFillStyle(0x55dd77));
-    newGameBg.on("pointerout", () => newGameBg.setFillStyle(GREEN));
-    newGameBg.on("pointerup", () => {
+    const tsNew = isPortrait ? 1.5 : 0.9;
+    const b3 = this._makeButton(isPortrait ? cx : cx + 400, newGameY, isPortrait ? sw * 0.95 : 260 * BTN_SCALE, newH, "✚  CREATE NEW GAME", "", GREEN, 0x1e7a29, () => {
       this._isHostingVisible = true;
       this._startHosting();
-    });
+    }, tsNew, 10);
+
+    this._lobbyObjs = [bg, titleTxt, divGfx, statusTxt, ...b1, ...b2, ...b3];
 
     // ── Game rows (rebuilt on every refresh) ──────────────────────────────────
     let knownRoomIds: Set<string> | null = null; // null = first load, no ding
@@ -633,13 +608,14 @@ export class MenuScene extends Phaser.Scene {
     label: string, sublabel: string,
     color: number, colorDark: number,
     onClick: () => void,
-    scale = 1.0
-  ): void {
+    scale = 1.0,
+    depth = 0
+  ): Phaser.GameObjects.GameObject[] {
     const W_BTN = w, H_BTN = h;
     const colorHex = `#${color.toString(16).padStart(6, "0")}`;
 
-    const glow = this.add.rectangle(x, y, W_BTN + 8 * scale, H_BTN + 8 * scale, color, 0).setStrokeStyle(3 * scale, color, 0.25);
-    const gradGfx = this.add.graphics();
+    const glow = this.add.rectangle(x, y, W_BTN + 8 * scale, H_BTN + 8 * scale, color, 0).setStrokeStyle(3 * scale, color, 0.25).setDepth(depth);
+    const gradGfx = this.add.graphics().setDepth(depth);
     const drawGrad = (alpha: number) => {
       gradGfx.clear();
       gradGfx.fillGradientStyle(color, color, colorDark, colorDark, alpha);
@@ -647,22 +623,33 @@ export class MenuScene extends Phaser.Scene {
     };
     drawGrad(0.18);
     const border = this.add.rectangle(x, y, W_BTN, H_BTN, 0x000000, 0)
-      .setStrokeStyle(1.5 * scale, color, 0.7).setInteractive({ useHandCursor: true });
-    const accentGfx = this.add.graphics();
+      .setStrokeStyle(1.5 * scale, color, 0.7).setInteractive({ useHandCursor: true }).setDepth(depth);
+    const accentGfx = this.add.graphics().setDepth(depth);
     accentGfx.lineStyle(2 * scale, color, 0.6);
     accentGfx.lineBetween(x - W_BTN / 2 + 12 * scale, y - H_BTN / 2 + 1, x + W_BTN / 2 - 12 * scale, y - H_BTN / 2 + 1);
-    const title = this.add.text(x, y - 12 * scale, label, {
+
+    const hasSub = sublabel !== "";
+    const titleOffsetY = hasSub ? -12 * scale : 0;
+    const title = this.add.text(x, y + titleOffsetY, label, {
       fontSize: `${26 * scale}px`, fontStyle: "bold", color: "#ffffff",
       shadow: { offsetX: 0, offsetY: 1 * scale, color: colorHex, blur: 8 * scale, stroke: false, fill: true },
-    }).setOrigin(0.5);
-    const sub = this.add.text(x, y + 18 * scale, sublabel, {
-      fontSize: `${12 * scale}px`, color: "#ffffff", letterSpacing: 3 * scale,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(depth + 1);
     title.disableInteractive();
-    sub.disableInteractive();
+
+    const objs: Phaser.GameObjects.GameObject[] = [glow, gradGfx, border, accentGfx, title];
+
+    if (hasSub) {
+      const sub = this.add.text(x, y + 18 * scale, sublabel, {
+        fontSize: `${12 * scale}px`, color: "#ffffff", letterSpacing: 3 * scale,
+      }).setOrigin(0.5).setDepth(depth + 1);
+      sub.disableInteractive();
+      objs.push(sub);
+    }
 
     border.on("pointerover", () => { drawGrad(0.35); glow.setStrokeStyle(3 * scale, color, 0.55); title.setShadow(0, 0, colorHex, 16 * scale, false, true); });
     border.on("pointerout", () => { drawGrad(0.18); glow.setStrokeStyle(3 * scale, color, 0.25); title.setShadow(0, 1 * scale, colorHex, 8 * scale, false, true); });
     border.on("pointerup", onClick);
+
+    return objs;
   }
 }
