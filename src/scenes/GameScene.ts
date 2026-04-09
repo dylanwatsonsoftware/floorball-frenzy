@@ -113,7 +113,7 @@ export class GameScene extends Phaser.Scene {
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
 
-  protected static readonly DRIBBLE_AMP  = 22;          // px half-sweep width
+  protected static readonly DRIBBLE_AMP = 22;          // px half-sweep width
   protected static readonly DRIBBLE_FREQ = 3.2;         // tic-tacs per second
   protected static readonly DRIBBLE_DIST = STICK_REACH * 0.91; // how far in front
 
@@ -704,7 +704,7 @@ export class GameScene extends Phaser.Scene {
   /** Snap ball to the static blade tip so shots always connect when possessed. */
   protected _snapBallToBlade(who: "host" | "client"): void {
     const player = who === "host" ? this.host : this.client;
-    const aim   = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
+    const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const stick = this._stickDir(player, aim);
     const aNx = stick.y, aNy = -stick.x;
     this.ball.x = player.x + stick.x * STICK_REACH + aNx * PLAYER_RADIUS * 0.84;
@@ -1139,15 +1139,15 @@ export class GameScene extends Phaser.Scene {
 
         g.beginPath();
         // Arrow Stem
-        g.moveTo(bx + px * (stemW/2), by + py * (stemW/2));
-        g.lineTo(hx + px * (stemW/2), hy + py * (stemW/2));
+        g.moveTo(bx + px * (stemW / 2), by + py * (stemW / 2));
+        g.lineTo(hx + px * (stemW / 2), hy + py * (stemW / 2));
         // Arrow Head
-        g.lineTo(hx + px * (headW/2), hy + py * (headW/2));
+        g.lineTo(hx + px * (headW / 2), hy + py * (headW / 2));
         g.lineTo(ax, ay);
-        g.lineTo(hx - px * (headW/2), hy - py * (headW/2));
+        g.lineTo(hx - px * (headW / 2), hy - py * (headW / 2));
         // Back down stem
-        g.lineTo(hx - px * (stemW/2), hy - py * (stemW/2));
-        g.lineTo(bx - px * (stemW/2), by - py * (stemW/2));
+        g.lineTo(hx - px * (stemW / 2), hy - py * (stemW / 2));
+        g.lineTo(bx - px * (stemW / 2), by - py * (stemW / 2));
         g.closePath();
         g.fillPath();
 
@@ -1160,10 +1160,10 @@ export class GameScene extends Phaser.Scene {
       if (isLocal) {
         // Yellow oval below the character
         gu.lineStyle(3, 0xffff00, 0.8);
-        gu.strokeEllipse(player.x, player.y + 10, 60, 30);
+        gu.strokeEllipse(player.x + 5, player.y + 30, 60, 30);
 
         // Small triangle above
-        const ty = player.y - PLAYER_RADIUS - 55;
+        const ty = player.y - PLAYER_RADIUS - 30;
         g.fillStyle(0xffff00, 1);
         g.fillTriangle(
           player.x - 6, ty - 8,
@@ -1283,7 +1283,7 @@ export class GameScene extends Phaser.Scene {
       const progress = 1 - player.dashCooldownMs / DASH_COOLDOWN;
       const r = PLAYER_RADIUS + 7;
       const start = -Math.PI / 2;
-      const end   = start + progress * Math.PI * 2;
+      const end = start + progress * Math.PI * 2;
       gfx.lineStyle(3, 0x00ff66, 0.85);
       gfx.beginPath();
       gfx.arc(player.x, player.y, r, start, end, false);
