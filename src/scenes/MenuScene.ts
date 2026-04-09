@@ -334,7 +334,7 @@ export class MenuScene extends Phaser.Scene {
     bg.strokeRoundedRect(isPortrait ? 10 : 30, isPortrait ? 10 : 30, viewW - (isPortrait ? 20 : 60), viewH - (isPortrait ? 20 : 60), isPortrait ? 20 : 50);
 
     // Title
-    const titleTxt = this.add.text(cx, isPortrait ? 40 : 68, "JOIN A GAME", {
+    const titleTxt = this.add.text(cx, isPortrait ? 40 : 68, "Join a Game", {
       fontSize: isPortrait ? "40px" : "30px", color: "#00cc66", fontStyle: "bold", letterSpacing: 4,
     }).setOrigin(0.5).setDepth(10);
 
@@ -354,7 +354,8 @@ export class MenuScene extends Phaser.Scene {
     const backWidth = isPortrait ? sw * 0.46 : 180 * BTN_SCALE;
     const backX = isPortrait ? cx - sw * 0.25 : cx - 400;
 
-    const backBg = this.add.rectangle(backX, isPortrait ? BAR_Y : BAR_Y, backWidth, bgH, 0x555566, 1)
+    const smallBtnY = isPortrait ? BAR_Y + 150 : BAR_Y;
+    const backBg = this.add.rectangle(backX, smallBtnY, backWidth, bgH, 0x555566, 1)
       .setStrokeStyle(1, 0x9999bb, 1).setInteractive({ useHandCursor: true }).setDepth(10);
     const backTxt = this.add.text(backBg.x, backBg.y, "‹  Back", {
       fontSize: `${16 * BTN_SCALE}px`, color: "#ffffff", fontStyle: "bold",
@@ -362,14 +363,14 @@ export class MenuScene extends Phaser.Scene {
     backTxt.disableInteractive();
 
     const refreshX = isPortrait ? cx + sw * 0.25 : cx;
-    const refreshBg = this.add.rectangle(refreshX, isPortrait ? BAR_Y : BAR_Y, backWidth, bgH, 0x1a44bb, 1)
+    const refreshBg = this.add.rectangle(refreshX, smallBtnY, backWidth, bgH, 0x1a44bb, 1)
       .setStrokeStyle(1, 0x6699ff, 0.7).setInteractive({ useHandCursor: true }).setDepth(10);
     const refreshTxt = this.add.text(refreshBg.x, refreshBg.y, "↻  Refresh", {
       fontSize: `${16 * BTN_SCALE}px`, color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
     refreshTxt.disableInteractive();
 
-    const newGameY = isPortrait ? BAR_Y + 140 : BAR_Y;
+    const newGameY = BAR_Y;
     const newH = isPortrait ? 132 : 48 * BTN_SCALE;
     const newGameBg = this.add.rectangle(isPortrait ? cx : cx + 400, newGameY, isPortrait ? sw * 0.95 : 260 * BTN_SCALE, newH, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(10);
