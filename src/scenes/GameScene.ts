@@ -331,20 +331,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Back button — top-left, inside HUD bar
-    const backBg = this.add
-      .rectangle(14, 47, 100, 38, 0x3a3a55, 1)
-      .setOrigin(0, 0.5)
-      .setStrokeStyle(1, 0x00e5ff, 0.5)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(16);
-    const backLabel = this.add
-      .text(64, 47, "‹ Back", { fontSize: "14px", color: "#aaaacc", fontStyle: "bold" })
-      .setOrigin(0.5)
-      .setDepth(16);
-    backLabel.disableInteractive();
-    backBg.on("pointerover", () => { backLabel.setColor("#ffffff"); backBg.setStrokeStyle(1, 0x00e5ff, 1); backBg.setFillStyle(0x4a4a65, 1); });
-    backBg.on("pointerout", () => { backLabel.setColor("#aaaacc"); backBg.setStrokeStyle(1, 0x00e5ff, 0.5); backBg.setFillStyle(0x3a3a55, 1); });
-    backBg.on("pointerup", () => this._confirmLeave());
+    this._makeButton(64, 47, 100, 38, "‹  BACK", "", 0x555566, 0x222233, () => this._confirmLeave(), 0.6, 16);
 
     // Center the 1280×720 game world in the available canvas on wider screens.
     // Re-apply on every resize so mobile browser-chrome changes don't break it.
@@ -1527,5 +1514,56 @@ export class GameScene extends Phaser.Scene {
     // ── Rink border (drawn last, on top of everything) ────────────────────────
     g.lineStyle(4, 0xffffff, 1);
     g.strokeRoundedRect(FIELD_LEFT, FIELD_TOP, W, H, r);
+  }
+
+  private _makeButton(
+    x: number, y: number,
+    w: number, h: number,
+    label: string, sublabel: string,
+    color: number, colorDark: number,
+    onClick: () => void,
+    scale = 1.0,
+    depth = 0
+  ): Phaser.GameObjects.GameObject[] {
+    const W_BTN = w, H_BTN = h;
+    const colorHex = `#${color.toString(16).padStart(6, "0")}`;
+
+    const glow = this.add.rectangle(x, y, W_BTN + 8 * scale, H_BTN + 8 * scale, color, 0).setStrokeStyle(3 * scale, color, 0.25).setDepth(depth);
+    const gradGfx = this.add.graphics().setDepth(depth);
+    const drawGrad = (alpha: number) => {
+      gradGfx.clear();
+      gradGfx.fillGradientStyle(color, color, colorDark, colorDark, alpha);
+      gradGfx.fillRoundedRect(x - W_BTN / 2, y - H_BTN / 2, W_BTN, H_BTN, 10 * scale);
+    };
+    drawGrad(0.18);
+    const border = this.add.rectangle(x, y, W_BTN, H_BTN, 0x000000, 0)
+      .setStrokeStyle(1.5 * scale, color, 0.7).setInteractive({ useHandCursor: true }).setDepth(depth);
+    const accentGfx = this.add.graphics().setDepth(depth);
+    accentGfx.lineStyle(2 * scale, color, 0.6);
+    accentGfx.lineBetween(x - W_BTN / 2 + 12 * scale, y - H_BTN / 2 + 1, x + W_BTN / 2 - 12 * scale, y - H_BTN / 2 + 1);
+
+    const hasSub = sublabel !== "";
+    const titleOffsetY = hasSub ? -12 * scale : 0;
+    const title = this.add.text(x, y + titleOffsetY, label, {
+      fontSize: `${26 * scale}px`, fontStyle: "bold", color: "#ffffff",
+      shadow: { offsetX: 0, offsetY: 1 * scale, color: colorHex, blur: 8 * scale, stroke: false, fill: true },
+    }).setOrigin(0.5).setDepth(depth + 1);
+    title.disableInteractive();
+
+    const objs: Phaser.GameObjects.GameObject[] = [glow, gradGfx, border, accentGfx, title];
+
+    if (hasSub) {
+      const sub = this.add.text(x, y + 18 * scale, sublabel, {
+        fontSize: `${12 * scale}px`, color: "#ffffff", letterSpacing: 3 * scale,
+      }).setOrigin(0.5).setDepth(depth + 1);
+      sub.disableInteractive();
+      objs.push(sub);
+    }
+
+    border.on("pointerover", () => { drawGrad(0.35); glow.setStrokeStyle(3 * scale, color, 0.55); title.setShadow(0, 0, colorHex, 16 * scale, false, true); });
+    border.on("pointerout", () => { drawGrad(0.18); glow.setStrokeStyle(3 * scale, color, 0.25); title.setShadow(0, 1 * scale, colorHex, 8 * scale, false, true); });
+    border.on("pointerup", onClick);
+
+    return objs;
   }
 }
