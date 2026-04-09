@@ -29,8 +29,10 @@ export class MenuScene extends Phaser.Scene {
   private _lobbyAutoRefresh: Phaser.Time.TimerEvent | null = null;
   private _controlMode: "stick" | "follow" = "stick";
   private _isLobbyVisible = false;
+  private _isHostingVisible = false;
   private _hostingInput: HTMLInputElement | null = null;
   private _renderBound: () => void;
+  private _savedGameName = "";
 
   constructor() {
     super({ key: "MenuScene" });
@@ -39,6 +41,7 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     this._controlMode = (localStorage.getItem("floorball:controls") as "stick" | "follow") || "stick";
+    this._savedGameName = localStorage.getItem("floorball:gameName") ?? "";
 
     const hashCode = window.location.hash.slice(1).toUpperCase();
     if (hashCode.length > 0) {
@@ -89,6 +92,9 @@ export class MenuScene extends Phaser.Scene {
 
     if (this._isLobbyVisible) {
       void this._showLobby();
+      if (this._isHostingVisible) {
+        this._startHosting();
+      }
     } else {
       this._drawMainMenu(isPortrait, sw, sh);
     }
@@ -319,25 +325,25 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10);
 
     // ── Bottom action bar ──────────────────────────────────────────────────────
-    const BAR_Y = viewH - (isPortrait ? 160 : 52);
-    const BTN_SCALE = isPortrait ? 1.4 : 1.0;
+    const BAR_Y = viewH - (isPortrait ? 170 : 52);
+    const BTN_SCALE = isPortrait ? 1.5 : 1.0;
 
-    const backBg = this.add.rectangle(isPortrait ? cx - sw * 0.28 : cx - 370, isPortrait ? BAR_Y : BAR_Y, 180 * BTN_SCALE, 48 * BTN_SCALE, 0x111111, 1)
-      .setStrokeStyle(1, 0x444444, 1).setInteractive({ useHandCursor: true }).setDepth(10);
+    const backBg = this.add.rectangle(isPortrait ? cx - sw * 0.26 : cx - 370, isPortrait ? BAR_Y : BAR_Y, (isPortrait ? sw * 0.44 : 180 * BTN_SCALE), (isPortrait ? 72 : 48 * BTN_SCALE), 0x333344, 1)
+      .setStrokeStyle(1, 0x555566, 1).setInteractive({ useHandCursor: true }).setDepth(10);
     const backTxt = this.add.text(backBg.x, backBg.y, "‹  BACK", {
-      fontSize: `${16 * BTN_SCALE}px`, color: "#888888", fontStyle: "bold",
+      fontSize: `${16 * BTN_SCALE}px`, color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
     backTxt.disableInteractive();
 
-    const refreshBg = this.add.rectangle(isPortrait ? cx + sw * 0.28 : cx, isPortrait ? BAR_Y : BAR_Y, 180 * BTN_SCALE, 48 * BTN_SCALE, 0x1a44bb, 1)
+    const refreshBg = this.add.rectangle(isPortrait ? cx + sw * 0.26 : cx, isPortrait ? BAR_Y : BAR_Y, (isPortrait ? sw * 0.44 : 180 * BTN_SCALE), (isPortrait ? 72 : 48 * BTN_SCALE), 0x1a44bb, 1)
       .setStrokeStyle(1, 0x6699ff, 0.7).setInteractive({ useHandCursor: true }).setDepth(10);
     const refreshTxt = this.add.text(refreshBg.x, refreshBg.y, "↻  REFRESH", {
       fontSize: `${16 * BTN_SCALE}px`, color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(11);
     refreshTxt.disableInteractive();
 
-    const newGameY = isPortrait ? BAR_Y + 90 : BAR_Y;
-    const newGameBg = this.add.rectangle(isPortrait ? cx : cx + 370, newGameY, isPortrait ? sw * 0.9 : 240, 48 * BTN_SCALE, GREEN, 1)
+    const newGameY = isPortrait ? BAR_Y + 100 : BAR_Y;
+    const newGameBg = this.add.rectangle(isPortrait ? cx : cx + 370, newGameY, isPortrait ? sw * 0.92 : 240, (isPortrait ? 80 : 48 * BTN_SCALE), GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(10);
     const newGameTxt = this.add.text(newGameBg.x, newGameBg.y, "✚  CREATE NEW GAME", {
       fontSize: `${15 * BTN_SCALE}px`, color: "#000000", fontStyle: "bold",
@@ -347,8 +353,8 @@ export class MenuScene extends Phaser.Scene {
     this._lobbyObjs = [bg, titleTxt, divGfx, statusTxt, backBg, backTxt, refreshBg, refreshTxt, newGameBg, newGameTxt];
 
     // ── Button interactions ───────────────────────────────────────────────────
-    backBg.on("pointerover", () => backBg.setStrokeStyle(1, 0x888888, 1));
-    backBg.on("pointerout", () => backBg.setStrokeStyle(1, 0x444444, 1));
+    backBg.on("pointerover", () => backBg.setFillStyle(0x444455));
+    backBg.on("pointerout", () => backBg.setFillStyle(0x333344));
     backBg.on("pointerup", () => this._hideLobby());
 
     refreshBg.on("pointerover", () => refreshBg.setStrokeStyle(1, 0xaaccff, 1));
@@ -357,7 +363,10 @@ export class MenuScene extends Phaser.Scene {
 
     newGameBg.on("pointerover", () => newGameBg.setFillStyle(0x55dd77));
     newGameBg.on("pointerout", () => newGameBg.setFillStyle(GREEN));
-    newGameBg.on("pointerup", () => this._startHosting());
+    newGameBg.on("pointerup", () => {
+      this._isHostingVisible = true;
+      this._startHosting();
+    });
 
     // ── Game rows (rebuilt on every refresh) ──────────────────────────────────
     let knownRoomIds: Set<string> | null = null; // null = first load, no ding
@@ -451,6 +460,7 @@ export class MenuScene extends Phaser.Scene {
 
   private _hideLobby(): void {
     this._isLobbyVisible = false;
+    this._isHostingVisible = false;
     this._render();
   }
 
@@ -461,7 +471,7 @@ export class MenuScene extends Phaser.Scene {
     const cx = isPortrait ? sw / 2 : W / 2;
     const cy = isPortrait ? sh / 2 : H / 2;
 
-    const saved = localStorage.getItem("floorball:gameName") ?? "";
+    const saved = this._savedGameName;
     const MW = isPortrait ? sw * 0.9 : 480, MH = 220;
 
     const overlay = this.add.rectangle(cx, cy, isPortrait ? sw : W, isPortrait ? sh : H, 0x000000, 0.75).setDepth(20).setInteractive();
@@ -492,7 +502,13 @@ export class MenuScene extends Phaser.Scene {
     el.placeholder = "Game name…";
     document.body.appendChild(el);
     el.addEventListener("focus", () => this.input.keyboard?.disableGlobalCapture());
-    el.addEventListener("blur", () => this.input.keyboard?.enableGlobalCapture());
+    el.addEventListener("blur", () => {
+      this._savedGameName = el.value;
+      this.input.keyboard?.enableGlobalCapture();
+    });
+    el.addEventListener("input", () => {
+      this._savedGameName = el.value;
+    });
     setTimeout(() => { el.focus(); el.select(); }, 50);
 
     const okBg = this.add.rectangle(cx + (isPortrait ? MW*0.25 : 90), cy + MH / 2 - 40, isPortrait ? MW*0.4 : 140, 44, GREEN, 1)
@@ -510,11 +526,17 @@ export class MenuScene extends Phaser.Scene {
     cancelTxt.disableInteractive();
 
     this._hostingObjs = [overlay, modalGfx, titleTxt, okBg, okTxt, cancelBg, cancelTxt];
-    const destroy = () => { this._cleanup(); };
+    const destroy = () => {
+      this._isHostingVisible = false;
+      this._cleanup();
+      this._render();
+    };
 
     const confirm = () => {
       const hostName = el.value.trim() || "Game";
-      destroy();
+      this._isHostingVisible = false;
+      this._savedGameName = hostName;
+      this._cleanup();
       localStorage.setItem("floorball:gameName", hostName);
       const roomId = randomRoomId();
       window.location.hash = roomId;
