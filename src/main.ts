@@ -14,13 +14,11 @@ const config: Phaser.Types.Core.GameConfig = {
   width: 1280,
   height: 720,
   backgroundColor: "#1a1a2e",
-  resolution: window.devicePixelRatio || 1,
   scale: {
     mode: Phaser.Scale.EXPAND,
     autoCenter: Phaser.Scale.CENTER_BOTH,
     fullscreenTarget: 'parent',
     expandParent: true,
-    autoDensity: true,
   },
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
 };
