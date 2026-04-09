@@ -506,16 +506,16 @@ export class MenuScene extends Phaser.Scene {
       document.body.appendChild(el);
       el.addEventListener("focus", () => this.input.keyboard?.disableGlobalCapture());
       el.addEventListener("blur", () => {
-        this._savedGameName = el.value;
+        if (el) this._savedGameName = el.value;
         this.input.keyboard?.enableGlobalCapture();
       });
       el.addEventListener("input", () => {
-        this._savedGameName = el.value;
+        if (el) this._savedGameName = el.value;
       });
       setTimeout(() => { if (el) { el.focus(); el.select(); } }, 50);
     }
 
-    Object.assign(el.style, {
+    if (el) Object.assign(el.style, {
       position: "fixed", left: "50%", top: "50%",
       transform: "translate(-50%, -50%)",
       width: isPortrait ? "280px" : "340px", height: "44px", background: "#0a0f0a",
@@ -584,7 +584,7 @@ export class MenuScene extends Phaser.Scene {
       if (e.key === "Enter") confirm();
       if (e.key === "Escape") destroy();
     };
-    el.addEventListener("keydown", onKeydown);
+    el?.addEventListener("keydown", onKeydown);
     // Cleanup the event listener on next render
     this.events.once("render", () => { if (el) el.removeEventListener("keydown", onKeydown); });
   }
