@@ -111,6 +111,7 @@ export class GameScene extends Phaser.Scene {
   private _indicatorGraphics!: Phaser.GameObjects.Graphics;
   // Ball orientation as quaternion [w, x, y, z]; updated each frame via rolling rotation
   protected _ballQuat: [number, number, number, number] = [1, 0, 0, 0];
+  protected _ballScalePulse = 1.0;
 
   protected static readonly DRIBBLE_AMP  = 22;          // px half-sweep width
   protected static readonly DRIBBLE_FREQ = 3.2;         // tic-tacs per second
@@ -439,6 +440,12 @@ export class GameScene extends Phaser.Scene {
       this._ballQuat = this._ballQuat.map(v => v / len) as [number, number, number, number];
     }
 
+    // Decay ball scale pulse back to 1.0
+    if (this._ballScalePulse > 1.0) {
+      this._ballScalePulse += (1.0 - this._ballScalePulse) * (1 - Math.pow(0.85, delta / 16.66));
+      if (this._ballScalePulse < 1.001) this._ballScalePulse = 1.0;
+    }
+
     this._syncSprites();
     this._updateIndicators();
     this._updateGhosts(delta);
@@ -634,19 +641,22 @@ export class GameScene extends Phaser.Scene {
       if (distToBlade > 75) return false;
       if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-      // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+      // Velocity coupling: 0.45 total (0.1 from assist + 0.35 here)
       applyPossessionAssist(this.ball, player.vx, player.vy);
-      this.ball.vx += (player.vx - this.ball.vx) * 0.25;
-      this.ball.vy += (player.vy - this.ball.vy) * 0.25;
+      this.ball.vx += (player.vx - this.ball.vx) * 0.35;
+      this.ball.vy += (player.vy - this.ball.vy) * 0.35;
 
-      // Pull toward blade tip: smoother interpolation to prevent teleporting
+      // Pull toward blade tip: mix position and velocity injection for smoothness
       const dx = bladeTipX - this.ball.x;
       const dy = bladeTipY - this.ball.y;
       const dist = Math.hypot(dx, dy);
       if (dist > 0.1) {
-        const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP);
-        this.ball.x += (dx / dist) * moveDist;
-        this.ball.y += (dy / dist) * moveDist;
+        const pull = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP * 1.5);
+        this.ball.x += (dx / dist) * pull;
+        this.ball.y += (dy / dist) * pull;
+        // Small velocity nudge helps the ball 'follow' the stick path more naturally
+        this.ball.vx += dx * 0.1;
+        this.ball.vy += dy * 0.1;
       }
       return true;
     }
@@ -664,19 +674,22 @@ export class GameScene extends Phaser.Scene {
 
     if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-    // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+    // Velocity coupling: 0.45 total (0.1 from assist + 0.35 here)
     applyPossessionAssist(this.ball, player.vx, player.vy);
-    this.ball.vx += (player.vx - this.ball.vx) * 0.25;
-    this.ball.vy += (player.vy - this.ball.vy) * 0.25;
+    this.ball.vx += (player.vx - this.ball.vx) * 0.35;
+    this.ball.vy += (player.vy - this.ball.vy) * 0.35;
 
-    // Pull toward dribble target: smoother interpolation to prevent teleporting
+    // Pull toward dribble target: mix position and velocity injection for smoothness
     const dx = targetX - this.ball.x;
     const dy = targetY - this.ball.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.1) {
-      const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP);
-      this.ball.x += (dx / dist) * moveDist;
-      this.ball.y += (dy / dist) * moveDist;
+      const pull = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP * 1.5);
+      this.ball.x += (dx / dist) * pull;
+      this.ball.y += (dy / dist) * pull;
+      // Small velocity nudge helps the ball 'follow' the stick path more naturally
+      this.ball.vx += dx * 0.1;
+      this.ball.vy += dy * 0.1;
     }
 
     return true;
@@ -684,6 +697,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Spawns a brief visual effect on the ball for a one-touch shot. */
   private _spawnOneTouchJuice(): void {
+    this._ballScalePulse = 1.6;
     // Brief particle burst on the ball
     const visualY = this.ball.y - this.ball.z * 0.6;
     for (let i = 0; i < 8; i++) {
@@ -724,7 +738,10 @@ export class GameScene extends Phaser.Scene {
     const aim = who === "host" ? this._hostAimSmooth : this._clientAimSmooth;
     const player = who === "host" ? this.host : this.client;
     const isOT = this._isOneTouch(who);
-    if (isOT) this._spawnOneTouchJuice();
+    if (isOT) {
+      this._spawnOneTouchJuice();
+      this._frozenMs = 40; // Hit-stop for One-Touch shot
+    }
     const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200;
     const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
     this.ball.isPerfect = isPerfect;
@@ -1181,7 +1198,7 @@ export class GameScene extends Phaser.Scene {
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
-    const displayR = BALL_RADIUS * (1 + this.ball.z * 0.003);
+    const displayR = BALL_RADIUS * (1 + this.ball.z * 0.003) * this._ballScalePulse;
     const depth = 6 + this.ball.z * 0.01;
     this._ballGraphics.clear().setPosition(this.ball.x, visualY).setDepth(depth);
 
