@@ -1160,10 +1160,10 @@ export class GameScene extends Phaser.Scene {
       if (isLocal) {
         // Yellow oval below the character
         gu.lineStyle(3, 0xffff00, 0.8);
-        gu.strokeEllipse(player.x, player.y, 60, 30);
+        gu.strokeEllipse(player.x, player.y + 30, 60, 30);
 
         // Small triangle above
-        const ty = player.y - PLAYER_RADIUS - 15;
+        const ty = player.y - PLAYER_RADIUS - 55;
         g.fillStyle(0xffff00, 1);
         g.fillTriangle(
           player.x - 6, ty - 8,
