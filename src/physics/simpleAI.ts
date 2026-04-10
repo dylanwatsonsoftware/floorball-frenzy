@@ -12,6 +12,17 @@ import {
   GOAL_CAGE_DEPTH
 } from "./constants";
 
+const AVOIDANCE_DISTANCE = 200;
+const AVOIDANCE_Y_OFFSET = 150;
+const AVOIDANCE_X_OFFSET = 100;
+const SHOOT_RANGE = 450;
+const SHOOT_CHARGE_FRACTION = 0.7;
+const DASH_RANGE = 300;
+const GOAL_PROXIMITY_X = 20;
+const GOAL_MOUTH_Y_BUFFER = 10;
+const PADDING_BUFFER = 10;
+const MOVEMENT_THRESHOLD = 10;
+
 export function getNextAIInput(aiPlayer: Player, ball: Ball, opponent: Player): InputState {
   const input: InputState = {
     moveX: 0,
@@ -26,7 +37,7 @@ export function getNextAIInput(aiPlayer: Player, ball: Ball, opponent: Player): 
   let targetX = ball.x;
   let targetY = ball.y;
 
-  const PADDING = PLAYER_RADIUS + 10;
+  const PADDING = PLAYER_RADIUS + PADDING_BUFFER;
 
   if (hasPossession) {
     // AI (Client) attacks Left Goal
@@ -38,19 +49,19 @@ export function getNextAIInput(aiPlayer: Player, ball: Ball, opponent: Player): 
     const dyOpp = opponent.y - aiPlayer.y;
     const distOpp = Math.hypot(dxOpp, dyOpp);
 
-    if (distOpp < 200 && opponent.x < aiPlayer.x) {
+    if (distOpp < AVOIDANCE_DISTANCE && opponent.x < aiPlayer.x) {
       if (opponent.y > aiPlayer.y) {
-        targetY = Math.max(FIELD_TOP + PADDING, aiPlayer.y - 150);
+        targetY = Math.max(FIELD_TOP + PADDING, aiPlayer.y - AVOIDANCE_Y_OFFSET);
       } else {
-        targetY = Math.min(FIELD_BOTTOM - PADDING, aiPlayer.y + 150);
+        targetY = Math.min(FIELD_BOTTOM - PADDING, aiPlayer.y + AVOIDANCE_Y_OFFSET);
       }
-      targetX = aiPlayer.x - 100;
+      targetX = aiPlayer.x - AVOIDANCE_X_OFFSET;
     }
 
     // Shooting logic
     const distToGoal = Math.hypot(aiPlayer.x - GOAL_LINE_LEFT, aiPlayer.y - midGoalY);
-    if (distToGoal < 450) {
-      if (aiPlayer.chargeMs < SHOOT_MAX_CHARGE_MS * 0.7) {
+    if (distToGoal < SHOOT_RANGE) {
+      if (aiPlayer.chargeMs < SHOOT_MAX_CHARGE_MS * SHOOT_CHARGE_FRACTION) {
         input.slap = true;
       } else {
         input.slap = false;
@@ -63,16 +74,16 @@ export function getNextAIInput(aiPlayer: Player, ball: Ball, opponent: Player): 
 
     // Use dash if ball is far away
     const distToBall = Math.hypot(aiPlayer.x - ball.x, aiPlayer.y - ball.y);
-    if (distToBall > 300 && aiPlayer.dashCharges > 0 && aiPlayer.dashCooldownMs === 0) {
+    if (distToBall > DASH_RANGE && aiPlayer.dashCharges > 0 && aiPlayer.dashCooldownMs === 0) {
       input.dash = true;
     }
   }
 
   // ── Corner / Goal Obstacle handling ─────────────────────────────────────────
   // If target is near a goal cage but not the mouth, steer toward the center
-  const isNearLeftGoalX = targetX < GOAL_LINE_LEFT + 20;
-  const isNearRightGoalX = targetX > FIELD_RIGHT - GOAL_CAGE_DEPTH - 20;
-  const isOutsideGoalMouthY = targetY < GOAL_TOP - 10 || targetY > GOAL_BOTTOM + 10;
+  const isNearLeftGoalX = targetX < GOAL_LINE_LEFT + GOAL_PROXIMITY_X;
+  const isNearRightGoalX = targetX > FIELD_RIGHT - GOAL_CAGE_DEPTH - GOAL_PROXIMITY_X;
+  const isOutsideGoalMouthY = targetY < GOAL_TOP - GOAL_MOUTH_Y_BUFFER || targetY > GOAL_BOTTOM + GOAL_MOUTH_Y_BUFFER;
 
   if ((isNearLeftGoalX || isNearRightGoalX) && isOutsideGoalMouthY) {
     // Steer vertically toward the center of the pitch to avoid getting stuck behind goals
@@ -89,7 +100,7 @@ export function getNextAIInput(aiPlayer: Player, ball: Ball, opponent: Player): 
   const dy = targetY - aiPlayer.y;
   const dist = Math.hypot(dx, dy);
 
-  if (dist > 10) {
+  if (dist > MOVEMENT_THRESHOLD) {
     input.moveX = dx / dist;
     input.moveY = dy / dist;
   }
