@@ -1573,7 +1573,7 @@ export class GameScene extends Phaser.Scene {
     g.strokeRoundedRect(FIELD_LEFT, FIELD_TOP, W, H, r);
   }
 
-  private _makeButton(
+  protected _makeButton(
     x: number, y: number,
     w: number, h: number,
     label: string, sublabel: string,

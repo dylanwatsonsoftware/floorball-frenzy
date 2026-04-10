@@ -559,16 +559,27 @@ export class OnlineGameScene extends GameScene {
     this._waitingBallGfx = this.add.graphics().setDepth(19);
 
     if (!this._isHost) {
-      const overlay = this.add.rectangle(cx, cy, 520, 260, 0x000000, 0.8).setDepth(18);
-      const title = this.add.text(cx, cy - 70, "Connecting…", {
+      const overlay = this.add.rectangle(cx, cy, 520, 320, 0x000000, 0.8).setDepth(18);
+      const title = this.add.text(cx, cy - 100, "Connecting…", {
         fontSize: "28px", color: "#ffffff", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(19);
-      const sub = this.add.text(cx, cy + 60, "Getting you into the game", {
+      const sub = this.add.text(cx, cy + 100, "Getting you into the game", {
         fontSize: "16px", color: "#556688", align: "center",
       }).setOrigin(0.5).setDepth(19);
+
+      const fsBtn = this._makeButton(cx, cy + 20, 300, 60, "⛶  FULLSCREEN", "", 0x36b346, 0x1e7a29, () => {
+        const el = document.documentElement;
+        if (el.requestFullscreen) {
+          void el.requestFullscreen().catch(() => { });
+        }
+        if (screen.orientation?.lock) {
+          void screen.orientation.lock("landscape").catch(() => { });
+        }
+      }, 0.8, 19);
+
       this._waitingTitleText = title;
       this._waitingSubText = sub;
-      this._sharePanelObjects = [overlay, title, sub, this._waitingBallGfx];
+      this._sharePanelObjects = [overlay, title, sub, this._waitingBallGfx, ...fsBtn];
       return;
     }
 
