@@ -30,6 +30,7 @@ const iabInfo = detectInAppBrowser();
 
 const initGame = () => {
   const game = new Phaser.Game(config);
+  (window as any).phaserGame = game;
 
   // Dynamic viewport management for mobile
   const scream = new Scream({
