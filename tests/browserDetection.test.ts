@@ -1,7 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { detectInAppBrowser } from '../src/utils/browserDetection';
 
 describe('browserDetection', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('detects Facebook', () => {
     const facebookUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/18D52 [FBAN/FBIOS;FBAV/305.0.0.34.112;FBBV/273347571;FBDV/iPhone11,8;FBMD/iPhone;FBSN/iOS;FBSV/14.4;FBSS/2;FBID/phone;FBLC/en_GB;FBOP/5;FBCR/]";
     vi.stubGlobal('navigator', { userAgent: facebookUA });

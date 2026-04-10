@@ -12,7 +12,6 @@ export interface ActionState {
 
 const GLOW   = 0x00e5ff;
 const ACTIVE = 0x1af0ff;
-const DARK   = 0x07070f;
 const DASH_EMPTY = 0x444444;
 
 /**
@@ -23,24 +22,26 @@ export class ActionButtons {
   private _slapPtr:  number | null = null;
   private _dashPtr:  number | null = null;
   private _dashTapped  = false;
+  private _dashPressed = false;
+  private _slapPressed = false;
   private _slapBounds: Phaser.Geom.Circle;
   private _dashBounds: Phaser.Geom.Circle;
 
-  private _dashGfx: Phaser.GameObjects.Graphics;
+  private _dashRingGfx: Phaser.GameObjects.Graphics;
   private _dashCharges = MAX_DASH_CHARGES;
   private _dashCooldownMs = 0;
   private _dashCX = 0;
   private _dashCY = 0;
   private _dashR = 50;
 
-  private _slapGfx: Phaser.GameObjects.Graphics;
+  private _slapRingGfx: Phaser.GameObjects.Graphics;
   private _slapChargeMs = 0;
   private _slapCX = 0;
   private _slapCY = 0;
   private _slapR = 70;
 
-  private _slapBtnGfx!: Phaser.GameObjects.Graphics;
-  private _dashBtnGfx!: Phaser.GameObjects.Graphics;
+  private _slapBaseGfx!: Phaser.GameObjects.Graphics;
+  private _dashBaseGfx!: Phaser.GameObjects.Graphics;
   private _slapLabel!: Phaser.GameObjects.Text;
   private _dashLabel!: Phaser.GameObjects.Text;
 
@@ -60,13 +61,13 @@ export class ActionButtons {
     this._dashCY = dashY;
     this._dashR = SM_R;
 
-    this._slapBtnGfx = scene.add.graphics().setDepth(20);
-    this._dashBtnGfx = scene.add.graphics().setDepth(20);
+    this._slapBaseGfx = scene.add.graphics().setDepth(20);
+    this._dashBaseGfx = scene.add.graphics().setDepth(20);
     this._slapLabel = scene.add.text(0, 0, "SLAP\nHIT", { fontSize: "24px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21);
     this._dashLabel = scene.add.text(0, 0, "QUICK\nDASH", { fontSize: "16px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21);
 
-    this._dashGfx = scene.add.graphics().setDepth(20);
-    this._slapGfx = scene.add.graphics().setDepth(20);
+    this._dashRingGfx = scene.add.graphics().setDepth(20);
+    this._slapRingGfx = scene.add.graphics().setDepth(20);
     this._slapBounds = new Phaser.Geom.Circle(slapX, slapY, BIG_R);
     this._dashBounds = new Phaser.Geom.Circle(dashX, dashY, SM_R);
 
@@ -74,28 +75,30 @@ export class ActionButtons {
 
     scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (this._slapPtr === null && this._slapBounds.contains(p.worldX, p.worldY)) {
-        this._slapPtr  = p.id;
+        this._slapPtr = p.id;
         this._slapDown = true;
-        this._drawBtn(this._slapBtnGfx, this._slapCX, this._slapCY, this._slapR, ACTIVE, 1, 4);
+        this._slapPressed = true;
+        this._drawSlapBase();
       }
-      if (this._dashPtr === null && this._dashBounds.contains(p.worldX, p.worldY)) {
-        this._dashPtr    = p.id;
-        if (this._dashCharges > 0) {
-          this._dashTapped = true;
-          this._drawBtn(this._dashBtnGfx, this._dashCX, this._dashCY, this._dashR, ACTIVE, 1, 4);
-        }
+      if (this._dashPtr === null && this._dashBounds.contains(p.worldX, p.worldY) && this._dashCharges > 0) {
+        this._dashPtr = p.id;
+        this._dashTapped = true;
+        this._dashPressed = true;
+        this._drawDashBase();
       }
     });
 
     scene.input.on("pointerup", (p: Phaser.Input.Pointer) => {
-      if (this._slapPtr  === p.id) {
-        this._slapPtr  = null;
+      if (this._slapPtr === p.id) {
+        this._slapPtr = null;
         this._slapDown = false;
-        this._drawBtn(this._slapBtnGfx, this._slapCX, this._slapCY, this._slapR, GLOW, 0.7, 2);
+        this._slapPressed = false;
+        this._drawSlapBase();
       }
-      if (this._dashPtr  === p.id) {
-        this._dashPtr  = null;
-        this._drawBtn(this._dashBtnGfx, this._dashCX, this._dashCY, this._dashR, GLOW, 0.7, 2);
+      if (this._dashPtr === p.id) {
+        this._dashPtr = null;
+        this._dashPressed = false;
+        this._drawDashBase();
       }
     });
 
@@ -123,37 +126,63 @@ export class ActionButtons {
     this._dashR = SM_R;
     this._dashBounds.setTo(this._dashCX, this._dashCY, this._dashR);
 
-    this._drawBtn(this._slapBtnGfx, this._slapCX, this._slapCY, this._slapR, GLOW, 0.7, 2);
-    this._drawBtn(this._dashBtnGfx, this._dashCX, this._dashCY, this._dashR, GLOW, 0.7, 2);
-
     this._slapLabel.setPosition(this._slapCX, this._slapCY);
     this._dashLabel.setPosition(this._dashCX, this._dashCY);
 
-    this._drawSlap();
-    this._drawDash();
+    this._drawSlapBase();
+    this._drawSlapRing();
+    this._drawDashBase();
+    this._drawDashRing();
   }
 
-  private _drawBtn(gfx: Phaser.GameObjects.Graphics, cx: number, cy: number, radius: number, borderColor: number, borderAlpha: number, borderW: number) {
-    gfx.clear();
-    gfx.fillStyle(DARK, 0.9);
-    gfx.fillCircle(cx, cy, radius);
-    gfx.lineStyle(borderW, borderColor, borderAlpha);
-    gfx.strokeCircle(cx, cy, radius);
+
+
+  private _drawDashBase(): void {
+    const g = this._dashBaseGfx;
+    const cx = this._dashCX, cy = this._dashCY, r = this._dashR;
+    g.clear();
+
+    // Background
+    const bgColor = this._dashCharges > 0 ? 0x00cc66 : 0x333333; // Green or Gray
+    g.fillStyle(bgColor, 0.85);
+    g.fillCircle(cx, cy, r);
+
+    // Border
+    const borderColor = this._dashPressed ? ACTIVE : (this._dashCharges > 0 ? GLOW : DASH_EMPTY);
+    g.lineStyle(2, borderColor, 0.7);
+    g.strokeCircle(cx, cy, r);
   }
 
   updateDashState(charges: number, cooldownMs: number): void {
     this._dashCharges = charges;
     this._dashCooldownMs = cooldownMs;
-    this._drawDash();
+    this._drawDashBase();
+    this._drawDashRing();
   }
 
   updateSlapState(chargeMs: number): void {
     this._slapChargeMs = chargeMs;
-    this._drawSlap();
+    this._drawSlapBase();
+    this._drawSlapRing();
   }
 
-  private _drawSlap(): void {
-    const g = this._slapGfx;
+  private _drawSlapBase(): void {
+    const g = this._slapBaseGfx;
+    const cx = this._slapCX, cy = this._slapCY, r = this._slapR;
+    g.clear();
+
+    // Background
+    g.fillStyle(0x00cc66, 0.85); // Green
+    g.fillCircle(cx, cy, r);
+
+    // Border
+    const borderColor = this._slapPressed ? ACTIVE : GLOW;
+    g.lineStyle(2, borderColor, 0.7);
+    g.strokeCircle(cx, cy, r);
+  }
+
+  private _drawSlapRing(): void {
+    const g = this._slapRingGfx;
     const cx = this._slapCX, cy = this._slapCY, r = this._slapR;
     g.clear();
 
@@ -166,20 +195,10 @@ export class ActionButtons {
     }
   }
 
-  private _drawDash(): void {
-    const g = this._dashGfx;
+  private _drawDashRing(): void {
+    const g = this._dashRingGfx;
     const cx = this._dashCX, cy = this._dashCY, r = this._dashR;
     g.clear();
-
-    // Background
-    const bgColor = this._dashCharges > 0 ? 0x00cc66 : 0x333333; // Green or Gray
-    g.fillStyle(bgColor, 0.85);
-    g.fillCircle(cx, cy, r);
-
-    // Border
-    const borderColor = this._dashCharges > 0 ? GLOW : DASH_EMPTY;
-    g.lineStyle(2, borderColor, 0.7);
-    g.strokeCircle(cx, cy, r);
 
     // Total Stamina ring (recharge progress)
     // 0 charges = 0.0, MAX_DASH_CHARGES charges = 1.0
