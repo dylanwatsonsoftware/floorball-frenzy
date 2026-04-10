@@ -7,7 +7,8 @@ import {
   GOAL_LINE_LEFT,
   GOAL_LINE_RIGHT,
   GOAL_TOP,
-  GOAL_BOTTOM
+  GOAL_BOTTOM,
+  HEAT_GAIN_DASH
 } from "../physics/constants";
 
 const SNAPSHOT_INTERVAL_MS = 1000 / 60; // 60 Hz
@@ -275,6 +276,11 @@ export class OnlineGameScene extends GameScene {
     if (this._isHost) {
       const hostInput = this._readHostInput();
       const clientInput = this.client.input || NEUTRAL_INPUT;
+
+      // Heat for dash
+      if (hostInput.dash && this.host.dashCharges > 0) (this as any)._gainHeat("host", HEAT_GAIN_DASH);
+      if (clientInput.dash && this.client.dashCharges > 0) (this as any)._gainHeat("client", HEAT_GAIN_DASH);
+
       this._runPhysics(hostInput, clientInput, dt, elapsedMs);
       this._snapshotTimer += elapsedMs;
       if (this._snapshotTimer >= SNAPSHOT_INTERVAL_MS) {
@@ -437,6 +443,8 @@ export class OnlineGameScene extends GameScene {
           dashCooldownMs: this.host.dashCooldownMs,
           dashCharges: this.host.dashCharges,
           chargeMs: this.host.chargeMs,
+          heat: this.host.heat,
+          enFuegoTimerMs: this.host.enFuegoTimerMs,
           input: this.host.input,
         },
         client: {
@@ -446,6 +454,8 @@ export class OnlineGameScene extends GameScene {
           dashCooldownMs: this.client.dashCooldownMs,
           dashCharges: this.client.dashCharges,
           chargeMs: this.client.chargeMs,
+          heat: this.client.heat,
+          enFuegoTimerMs: this.client.enFuegoTimerMs,
           input: this.client.input,
         },
       },

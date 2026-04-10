@@ -26,6 +26,8 @@ export interface Player {
   dashCooldownMs: number;
   dashCharges: number;
   chargeMs: number;
+  heat: number;
+  enFuegoTimerMs: number;
   input: InputState;
 }
 
@@ -39,6 +41,8 @@ export interface Ball {
   isPerfect?: boolean;
   isBolt?: boolean;
   boltTimerMs?: number;
+  isScoop?: boolean;
+  scoopTimerMs?: number;
   possessedBy: string | null;
 }
 

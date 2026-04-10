@@ -48,6 +48,11 @@ import {
   DASH_STEAL_FORCE,
   BOLT_SHOT_BOOST,
   BOLT_SHOT_DURATION_MS,
+  MAX_HEAT,
+  HEAT_GAIN_PERFECT,
+  HEAT_GAIN_STEAL,
+  HEAT_GAIN_DASH,
+  EN_FUEGO_DURATION_MS,
   POSSESSION_PULL_FACTOR,
   POSSESSION_PULL_CAP,
   COLOR_RED,
@@ -135,6 +140,7 @@ export class GameScene extends Phaser.Scene {
   })();
   private _ballShadow!: Phaser.GameObjects.Arc;
   private _dashRingGfx!: Phaser.GameObjects.Graphics;
+  private _hudOverlayGfx!: Phaser.GameObjects.Graphics;
   private _fireGraphics!: Phaser.GameObjects.Graphics;
   private _fireParticles: Array<{
     x: number; y: number; vx: number; vy: number;
@@ -253,6 +259,7 @@ export class GameScene extends Phaser.Scene {
     this._ballGraphics = this.add.graphics().setDepth(6);
     this._indicatorGraphics = this.add.graphics().setDepth(10); // Above players and ball
     this._underPlayerGraphics = this.add.graphics().setDepth(4.4); // Below players (5)
+    this._hudOverlayGfx = this.add.graphics().setDepth(15);
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
@@ -442,6 +449,14 @@ export class GameScene extends Phaser.Scene {
     this._hostShotAnimMs = Math.max(0, this._hostShotAnimMs - delta);
     this._clientShotAnimMs = Math.max(0, this._clientShotAnimMs - delta);
 
+    if (this.ball.isScoop && this.ball.scoopTimerMs !== undefined) {
+      this.ball.scoopTimerMs -= delta;
+      if (this.ball.scoopTimerMs <= 0) {
+        this.ball.isScoop = false;
+        this.ball.scoopTimerMs = 0;
+      }
+    }
+
     // Update ball orientation quaternion from rolling this frame
     const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
     if (ballSpeed > 5) {
@@ -478,7 +493,14 @@ export class GameScene extends Phaser.Scene {
   protected _fixedUpdate(dt: number): void {
     const elapsedMs = dt * 1000;
     this._elapsedMs += elapsedMs;
-    this._runPhysics(this._readHostInput(), this._readClientInput(), dt, elapsedMs);
+    const hIn = this._readHostInput();
+    const cIn = this._readClientInput();
+
+    // Heat for dash
+    if (hIn.dash && this.host.dashCharges > 0) this._gainHeat("host", HEAT_GAIN_DASH);
+    if (cIn.dash && this.client.dashCharges > 0) this._gainHeat("client", HEAT_GAIN_DASH);
+
+    this._runPhysics(hIn, cIn, dt, elapsedMs);
   }
 
   /**
@@ -760,6 +782,12 @@ export class GameScene extends Phaser.Scene {
     const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200 && player.dashCharges < MAX_DASH_CHARGES;
     const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
     this.ball.isPerfect = isPerfect;
+    if (isPerfect) this._gainHeat(who, HEAT_GAIN_PERFECT);
+
+    if (this.ball.isScoop) {
+      this._playScoopSound();
+    }
+
     if (isBolt) {
       this.ball.vx *= BOLT_SHOT_BOOST;
       this.ball.vy *= BOLT_SHOT_BOOST;
@@ -858,6 +886,8 @@ export class GameScene extends Phaser.Scene {
     this._hostShotCooldownMs = 150;
     this._clientShotCooldownMs = 150;
 
+    this._gainHeat(dashingPlayer.id as "host" | "client", HEAT_GAIN_STEAL);
+
     // Juice for poke
     this.cameras.main.shake(150, 0.008);
     this._frozenMs = 40; // hit-stop on steal
@@ -873,6 +903,18 @@ export class GameScene extends Phaser.Scene {
         maxLife: 250,
         size: 8 + Math.random() * 6,
       });
+    }
+  }
+
+  private _gainHeat(who: "host" | "client", amt: number): void {
+    const p = who === "host" ? this.host : this.client;
+    if (p.enFuegoTimerMs > 0) return;
+    p.heat = Math.min(MAX_HEAT, p.heat + amt);
+    if (p.heat >= MAX_HEAT) {
+      p.heat = MAX_HEAT;
+      p.enFuegoTimerMs = EN_FUEGO_DURATION_MS;
+      this._playEnFuegoSound();
+      this.cameras.main.flash(400, 255, 100, 0);
     }
   }
 
@@ -931,6 +973,15 @@ export class GameScene extends Phaser.Scene {
 
     rematchBtn.on("pointerup", () => this._handleRematchClick(rematchBtn, rematchText));
 
+    this.tweens.add({
+      targets: rematchBtn,
+      scale: 1.05,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut"
+    });
+
     // Menu button
     const menuBtn = this.add.rectangle(cx, cy + 170, 250, 60, 0x444466, 1).setDepth(31).setInteractive({ useHandCursor: true });
     const menuText = this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
@@ -965,6 +1016,43 @@ export class GameScene extends Phaser.Scene {
     btn.disableInteractive();
     btn.setAlpha(0.6);
     this.scene.restart();
+  }
+
+  private _playEnFuegoSound(): void {
+    try {
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.2);
+      g.gain.setValueAtTime(0, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch { /* audio not available */ }
+  }
+
+  private _playScoopSound(): void {
+    try {
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+      g.gain.setValueAtTime(0.2, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+    } catch { /* audio not available */ }
   }
 
   private _playGoalCheer(isWin: boolean): void {
@@ -1024,10 +1112,12 @@ export class GameScene extends Phaser.Scene {
     const visualY = this.ball.y - this.ball.z * 0.6;
 
     // Spawn particles proportional to how fast the ball is going
-    if (speed > FIRE_THRESHOLD) {
-      const excess = speed - FIRE_THRESHOLD;
-      const spawnCount = Math.random() < (excess / 400) ? 2 : 1;
-      const invSpeed = 1 / speed;
+    if (speed > FIRE_THRESHOLD || this.ball.isScoop) {
+      const excess = Math.max(0, speed - FIRE_THRESHOLD);
+      let spawnCount = Math.random() < (excess / 400) ? 2 : 1;
+      if (this.ball.isScoop) spawnCount += 2;
+
+      const invSpeed = 1 / (speed || 1);
       const dvx = -this.ball.vx * invSpeed; // direction behind ball
       const dvy = -this.ball.vy * invSpeed;
 
@@ -1040,7 +1130,7 @@ export class GameScene extends Phaser.Scene {
           vy: dvy * (60 + Math.random() * 80) + (Math.random() - 0.5) * 70,
           life: maxLife,
           maxLife,
-          size: 3 + Math.random() * 5,
+          size: (this.ball.isScoop ? 4 : 3) + Math.random() * 5,
         });
       }
     }
@@ -1067,6 +1157,12 @@ export class GameScene extends Phaser.Scene {
         const r = 255;
         const b = 255;
         const g = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
+        color = (r << 16) | (g << 8) | b;
+      } else if (this.ball.isScoop) {
+        // White to Gold
+        const r = 255;
+        const g = 200 + Math.round(t * 55);
+        const b = Math.round(t * 150);
         color = (r << 16) | (g << 8) | b;
       } else {
         // Cyan (t=1) -> White (t=0.5) -> Cyan (t=0)
@@ -1134,8 +1230,10 @@ export class GameScene extends Phaser.Scene {
   protected _updateIndicators(): void {
     const g = this._indicatorGraphics;
     const gu = this._underPlayerGraphics;
+    const h = this._hudOverlayGfx;
     g.clear();
     gu.clear();
+    h.clear();
 
     const drawForPlayer = (
       player: PlayerExtended,
@@ -1191,6 +1289,31 @@ export class GameScene extends Phaser.Scene {
         g.strokePath();
       }
 
+      // 1.5 Heat Meter in HUD
+      const isRed = teamColor === COLOR_RED;
+      const barW = 180;
+      const barH = 10;
+      const barX = isRed ? 260 : 1020 - barW;
+      const barY = 55;
+
+      // BG
+      h.fillStyle(0x222222, 0.8);
+      h.fillRoundedRect(barX, barY, barW, barH, 4);
+
+      // Fill
+      const heatRatio = player.heat / MAX_HEAT;
+      const isFuego = player.enFuegoTimerMs > 0;
+      const fillColor = isFuego ? 0xffaa00 : teamColor;
+      h.fillStyle(fillColor, 1);
+      h.fillRoundedRect(barX, barY, barW * heatRatio, barH, 4);
+
+      if (isFuego) {
+        // Pulsing outline
+        const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 100);
+        h.lineStyle(2, 0xffffff, pulse);
+        h.strokeRoundedRect(barX - 2, barY - 2, barW + 4, barH + 4, 5);
+      }
+
       // 2. Ownership "YOU" indicator
       if (isLocal) {
         // Team colored oval below the character
@@ -1221,6 +1344,11 @@ export class GameScene extends Phaser.Scene {
   protected _syncSprites(): void {
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
+    if (this.ball.isScoop) {
+      // Add extra white glow
+      this._ballGraphics.lineStyle(4, 0xffffff, 0.6);
+      this._ballGraphics.strokeCircle(this.ball.x, visualY, BALL_RADIUS + 4);
+    }
     const displayR = BALL_RADIUS * (1 + this.ball.z * 0.003);
     const depth = 6 + this.ball.z * 0.01;
     this._ballGraphics.clear().setPosition(this.ball.x, visualY).setDepth(depth);
@@ -1238,6 +1366,13 @@ export class GameScene extends Phaser.Scene {
 
     this._hostSprite.setPosition(this.host.x, this.host.y);
     this._hostSprite.setRotation(Math.atan2(this._hostAimSmooth.y, this._hostAimSmooth.x) - Math.PI / 2);
+    if (this.host.enFuegoTimerMs > 0) {
+      const p = 0.7 + 0.3 * Math.sin(this.time.now / 50);
+      this._hostSprite.setTint(0xffaa00).setAlpha(p);
+    } else {
+      this._hostSprite.clearTint().setAlpha(1);
+    }
+
     if (hostHasBall) {
       this._hostSprite.anims.play("dribble_host", true);
     } else if (Math.abs(this.host.vx) > 10 || Math.abs(this.host.vy) > 10) {
@@ -1250,6 +1385,13 @@ export class GameScene extends Phaser.Scene {
 
     this._clientSprite.setPosition(this.client.x, this.client.y);
     this._clientSprite.setRotation(Math.atan2(this._clientAimSmooth.y, this._clientAimSmooth.x) - Math.PI / 2);
+    if (this.client.enFuegoTimerMs > 0) {
+      const p = 0.7 + 0.3 * Math.sin(this.time.now / 50);
+      this._clientSprite.setTint(0xffaa00).setAlpha(p);
+    } else {
+      this._clientSprite.clearTint().setAlpha(1);
+    }
+
     if (clientHasBall) {
       this._clientSprite.anims.play("dribble_client", true);
     } else if (Math.abs(this.client.vx) > 10 || Math.abs(this.client.vy) > 10) {
@@ -1272,7 +1414,8 @@ export class GameScene extends Phaser.Scene {
   private _updateGhosts(delta: number): void {
     // Spawn ghosts
     const DASH_BURST = DASH_COOLDOWN - 200;
-    if (this.host.dashCooldownMs > DASH_BURST && this.host.dashCharges < MAX_DASH_CHARGES && Math.floor(this.time.now / 40) % 2 === 0) {
+    const hostFuego = this.host.enFuegoTimerMs > 0;
+    if ((hostFuego || (this.host.dashCooldownMs > DASH_BURST && this.host.dashCharges < MAX_DASH_CHARGES)) && Math.floor(this.time.now / 40) % 2 === 0) {
       this._ghosts.push({
         x: this.host.x,
         y: this.host.y,
@@ -1280,10 +1423,11 @@ export class GameScene extends Phaser.Scene {
         frame: this._hostSprite.frame.name as unknown as number,
         alpha: 0.5,
         life: GameScene.GHOST_LIFETIME,
-        color: 0x00cc66,
+        color: hostFuego ? 0xffaa00 : 0x00cc66,
       });
     }
-    if (this.client.dashCooldownMs > DASH_BURST && this.client.dashCharges < MAX_DASH_CHARGES && Math.floor(this.time.now / 40) % 2 === 0) {
+    const clientFuego = this.client.enFuegoTimerMs > 0;
+    if ((clientFuego || (this.client.dashCooldownMs > DASH_BURST && this.client.dashCharges < MAX_DASH_CHARGES)) && Math.floor(this.time.now / 40) % 2 === 0) {
       this._ghosts.push({
         x: this.client.x,
         y: this.client.y,
@@ -1291,7 +1435,7 @@ export class GameScene extends Phaser.Scene {
         frame: this._clientSprite.frame.name as unknown as number,
         alpha: 0.5,
         life: GameScene.GHOST_LIFETIME,
-        color: 0xdd2244,
+        color: clientFuego ? 0xffaa00 : 0xdd2244,
       });
     }
 
@@ -1328,6 +1472,8 @@ export class GameScene extends Phaser.Scene {
 
   protected _resetRound(): void {
     resetBall(this.ball);
+    this.ball.isScoop = false;
+    this.ball.scoopTimerMs = 0;
     const midX = (FIELD_LEFT + FIELD_RIGHT) / 2;
     const midY = (FIELD_TOP + FIELD_BOTTOM) / 2;
     this.host.x = midX - 200;
@@ -1346,6 +1492,11 @@ export class GameScene extends Phaser.Scene {
     this.host.dashCooldownMs = 0;
     this.client.dashCharges = MAX_DASH_CHARGES;
     this.client.dashCooldownMs = 0;
+
+    this.host.heat = 0;
+    this.host.enFuegoTimerMs = 0;
+    this.client.heat = 0;
+    this.client.enFuegoTimerMs = 0;
   }
 
   protected _drawSticks(): void {

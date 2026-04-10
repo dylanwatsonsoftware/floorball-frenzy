@@ -7,6 +7,8 @@ import {
   ONE_TOUCH_MULTIPLIER,
   PERFECT_SHOT_WINDOW,
   PERFECT_SHOT_BOOST,
+  SCOOP_CHARGE_WINDOW,
+  SCOOP_LIFT,
 } from "./constants";
 
 export interface ShootState {
@@ -67,9 +69,17 @@ export function releaseShot(
   const nx = len > 0 ? aimX / len : 1;
   const ny = len > 0 ? aimY / len : 0;
 
+  // Scoop Shot detection: Moving backward relative to aim + low charge
+  const dot = nx * playerVx + ny * playerVy;
+  const isScoop = state.chargeMs < SCOOP_CHARGE_WINDOW && dot < -150;
+
   ball.vx = nx * power + playerVx;
   ball.vy = ny * power + playerVy;
-  ball.vz = chargeFrac * SHOOT_LIFT_SCALE;
+  ball.vz = isScoop ? SCOOP_LIFT : (chargeFrac * SHOOT_LIFT_SCALE);
+  ball.isScoop = isScoop;
+  if (isScoop) {
+    ball.scoopTimerMs = 800;
+  }
 
   state.chargeMs = 0;
   state.charging = false;

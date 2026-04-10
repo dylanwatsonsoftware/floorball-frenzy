@@ -15,8 +15,10 @@ function makePlayer(overrides: Partial<PlayerExtended> = {}): PlayerExtended {
     dashCooldownMs: 0,
     dashCharges: 3,
     chargeMs: 0,
+    heat: 0,
+    enFuegoTimerMs: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false },
-    ...overrides,
+    ...(overrides as any),
   };
 }
 

@@ -66,7 +66,7 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
     const type = view[0];
     const dv = new DataView(view.buffer, view.byteOffset, view.byteLength);
 
-    if (type === TYPE_STATE && view.byteLength === 123) {
+    if (type === TYPE_STATE && view.byteLength === 143) {
       return { type: "state", snapshot: decodeSnapshot(dv) };
     }
     if (type === TYPE_INPUT && view.byteLength === 14) {
@@ -86,7 +86,7 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
 // ─── Binary Snapshot (123 bytes) ──────────────────────────────────────────────
 
 function encodeSnapshot(s: GameState): Uint8Array {
-  const buf = new ArrayBuffer(123);
+  const buf = new ArrayBuffer(143);
   const v = new DataView(buf);
   v.setUint8(0, TYPE_STATE);
   v.setFloat32(1, s.t, true);
@@ -101,9 +101,11 @@ function encodeSnapshot(s: GameState): Uint8Array {
   let bFlags = 0;
   if (s.ball.isPerfect) bFlags |= 1;
   if (s.ball.isBolt) bFlags |= 2;
+  if (s.ball.isScoop) bFlags |= 4;
   v.setUint8(29, bFlags);
   v.setFloat32(30, s.ball.boltTimerMs || 0, true);
   v.setUint8(34, s.ball.possessedBy === "host" ? 1 : s.ball.possessedBy === "client" ? 2 : 0);
+  v.setFloat32(35, s.ball.scoopTimerMs || 0, true);
 
   // Players
   const writePlayer = (p: Player, offset: number) => {
@@ -122,13 +124,15 @@ function encodeSnapshot(s: GameState): Uint8Array {
     if (p.input.slap) pFlags |= 2;
     if (p.input.dash) pFlags |= 4;
     v.setUint8(offset + 41, pFlags);
+    v.setFloat32(offset + 42, p.heat, true);
+    v.setFloat32(offset + 46, p.enFuegoTimerMs, true);
   };
 
-  writePlayer(s.players.host, 35);
-  writePlayer(s.players.client, 77);
+  writePlayer(s.players.host, 39);
+  writePlayer(s.players.client, 89);
 
-  v.setUint16(119, s.score.host, true);
-  v.setUint16(121, s.score.client, true);
+  v.setUint16(139, s.score.host, true);
+  v.setUint16(141, s.score.client, true);
 
   return new Uint8Array(buf);
 }
@@ -147,8 +151,10 @@ function decodeSnapshot(v: DataView): GameState {
     vz: v.getFloat32(25, true),
     isPerfect: !!(bFlags & 1),
     isBolt: !!(bFlags & 2),
+    isScoop: !!(bFlags & 4),
     boltTimerMs: v.getFloat32(30, true),
     possessedBy: bPoss === 1 ? "host" : bPoss === 2 ? "client" : null,
+    scoopTimerMs: v.getFloat32(35, true),
   };
 
   const readPlayer = (offset: number, id: string): Player => {
@@ -164,6 +170,8 @@ function decodeSnapshot(v: DataView): GameState {
       dashCooldownMs: v.getFloat32(offset + 24, true),
       dashCharges: v.getUint8(offset + 28),
       chargeMs: v.getFloat32(offset + 29, true),
+      heat: v.getFloat32(offset + 42, true),
+      enFuegoTimerMs: v.getFloat32(offset + 46, true),
       input: {
         moveX: v.getFloat32(offset + 33, true),
         moveY: v.getFloat32(offset + 37, true),
@@ -177,12 +185,12 @@ function decodeSnapshot(v: DataView): GameState {
     t,
     ball,
     players: {
-      host: readPlayer(35, "host"),
-      client: readPlayer(77, "client"),
+      host: readPlayer(39, "host"),
+      client: readPlayer(89, "client"),
     },
     score: {
-      host: v.getUint16(119, true),
-      client: v.getUint16(121, true),
+      host: v.getUint16(139, true),
+      client: v.getUint16(141, true),
     },
   };
 }

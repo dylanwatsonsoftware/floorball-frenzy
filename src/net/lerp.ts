@@ -18,6 +18,8 @@ export function lerpState(current: GameState, snapshot: GameState, t: number): v
   current.ball.isPerfect = snapshot.ball.isPerfect;
   current.ball.isBolt = snapshot.ball.isBolt;
   current.ball.boltTimerMs = snapshot.ball.boltTimerMs;
+  current.ball.isScoop = snapshot.ball.isScoop;
+  current.ball.scoopTimerMs = snapshot.ball.scoopTimerMs;
   current.ball.possessedBy = snapshot.ball.possessedBy;
 
   for (const role of ["host", "client"] as const) {
@@ -29,6 +31,8 @@ export function lerpState(current: GameState, snapshot: GameState, t: number): v
     current.players[role].aimY = lerp(current.players[role].aimY, snapshot.players[role].aimY);
     current.players[role].dashCooldownMs = snapshot.players[role].dashCooldownMs;
     current.players[role].chargeMs = snapshot.players[role].chargeMs;
+    current.players[role].heat = snapshot.players[role].heat;
+    current.players[role].enFuegoTimerMs = snapshot.players[role].enFuegoTimerMs;
     current.players[role].input = { ...snapshot.players[role].input };
   }
 

@@ -11,6 +11,8 @@ import {
   DASH_FORCE,
   DASH_COOLDOWN,
   MAX_DASH_CHARGES,
+  HEAT_DECAY_RATE,
+  EN_FUEGO_SPEED_BOOST,
 } from "./constants";
 
 export interface PlayerExtended extends Player {}
@@ -25,6 +27,17 @@ export function stepPlayer(
   dt: number,
   elapsedMs: number
 ): void {
+  // Heat decay
+  if (player.enFuegoTimerMs <= 0) {
+    player.heat = Math.max(0, player.heat - HEAT_DECAY_RATE * dt);
+  } else {
+    player.enFuegoTimerMs = Math.max(0, player.enFuegoTimerMs - elapsedMs);
+    // En Fuego grants instant dash recharge
+    if (player.dashCharges < MAX_DASH_CHARGES) {
+      player.dashCooldownMs = 0;
+    }
+  }
+
   // Dash cooldown countdown
   if (player.dashCharges < MAX_DASH_CHARGES) {
     player.dashCooldownMs = Math.max(0, player.dashCooldownMs - elapsedMs);
@@ -60,8 +73,9 @@ export function stepPlayer(
 
   // Clamp to max speed
   const speed = Math.hypot(player.vx, player.vy);
-  if (speed > PLAYER_MAX_SPEED) {
-    const scale = PLAYER_MAX_SPEED / speed;
+  const maxSpeed = player.enFuegoTimerMs > 0 ? (PLAYER_MAX_SPEED * EN_FUEGO_SPEED_BOOST) : PLAYER_MAX_SPEED;
+  if (speed > maxSpeed) {
+    const scale = maxSpeed / speed;
     player.vx *= scale;
     player.vy *= scale;
   }
@@ -94,6 +108,8 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     dashCooldownMs: 0,
     dashCharges: MAX_DASH_CHARGES,
     chargeMs: 0,
+    heat: 0,
+    enFuegoTimerMs: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false },
   };
 }

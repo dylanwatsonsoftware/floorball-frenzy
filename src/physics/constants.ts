@@ -87,6 +87,19 @@ export const BOLT_SHOT_BOOST = 1.2;
 export const BOLT_SHOT_DURATION_MS = 600;
 export const BOLT_FRICTION_POWER = 0.5;
 
+// ─── Heat & En Fuego ──────────────────────────────────────────────────────────
+export const MAX_HEAT = 100;
+export const HEAT_GAIN_PERFECT = 30;
+export const HEAT_GAIN_STEAL = 20;
+export const HEAT_GAIN_DASH = 5;
+export const HEAT_DECAY_RATE = 2; // per second
+export const EN_FUEGO_DURATION_MS = 8000;
+export const EN_FUEGO_SPEED_BOOST = 1.2;
+
+// ─── Scoop Shot ──────────────────────────────────────────────────────────────
+export const SCOOP_CHARGE_WINDOW = 250;
+export const SCOOP_LIFT = 600;
+
 // ─── Colors ──────────────────────────────────────────────────────────────────
 export const COLOR_RED = 0xdd2244;
 export const COLOR_BLUE = 0x2a55d4;
