@@ -67,8 +67,7 @@ export class TutorialScene extends Phaser.Scene {
 
     // The game world is 1280x720, centered in the screen.
     const extra = Math.max(0, width - 1280);
-    const scrollX = -Math.floor(extra / 2);
-    const worldToScreenX = (wx: number) => wx - scrollX;
+    const initOffsetX = Math.floor(extra / 2);
 
     const cy = height / 2;
 
@@ -76,22 +75,22 @@ export class TutorialScene extends Phaser.Scene {
       {
         title: "Movement",
         description: "Use the Virtual Joystick on the left to move your player around the rink.\nPoint in the direction you want to face.",
-        highlight: { x: worldToScreenX(384), y: cy + 80, r: 120 }
+        highlight: { x: (768 + initOffsetX) / 2, y: cy, r: 140 }
       },
       {
         title: "Slap Hit",
         description: "Hold SLAP HIT to charge a powerful shot, then release to fire!\nGreat for long-range goals.",
-        highlight: { x: worldToScreenX(1210), y: cy - 80, r: 85 }
+        highlight: { x: 1210 + initOffsetX, y: cy - 80, r: 90 }
       },
       {
         title: "Quick Dash",
         description: "Tap QUICK DASH for a burst of speed.\nYou have 3 charges that refill every few seconds.",
-        highlight: { x: worldToScreenX(1210), y: cy + 100, r: 75 }
+        highlight: { x: 1210 + initOffsetX, y: cy + 100, r: 80 }
       },
       {
         title: "Scoring Goals",
         description: "Attack the opponent's goal on the right (if you're Red).\nThe first player to score 5 goals wins!",
-        highlight: { x: worldToScreenX(1220), y: cy, r: 120 }
+        highlight: { x: 1220 + initOffsetX, y: cy, r: 150 }
       }
     ];
   }
