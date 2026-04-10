@@ -1,4 +1,9 @@
 import Phaser from "phaser";
+import {
+  DASH_COOLDOWN,
+  MAX_DASH_CHARGES,
+  SHOOT_MAX_CHARGE_MS,
+} from "../physics/constants";
 
 export interface ActionState {
   slapHeld: boolean; // held down
@@ -8,7 +13,6 @@ export interface ActionState {
 const GLOW   = 0x00e5ff;
 const ACTIVE = 0x1af0ff;
 const DARK   = 0x07070f;
-const DASH_READY = 0x00ff66;
 const DASH_EMPTY = 0x444444;
 
 interface Btn {
@@ -67,11 +71,17 @@ export class ActionButtons {
   private _dashBounds: Phaser.Geom.Circle;
 
   private _dashGfx: Phaser.GameObjects.Graphics;
-  private _dashCharges = 3;
+  private _dashCharges = MAX_DASH_CHARGES;
   private _dashCooldownMs = 0;
   private _dashCX = 0;
   private _dashCY = 0;
   private _dashR = 50;
+
+  private _slapGfx: Phaser.GameObjects.Graphics;
+  private _slapChargeMs = 0;
+  private _slapCX = 0;
+  private _slapCY = 0;
+  private _slapR = 70;
 
   constructor(scene: Phaser.Scene, panelCX: number, panelCY: number) {
     const BIG_R = 70;
@@ -79,6 +89,10 @@ export class ActionButtons {
 
     const slapX  = panelCX;
     const slapY  = panelCY - 80;
+    this._slapCX = slapX;
+    this._slapCY = slapY;
+    this._slapR = BIG_R;
+
     const dashX  = panelCX;
     const dashY  = panelCY + 100;
     this._dashCX = dashX;
@@ -88,6 +102,7 @@ export class ActionButtons {
     const slapBtn = makeBtn(scene, slapX, slapY, BIG_R, "SLAP HIT");
     const dashBtn = makeBtn(scene, dashX, dashY, SM_R, "QUICK DASH");
     this._dashGfx = scene.add.graphics().setDepth(20);
+    this._slapGfx = scene.add.graphics().setDepth(20);
     this._slapBounds = slapBtn.bounds;
     this._dashBounds = dashBtn.bounds;
 
@@ -127,34 +142,55 @@ export class ActionButtons {
     this._drawDash();
   }
 
+  updateSlapState(chargeMs: number): void {
+    this._slapChargeMs = chargeMs;
+    this._drawSlap();
+  }
+
+  private _drawSlap(): void {
+    const g = this._slapGfx;
+    const cx = this._slapCX, cy = this._slapCY, r = this._slapR;
+    g.clear();
+
+    if (this._slapChargeMs > 0) {
+      const progress = Phaser.Math.Clamp(this._slapChargeMs / SHOOT_MAX_CHARGE_MS, 0, 1);
+      g.lineStyle(6, 0xffff00, 0.9); // Yellow ring
+      g.beginPath();
+      g.arc(cx, cy, r + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2, false);
+      g.strokePath();
+    }
+  }
+
   private _drawDash(): void {
     const g = this._dashGfx;
     const cx = this._dashCX, cy = this._dashCY, r = this._dashR;
     g.clear();
 
-    // Segments (3 small dots)
-    const segmentR = 4;
-    const padding = 12;
-    for (let i = 0; i < 3; i++) {
-      const angle = -Math.PI / 2 + (i - 1) * (Math.PI / 4);
-      const sx = cx + Math.cos(angle) * (r - padding);
-      const sy = cy + Math.sin(angle) * (r - padding);
+    // Background
+    const bgColor = this._dashCharges > 0 ? 0x00cc66 : 0x333333; // Green or Gray
+    g.fillStyle(bgColor, 0.85);
+    g.fillCircle(cx, cy, r);
 
-      if (i < this._dashCharges) {
-        g.fillStyle(DASH_READY, 1);
-      } else {
-        g.fillStyle(DASH_EMPTY, 0.5);
-      }
-      g.fillCircle(sx, sy, segmentR);
-    }
+    // Border
+    const borderColor = this._dashCharges > 0 ? GLOW : DASH_EMPTY;
+    g.lineStyle(2, borderColor, 0.7);
+    g.strokeCircle(cx, cy, r);
 
-    // Stamina ring (recharge progress)
-    if (this._dashCharges < 3) {
-      const cooldownTotal = 3000; // Match DASH_COOLDOWN
-      const progress = 1 - this._dashCooldownMs / cooldownTotal;
+    // Total Stamina ring (recharge progress)
+    // 0 charges = 0.0, MAX_DASH_CHARGES charges = 1.0
+    // Each charge is 1/MAX_DASH_CHARGES of the total gauge.
+    const cooldownClamped = Phaser.Math.Clamp(this._dashCooldownMs, 0, DASH_COOLDOWN);
+    const partialProgress = (this._dashCharges < MAX_DASH_CHARGES)
+      ? Phaser.Math.Clamp(1 - cooldownClamped / DASH_COOLDOWN, 0, 1)
+      : 0;
+
+    const totalProgress = Phaser.Math.Clamp((this._dashCharges + partialProgress) / MAX_DASH_CHARGES, 0, 1);
+
+    if (totalProgress > 0) {
       g.lineStyle(6, 0x00ff66, 0.9); // Thicker green circle
       g.beginPath();
-      g.arc(cx, cy, r + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2, false);
+      // Draw arc from top (-PI/2) clockwise
+      g.arc(cx, cy, r + 5, -Math.PI / 2, -Math.PI / 2 + totalProgress * Math.PI * 2, false);
       g.strokePath();
     }
   }

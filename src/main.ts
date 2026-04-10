@@ -1,5 +1,6 @@
 import LogRocket from "logrocket";
 import Phaser from "phaser";
+import { detectInAppBrowser } from "./utils/browserDetection";
 // @ts-ignore
 import Scream from "scream";
 
@@ -24,24 +25,53 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene, TutorialScene],
 };
 
-const game = new Phaser.Game(config);
+// Handle In-App Browsers (Facebook, Messenger, Instagram, LinkedIn)
+const iabInfo = detectInAppBrowser();
 
-// Dynamic viewport management for mobile
-const scream = new Scream({
-  viewport: true,
-  width: {
-    portrait: window.screen.width,
-    landscape: window.screen.height,
-  },
-});
+const initGame = () => {
+  const game = new Phaser.Game(config);
 
-scream.on("orientationchangeend", () => {
-  game.scale.refresh();
-});
+  // Dynamic viewport management for mobile
+  const scream = new Scream({
+    viewport: true,
+    width: {
+      portrait: window.screen.width,
+      landscape: window.screen.height,
+    },
+  });
 
-scream.on("viewchange", () => {
-  game.scale.refresh();
-});
+  scream.on("orientationchangeend", () => {
+    game.scale.refresh();
+  });
 
-new ResizeObserver(() => game.scale.refresh()).observe(document.body);
-document.addEventListener("fullscreenchange", () => game.scale.refresh());
+  scream.on("viewchange", () => {
+    game.scale.refresh();
+  });
+
+  new ResizeObserver(() => game.scale.refresh()).observe(document.body);
+  document.addEventListener("fullscreenchange", () => game.scale.refresh());
+};
+
+if (iabInfo.isInApp) {
+  const overlay = document.getElementById("iab-overlay");
+  const messageEl = document.getElementById("iab-message");
+  const dismissBtn = document.getElementById("iab-dismiss");
+
+  if (overlay && messageEl && dismissBtn) {
+    messageEl.innerHTML = `
+      It looks like you're playing inside <strong>${iabInfo.appName}</strong>. This game may have issues here.
+      <br><br>
+      For the best experience, please tap the menu (⋮ or ...) or share icon and select <strong>'Open in Chrome'</strong> or <strong>'Open in Safari'</strong>.
+    `;
+    overlay.style.display = "flex";
+
+    dismissBtn.addEventListener("click", () => {
+      overlay.style.display = "none";
+      initGame();
+    });
+  } else {
+    initGame();
+  }
+} else {
+  initGame();
+}

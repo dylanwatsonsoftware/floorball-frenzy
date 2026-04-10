@@ -175,6 +175,8 @@ export class GameScene extends Phaser.Scene {
   protected _clientHasPossession = false;
 
   protected _matchOverObjects: Phaser.GameObjects.GameObject[] = [];
+  protected _rematchBtn: Phaser.GameObjects.Rectangle | null = null;
+  protected _rematchBtnText: Phaser.GameObjects.Text | null = null;
 
   protected get _isAuthoritative(): boolean {
     return this._mode === "local";
@@ -365,7 +367,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once("shutdown", () => this.scale.off("resize", applyScroll));
 
     // Touch UI — buttons are always present
-    this._hostButtons = new ActionButtons(this, 1210, 360);
+    this._hostButtons = new ActionButtons(this, 1190, 360);
 
     // Joystick only if in stick mode
     const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
@@ -490,10 +492,6 @@ export class GameScene extends Phaser.Scene {
     elapsedMs: number,
     isClientPrediction = false
   ): void {
-    // Inject current dash charges into ActionButtons for visual feedback
-    const localPlayer = this._mode === "online" ? (this._isAuthoritative ? this.host : this.client) : this.host;
-    this._hostButtons.updateDashState(localPlayer.dashCharges, localPlayer.dashCooldownMs);
-
     if (hostInput.moveX !== 0 || hostInput.moveY !== 0) {
       this._hostAim = { x: hostInput.moveX, y: hostInput.moveY };
     }
@@ -521,9 +519,6 @@ export class GameScene extends Phaser.Scene {
     this.client.aimX = this._clientAimSmooth.x;
     this.client.aimY = this._clientAimSmooth.y;
 
-    this.host.chargeMs = this._hostShoot.chargeMs;
-    this.client.chargeMs = this._clientShoot.chargeMs;
-
     if (this._hostSlapWasDown && !hostInput.slap) {
       if (this._hostShoot.chargeMs > 0) this._doSlapShot("host");
       this._hostShoot.chargeMs = 0;
@@ -538,6 +533,9 @@ export class GameScene extends Phaser.Scene {
     this._clientSlapWasDown = clientInput.slap;
     updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
     updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
+
+    this.host.chargeMs = this._hostShoot.chargeMs;
+    this.client.chargeMs = this._clientShoot.chargeMs;
 
     // Tick down shot cooldowns
     this._hostShotCooldownMs = Math.max(0, this._hostShotCooldownMs - elapsedMs);
@@ -582,6 +580,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._updateLastTouch();
+
+    // Inject current dash and slap state into ActionButtons for visual feedback
+    const localPlayer = this._mode === "online" ? (this._isAuthoritative ? this.host : this.client) : this.host;
+    this._hostButtons.updateDashState(localPlayer.dashCharges, localPlayer.dashCooldownMs);
+    this._hostButtons.updateSlapState(localPlayer.chargeMs);
 
     if (!isClientPrediction) {
       const goal = stepBall(this.ball, dt);
@@ -918,6 +921,8 @@ export class GameScene extends Phaser.Scene {
     // Rematch button
     const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, winner === "host" ? COLOR_RED : COLOR_BLUE, 1).setDepth(31).setInteractive({ useHandCursor: true });
     const rematchText = this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    this._rematchBtn = rematchBtn;
+    this._rematchBtnText = rematchText;
 
     rematchBtn.on("pointerover", () => { rematchBtn.setScale(1.05); rematchBtn.setFillStyle(0x00ee77); });
     rematchBtn.on("pointerout", () => { rematchBtn.setScale(1.0); rematchBtn.setFillStyle(0x00cc66); });
@@ -933,12 +938,14 @@ export class GameScene extends Phaser.Scene {
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
 
-    this._matchOverObjects = [bg, title, winLabel, streakLabel, rematchBtn, rematchText, menuBtn, menuText];
+    this._matchOverObjects = [bg, title, winLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
   }
 
   protected _clearMatchOver(): void {
     this._matchOverObjects.forEach(obj => obj.destroy());
     this._matchOverObjects = [];
+    this._rematchBtn = null;
+    this._rematchBtnText = null;
   }
 
   protected _resetMatch(): void {
