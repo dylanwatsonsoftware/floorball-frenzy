@@ -97,6 +97,21 @@ describe("lerpState", () => {
     expect(current.players.host.chargeMs).toBe(500); // Clamped/Snapped
   });
 
+  it("interpolates player heat and heatModeMs (t=0.5)", () => {
+    const current = makeState(0);
+    current.players.host.heat = 20;
+    current.players.host.heatModeMs = 1000;
+
+    const snapshot = makeState(0);
+    snapshot.players.host.heat = 80;
+    snapshot.players.host.heatModeMs = 5000;
+
+    lerpState(current, snapshot, 0.5);
+
+    expect(current.players.host.heat).toBeCloseTo(50, 5);
+    expect(current.players.host.heatModeMs).toBeCloseTo(3000, 5);
+  });
+
   it("synchronizes player fields (t=1)", () => {
     const current = makeState(0);
     const snapshot = makeState(0);

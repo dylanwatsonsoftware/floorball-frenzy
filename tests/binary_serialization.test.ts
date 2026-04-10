@@ -73,6 +73,8 @@ describe("Binary Serialization", () => {
       expect(s.ball.possessedBy).toBe("host");
       expect(s.players.host.x).toBeCloseTo(mockState.players.host.x, 2);
       expect(s.players.host.heat).toBeCloseTo(mockState.players.host.heat, 2);
+      expect(s.players.host.heatModeMs).toBeCloseTo(mockState.players.host.heatModeMs, 2);
+      expect(s.players.client.heat).toBeCloseTo(mockState.players.client.heat, 2);
       expect(s.players.client.heatModeMs).toBeCloseTo(mockState.players.client.heatModeMs, 2);
       expect(s.players.host.input.slap).toBe(true);
       expect(s.players.client.input.slap).toBe(false);

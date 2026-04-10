@@ -33,9 +33,10 @@ import {
   ONE_TOUCH_WINDOW,
   SHOOT_MAX_CHARGE_MS as SHOOT_MAX_CHARGE_MS_LOCAL,
   HEAT_MAX,
-  HEAT_DRIBBL_RATE,
+  HEAT_DRIBBLE_RATE,
   HEAT_GOAL_BONUS,
   HEAT_MODE_DURATION,
+  HEAT_MODE_DASH_COOLDOWN_MULT,
   WRIST_SNAP_MAX_CHARGE,
   WRIST_SNAP_MIN_SPEED_FRAC,
   WRIST_SNAP_POWER_BOOST,
@@ -487,8 +488,12 @@ export class GameScene extends Phaser.Scene {
       ? { ...clientInput, moveX: this._clientAimSmooth.x, moveY: this._clientAimSmooth.y }
       : clientInput;
 
-    stepPlayer(this.host, hostInputActual, dt, elapsedMs);
-    stepPlayer(this.client, clientInputActual, dt, elapsedMs);
+    if (stepPlayer(this.host, hostInputActual, dt, elapsedMs)) {
+      this._activateHeatMode(this.host);
+    }
+    if (stepPlayer(this.client, clientInputActual, dt, elapsedMs)) {
+      this._activateHeatMode(this.client);
+    }
 
     this.host.aimX = this._hostAimSmooth.x;
     this.host.aimY = this._hostAimSmooth.y;
@@ -778,7 +783,7 @@ export class GameScene extends Phaser.Scene {
 
   private _accumulateHeat(player: PlayerExtended, dt: number): void {
     if (player.heatModeMs > 0) return;
-    player.heat = Math.min(HEAT_MAX, player.heat + HEAT_DRIBBL_RATE * dt);
+    player.heat = Math.min(HEAT_MAX, player.heat + HEAT_DRIBBLE_RATE * dt);
     if (player.heat >= HEAT_MAX) {
       this._activateHeatMode(player);
     }
@@ -786,6 +791,10 @@ export class GameScene extends Phaser.Scene {
 
   private _activateHeatMode(player: PlayerExtended): void {
     player.heatModeMs = HEAT_MODE_DURATION;
+    // Apply dash cooldown reduction if they just dashed to trigger heat
+    if (player.dashCooldownMs === DASH_COOLDOWN) {
+      player.dashCooldownMs *= HEAT_MODE_DASH_COOLDOWN_MULT;
+    }
     this._frozenMs = Math.max(this._frozenMs, 80);
     this.cameras.main.shake(200, 0.012);
     this._spawnHeatActivationJuice(player.x, player.y);
@@ -1336,9 +1345,11 @@ export class GameScene extends Phaser.Scene {
     const isHeatModeClient = this.client.heatModeMs > 0;
 
     // Heat Mode particles (flaming stick)
-    if (isHeatModeHost || isHeatModeClient) {
-      const p = isHeatModeHost ? this.host : this.client;
-      const aim = isHeatModeHost ? this._hostAimSmooth : this._clientAimSmooth;
+    const activeHeat = [];
+    if (isHeatModeHost) activeHeat.push({ p: this.host, aim: this._hostAimSmooth });
+    if (isHeatModeClient) activeHeat.push({ p: this.client, aim: this._clientAimSmooth });
+
+    for (const { p, aim } of activeHeat) {
       const sd = this._stickDir(p, aim);
       const bx = p.x + sd.x * STICK_REACH;
       const by = p.y + sd.y * STICK_REACH;

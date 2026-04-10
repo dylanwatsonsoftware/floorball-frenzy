@@ -92,7 +92,7 @@ export const ONE_TOUCH_MULTIPLIER  = 1.25;
 
 // ─── Heat System ──────────────────────────────────────────────────────────────
 export const HEAT_MAX = 100;
-export const HEAT_DRIBBL_RATE = 8;     // heat per second of dribbling
+export const HEAT_DRIBBLE_RATE = 8;    // heat per second of dribbling
 export const HEAT_DASH_BONUS = 5;      // one-time bonus per dash
 export const HEAT_GOAL_BONUS = 25;     // one-time bonus for scorer
 export const HEAT_MODE_DURATION = 6000;

@@ -64,7 +64,7 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
     const type = view[0];
     const dv = new DataView(view.buffer, view.byteOffset, view.byteLength);
 
-    if (type === TYPE_STATE && view.byteLength === 137) {
+    if (type === TYPE_STATE && (view.byteLength === 137 || view.byteLength === 121)) {
       return { type: "state", snapshot: decodeSnapshot(dv) };
     }
     if (type === TYPE_INPUT && view.byteLength === 14) {
@@ -133,6 +133,7 @@ function encodeSnapshot(s: GameState): Uint8Array {
 }
 
 function decodeSnapshot(v: DataView): GameState {
+  const isOld = v.byteLength === 121;
   const t = v.getFloat32(1, true);
 
   const bFlags = v.getUint8(29);
@@ -162,8 +163,8 @@ function decodeSnapshot(v: DataView): GameState {
       aimY: v.getFloat32(offset + 20, true),
       dashCooldownMs: v.getFloat32(offset + 24, true),
       chargeMs: v.getFloat32(offset + 28, true),
-      heat: v.getFloat32(offset + 41, true),
-      heatModeMs: v.getFloat32(offset + 45, true),
+      heat: isOld ? 0 : v.getFloat32(offset + 41, true),
+      heatModeMs: isOld ? 0 : v.getFloat32(offset + 45, true),
       input: {
         moveX: v.getFloat32(offset + 32, true),
         moveY: v.getFloat32(offset + 36, true),
@@ -178,11 +179,11 @@ function decodeSnapshot(v: DataView): GameState {
     ball,
     players: {
       host: readPlayer(35, "host"),
-      client: readPlayer(84, "client"),
+      client: readPlayer(isOld ? 76 : 84, "client"),
     },
     score: {
-      host: v.getUint16(133, true),
-      client: v.getUint16(135, true),
+      host: v.getUint16(isOld ? 117 : 133, true),
+      client: v.getUint16(isOld ? 119 : 135, true),
     },
   };
 }

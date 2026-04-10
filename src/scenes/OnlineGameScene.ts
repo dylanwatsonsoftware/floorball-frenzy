@@ -306,8 +306,8 @@ export class OnlineGameScene extends GameScene {
     this.host.aimY = lerp(s0.state.players.host.aimY, s1.state.players.host.aimY);
     this.host.dashCooldownMs = s1.state.players.host.dashCooldownMs;
     this.host.chargeMs = s1.state.players.host.chargeMs;
-    this.host.heat = s1.state.players.host.heat;
-    this.host.heatModeMs = s1.state.players.host.heatModeMs;
+    this.host.heat = lerp(s0.state.players.host.heat, s1.state.players.host.heat);
+    this.host.heatModeMs = lerp(s0.state.players.host.heatModeMs, s1.state.players.host.heatModeMs);
     this.host.input = { ...s1.state.players.host.input };
 
     this._hostAim = { x: this.host.aimX, y: this.host.aimY };

@@ -11,9 +11,7 @@ import {
   DASH_FORCE,
   DASH_COOLDOWN,
   HEAT_MAX,
-  HEAT_MODE_DURATION,
   HEAT_MODE_SPEED_BOOST,
-  HEAT_MODE_DASH_COOLDOWN_MULT,
   HEAT_DASH_BONUS,
 } from "./constants";
 
@@ -30,7 +28,9 @@ export function stepPlayer(
   input: InputState,
   dt: number,
   elapsedMs: number
-): void {
+): boolean {
+  let heatTriggered = false;
+
   // Heat Mode decay
   if (player.heatModeMs > 0) {
     player.heatModeMs = Math.max(0, player.heatModeMs - elapsedMs);
@@ -53,14 +53,14 @@ export function stepPlayer(
       player.vx += (input.moveX / len) * DASH_FORCE;
       player.vy += (input.moveY / len) * DASH_FORCE;
     }
-    const cooldownMult = isHeatMode ? HEAT_MODE_DASH_COOLDOWN_MULT : 1;
-    player.dashCooldownMs = DASH_COOLDOWN * cooldownMult;
+    // Set base cooldown; shared handler will apply multiplier if heat triggers
+    player.dashCooldownMs = DASH_COOLDOWN;
 
     // Heat accumulation from dash
     if (!isHeatMode) {
       player.heat = Math.min(HEAT_MAX, player.heat + HEAT_DASH_BONUS);
       if (player.heat >= HEAT_MAX) {
-        player.heatModeMs = HEAT_MODE_DURATION;
+        heatTriggered = true;
       }
     }
   }
@@ -92,6 +92,8 @@ export function stepPlayer(
   // Clamp within field bounds
   player.x = Math.max(FIELD_LEFT + PLAYER_RADIUS, Math.min(FIELD_RIGHT - PLAYER_RADIUS, player.x));
   player.y = Math.max(FIELD_TOP + PLAYER_RADIUS, Math.min(FIELD_BOTTOM - PLAYER_RADIUS, player.y));
+
+  return heatTriggered;
 }
 
 /**
