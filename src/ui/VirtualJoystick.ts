@@ -47,6 +47,37 @@ export class VirtualJoystick {
     scene.input.on("pointermove", (p: Phaser.Input.Pointer) => this._onMove(p));
     scene.input.on("pointerup", (p: Phaser.Input.Pointer) => this._onUp(p));
     scene.input.on("pointerupoutside", (p: Phaser.Input.Pointer) => this._onUp(p));
+
+    this._drawHint(scene, zoneX, zoneY, zoneW, zoneH);
+  }
+
+  private _drawHint(scene: Phaser.Scene, zX: number, zY: number, zW: number, zH: number): void {
+    // Center the hint in the visible area (where worldX >= 0)
+    const visibleLeft = Math.max(0, zX);
+    const visibleRight = zX + zW;
+    const cx = (visibleLeft + visibleRight) / 2;
+    const cy = zY + zH / 2;
+    const hintBase = scene.add.circle(cx, cy, this._radius, 0xffffff, 0.15)
+      .setStrokeStyle(2, 0xffffff, 0.4).setDepth(15);
+    const hintKnob = scene.add.circle(cx, cy, this._radius * 0.4, 0xffffff, 0.25).setDepth(16);
+    const hintText = scene.add.text(cx, cy + this._radius + 25, "MOVE", {
+      fontSize: "14px", color: "#ffffff", fontStyle: "bold", letterSpacing: 2
+    }).setOrigin(0.5).setAlpha(0.7).setDepth(16);
+
+    const updateHandler = () => {
+      const show = this.enabled && !this.isActive();
+      hintBase.setVisible(show);
+      hintKnob.setVisible(show);
+      hintText.setVisible(show);
+    };
+
+    scene.events.on("update", updateHandler);
+    scene.events.once("shutdown", () => {
+      scene.events.off("update", updateHandler);
+    });
+    hintBase.on("destroy", () => {
+      scene.events.off("update", updateHandler);
+    });
   }
 
   private _onDown(p: Phaser.Input.Pointer): void {

@@ -9,6 +9,7 @@ import { BootScene } from "./scenes/BootScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { GameScene } from "./scenes/GameScene";
 import { OnlineGameScene } from "./scenes/OnlineGameScene";
+import { TutorialScene } from "./scenes/TutorialScene";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -21,7 +22,7 @@ const config: Phaser.Types.Core.GameConfig = {
     fullscreenTarget: 'parent',
     expandParent: true,
   },
-  scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
+  scene: [BootScene, MenuScene, GameScene, OnlineGameScene, TutorialScene],
 };
 
 // Handle In-App Browsers (Facebook, Messenger, Instagram, LinkedIn)
@@ -29,6 +30,7 @@ const iabInfo = detectInAppBrowser();
 
 const initGame = () => {
   const game = new Phaser.Game(config);
+  (window as any).phaserGame = game;
 
   // Dynamic viewport management for mobile
   const scream = new Scream({

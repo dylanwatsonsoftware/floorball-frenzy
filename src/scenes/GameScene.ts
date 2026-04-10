@@ -342,29 +342,59 @@ export class GameScene extends Phaser.Scene {
     // Back button — top-left, inside HUD bar
     this._makeButton(64, 47, 100, 38, "‹  BACK", "", 0x555566, 0x222233, () => this._confirmLeave(), 0.6, 16);
 
+    // Help button - top-right, inside HUD bar
+    const helpBtnX = 1216;
+    const helpBtnY = 47;
+    const hBtn = this.add.circle(helpBtnX, helpBtnY, 20, 0x555566, 1).setDepth(16).setInteractive({ useHandCursor: true });
+    this.add.text(helpBtnX, helpBtnY, "?", { fontSize: "20px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5).setDepth(17);
+    hBtn.on("pointerup", () => {
+      this.scene.pause();
+      this.scene.launch("TutorialScene", {
+        onComplete: () => {
+          this.scene.resume();
+        }
+      });
+    });
+
+    // Touch UI — buttons are always present
+    const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
+    this._hostButtons = new ActionButtons(this, 1190 + initOffsetX, 360);
+
+    // Joystick only if in stick mode
+    this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 60);
+    this._hostJoy.enabled = (this._controlMode === "stick");
+
     // Center the 1280×720 game world in the available canvas on wider screens.
     // Re-apply on every resize so mobile browser-chrome changes don't break it.
     const applyScroll = () => {
       const extra = Math.max(0, this.scale.width - 1280);
-      this.cameras.main.scrollX = -Math.floor(extra / 2);
+      const newInitOffsetX = Math.floor(extra / 2);
+      this.cameras.main.scrollX = -newInitOffsetX;
+      this._hostButtons.reposition(1190 + newInitOffsetX, 360);
     };
     applyScroll();
     this.scale.on("resize", applyScroll);
     this.events.once("shutdown", () => this.scale.off("resize", applyScroll));
-
-    // Touch UI — buttons are always present
-    this._hostButtons = new ActionButtons(this, 1190, 360);
-
-    // Joystick only if in stick mode
-    const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
-    this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 60);
-    this._hostJoy.enabled = (this._controlMode === "stick");
 
     // Initialize Animations
     this._createAnimations();
 
     // Enable multi-touch
     this.input.addPointer(3);
+
+    this._checkTutorial();
+  }
+
+  private _checkTutorial(): void {
+    if (this._mode === "local" && !localStorage.getItem("floorball:tutorialDone")) {
+      this.scene.pause();
+      this.scene.launch("TutorialScene", {
+        onComplete: () => {
+          localStorage.setItem("floorball:tutorialDone", "true");
+          this.scene.resume();
+        }
+      });
+    }
   }
 
   private _createAnimations(): void {
