@@ -8,7 +8,6 @@ export interface ActionState {
 const GLOW   = 0x00e5ff;
 const ACTIVE = 0x1af0ff;
 const DARK   = 0x07070f;
-const DASH_READY = 0x00ff66;
 const DASH_EMPTY = 0x444444;
 
 interface Btn {
@@ -145,29 +144,18 @@ export class ActionButtons {
     g.lineStyle(2, borderColor, 0.7);
     g.strokeCircle(cx, cy, r);
 
-    // Segments (3 small dots or arcs)
-    const segmentR = 4;
-    const padding = 12;
-    for (let i = 0; i < 3; i++) {
-      const angle = -Math.PI / 2 + (i - 1) * (Math.PI / 4);
-      const sx = cx + Math.cos(angle) * (r - padding);
-      const sy = cy + Math.sin(angle) * (r - padding);
+    // Total Stamina ring (recharge progress)
+    // 0 charges = 0.0, 3 charges = 1.0
+    // Each charge is 1/3 of the total gauge.
+    const cooldownTotal = 3000; // Match DASH_COOLDOWN
+    const partialProgress = (this._dashCharges < 3) ? (1 - this._dashCooldownMs / cooldownTotal) : 0;
+    const totalProgress = (this._dashCharges + partialProgress) / 3;
 
-      if (i < this._dashCharges) {
-        g.fillStyle(DASH_READY, 1);
-      } else {
-        g.fillStyle(DASH_EMPTY, 0.5);
-      }
-      g.fillCircle(sx, sy, segmentR);
-    }
-
-    // Stamina ring (recharge progress)
-    if (this._dashCharges < 3) {
-      const cooldownTotal = 3000; // Match DASH_COOLDOWN
-      const progress = 1 - this._dashCooldownMs / cooldownTotal;
+    if (totalProgress > 0) {
       g.lineStyle(6, 0x00ff66, 0.9); // Thicker green circle
       g.beginPath();
-      g.arc(cx, cy, r + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2, false);
+      // Draw arc from top (-PI/2) clockwise
+      g.arc(cx, cy, r + 5, -Math.PI / 2, -Math.PI / 2 + totalProgress * Math.PI * 2, false);
       g.strokePath();
     }
   }
