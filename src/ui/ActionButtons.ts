@@ -33,27 +33,6 @@ function makeBtn(
     gfx.fillCircle(cx, cy, radius);
     gfx.lineStyle(borderW, borderColor, borderAlpha);
     gfx.strokeCircle(cx, cy, radius);
-
-    // Draw Icon
-    gfx.lineStyle(4, 0xffffff, 0.4);
-    if (label === "SLAP HIT") {
-      gfx.beginPath();
-      gfx.moveTo(cx - 15, cy - 25);
-      gfx.lineTo(cx - 15, cy + 5);
-      // Phaser's Graphics doesn't have quadraticCurveTo; use arc for a simple blade curve
-      gfx.arc(cx, cy + 5, 15, Math.PI, Math.PI / 2, true);
-      gfx.strokePath();
-    } else if (label === "QUICK DASH") {
-      for (let i = 0; i < 3; i++) {
-        const ox = cx - 12 + i * 10;
-        const oy = cy - 5;
-        gfx.beginPath();
-        gfx.moveTo(ox, oy - 8);
-        gfx.lineTo(ox + 8, oy);
-        gfx.lineTo(ox, oy + 8);
-        gfx.strokePath();
-      }
-    }
   };
 
   draw(GLOW, 0.7, 2);
@@ -61,8 +40,8 @@ function makeBtn(
   // Label inside button
   const isSlap = label === "SLAP HIT";
   scene.add
-    .text(cx, isSlap ? cy + 40 : cy + 30, label, {
-      fontSize: `${Math.round(radius * (isSlap ? 0.3 : 0.28))}px`,
+    .text(cx, cy, label, {
+      fontSize: `${Math.round(radius * (isSlap ? 0.35 : 0.32))}px`,
       color: "#ffffff",
       fontStyle: "bold",
     })
