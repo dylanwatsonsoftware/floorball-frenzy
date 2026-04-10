@@ -14,6 +14,7 @@ export class TutorialScene extends Phaser.Scene {
   private _descText!: Phaser.GameObjects.Text;
   private _nextBtn!: Phaser.GameObjects.Rectangle;
   private _nextBtnText!: Phaser.GameObjects.Text;
+  private _panelBg!: Phaser.GameObjects.Rectangle;
   private _onComplete: (() => void) | null = null;
   private _team: "host" | "client" = "host";
   private _finished = false;
@@ -37,7 +38,7 @@ export class TutorialScene extends Phaser.Scene {
 
     // UI Panel (Bottom)
     const panelY = height - 180;
-    this.add.rectangle(width / 2, panelY + 90, width, 180, 0x000000, 0.7).setDepth(101);
+    this._panelBg = this.add.rectangle(width / 2, panelY + 90, width, 180, 0x000000, 0.7).setDepth(101);
 
     this._titleText = this.add.text(width / 2, panelY + 30, "", {
       fontSize: "32px", color: "#00ff66", fontStyle: "bold"
@@ -59,6 +60,14 @@ export class TutorialScene extends Phaser.Scene {
 
     this._setupSteps();
     this._startStep(0);
+
+    // Handle orientation changes (resize events)
+    const applyLayout = () => {
+      this._relayout();
+    };
+    applyLayout();
+    this.scale.on("resize", applyLayout);
+    this.events.once("shutdown", () => this.scale.off("resize", applyLayout));
   }
 
   private _setupSteps(): void {
@@ -146,6 +155,28 @@ export class TutorialScene extends Phaser.Scene {
       this._overlay.fillStyle(0x00ff66, 0.4);
       this._overlay.fillCircle(h.x, h.y, h.r);
     }
+  }
+
+  private _relayout(): void {
+    const { width, height } = this.scale;
+
+    // Reposition UI elements
+    const panelY = height - 180;
+    this._panelBg.setPosition(width / 2, panelY + 90).setDisplaySize(width, 180);
+    this._titleText.setPosition(width / 2, panelY + 30);
+
+    const responsiveWordWrap = Math.min(800, Math.floor(width * 0.9));
+    this._descText.setPosition(width / 2, panelY + 80).setWordWrapWidth(responsiveWordWrap);
+
+    this._nextBtn.setPosition(width / 2, height - 35);
+    this._nextBtnText.setPosition(width / 2, height - 35);
+
+    // Recalculate spotlight positions for all steps
+    this._setupSteps();
+
+    // Redraw the current step's spotlight
+    const step = this._steps[this._currentStepIdx];
+    this._drawSpotlight(step.highlight);
   }
 
   private _nextStep(): void {
