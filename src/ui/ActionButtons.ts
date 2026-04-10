@@ -71,12 +71,22 @@ export class ActionButtons {
   private _dashCY = 0;
   private _dashR = 50;
 
+  private _slapGfx: Phaser.GameObjects.Graphics;
+  private _slapChargeMs = 0;
+  private _slapCX = 0;
+  private _slapCY = 0;
+  private _slapR = 70;
+
   constructor(scene: Phaser.Scene, panelCX: number, panelCY: number) {
     const BIG_R = 70;
     const SM_R  = 50;
 
     const slapX  = panelCX;
     const slapY  = panelCY - 80;
+    this._slapCX = slapX;
+    this._slapCY = slapY;
+    this._slapR = BIG_R;
+
     const dashX  = panelCX;
     const dashY  = panelCY + 100;
     this._dashCX = dashX;
@@ -85,6 +95,7 @@ export class ActionButtons {
 
     const slapBtn = makeBtn(scene, slapX, slapY, BIG_R, "SLAP");
     this._dashGfx = scene.add.graphics().setDepth(20);
+    this._slapGfx = scene.add.graphics().setDepth(20);
     this._slapBounds = slapBtn.bounds;
     this._dashBounds = new Phaser.Geom.Circle(dashX, dashY, SM_R);
 
@@ -128,6 +139,26 @@ export class ActionButtons {
     this._dashCharges = charges;
     this._dashCooldownMs = cooldownMs;
     this._drawDash();
+  }
+
+  updateSlapState(chargeMs: number): void {
+    this._slapChargeMs = chargeMs;
+    this._drawSlap();
+  }
+
+  private _drawSlap(): void {
+    const g = this._slapGfx;
+    const cx = this._slapCX, cy = this._slapCY, r = this._slapR;
+    g.clear();
+
+    if (this._slapChargeMs > 0) {
+      const maxCharge = 800; // Match SHOOT_MAX_CHARGE_MS
+      const progress = Math.min(this._slapChargeMs / maxCharge, 1);
+      g.lineStyle(6, 0xffff00, 0.9); // Yellow ring
+      g.beginPath();
+      g.arc(cx, cy, r + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2, false);
+      g.strokePath();
+    }
   }
 
   private _drawDash(): void {

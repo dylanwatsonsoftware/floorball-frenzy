@@ -351,7 +351,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once("shutdown", () => this.scale.off("resize", applyScroll));
 
     // Touch UI — buttons are always present
-    this._hostButtons = new ActionButtons(this, 1210, 360);
+    this._hostButtons = new ActionButtons(this, 1190, 360);
 
     // Joystick only if in stick mode
     const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
@@ -462,9 +462,10 @@ export class GameScene extends Phaser.Scene {
     elapsedMs: number,
     isClientPrediction = false
   ): void {
-    // Inject current dash charges into ActionButtons for visual feedback
+    // Inject current dash and slap state into ActionButtons for visual feedback
     const localPlayer = this._mode === "online" ? (this._isAuthoritative ? this.host : this.client) : this.host;
     this._hostButtons.updateDashState(localPlayer.dashCharges, localPlayer.dashCooldownMs);
+    this._hostButtons.updateSlapState(localPlayer.chargeMs);
 
     if (hostInput.moveX !== 0 || hostInput.moveY !== 0) {
       this._hostAim = { x: hostInput.moveX, y: hostInput.moveY };
