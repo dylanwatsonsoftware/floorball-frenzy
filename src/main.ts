@@ -59,11 +59,23 @@ if (iabInfo.isInApp) {
   const dismissBtn = document.getElementById("iab-dismiss");
 
   if (overlay && messageEl && dismissBtn) {
-    messageEl.innerHTML = `
-      It looks like you're playing inside <strong>${iabInfo.appName}</strong>. This game may have issues here.
-      <br><br>
-      For the best experience, please tap the menu (⋮ or ...) or share icon and select <strong>'Open in Chrome'</strong> or <strong>'Open in Safari'</strong>.
-    `;
+    messageEl.textContent = '';
+    messageEl.appendChild(document.createTextNode("It looks like you're playing inside "));
+    const strong1 = document.createElement('strong');
+    strong1.textContent = iabInfo.appName;
+    messageEl.appendChild(strong1);
+    messageEl.appendChild(document.createTextNode(". This game may have issues here."));
+    messageEl.appendChild(document.createElement('br'));
+    messageEl.appendChild(document.createElement('br'));
+    messageEl.appendChild(document.createTextNode("For the best experience, please tap the menu (⋮ or ...) or share icon and select "));
+    const strong2 = document.createElement('strong');
+    strong2.textContent = "'Open in Chrome'";
+    messageEl.appendChild(strong2);
+    messageEl.appendChild(document.createTextNode(" or "));
+    const strong3 = document.createElement('strong');
+    strong3.textContent = "'Open in Safari'";
+    messageEl.appendChild(strong3);
+    messageEl.appendChild(document.createTextNode("."));
     overlay.style.display = "flex";
 
     dismissBtn.addEventListener("click", () => {

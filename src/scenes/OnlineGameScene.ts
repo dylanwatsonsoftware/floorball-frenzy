@@ -65,6 +65,7 @@ export class OnlineGameScene extends GameScene {
     this._snapshotBuffer = [];
     this._roomId = data.roomId;
     this._connected = false;
+    this._opponentInTutorial = false;
     this._snapshotTimer = 0;
     this._pingTimer = 0;
     this._inputSeq = 0;
@@ -92,7 +93,7 @@ export class OnlineGameScene extends GameScene {
       if (this._isHost) {
         this._playDing();
         if (this._opponentInTutorial) {
-          if (this._waitingTitleText) this._waitingTitleText.setText("Opponent in tutorial…");
+          this._statusText?.setText("Opponent in tutorial…");
         }
         // Send start signal multiple times to ensure it gets through the unreliable channel
         this._peer.send({ type: "start" });
@@ -534,13 +535,13 @@ export class OnlineGameScene extends GameScene {
         if (this._isHost) {
           if (msg.status === "start") {
             this._opponentInTutorial = true;
-            if (this._connected && this._waitingTitleText) {
-              this._waitingTitleText.setText("Opponent in tutorial…");
+            if (this._connected) {
+              this._statusText?.setText("Opponent in tutorial…");
             }
           } else {
             this._opponentInTutorial = false;
             if (this._connected) {
-              this._waitingTitleText?.setText("Starting game…");
+              this._statusText?.setText("Starting game…");
               this._startCountdown();
             }
           }
