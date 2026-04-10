@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- Viewport managed by 'scream' in src/main.ts -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -63,12 +64,92 @@
       }
       /* Hide when browser has no fullscreen API (e.g. iOS Safari) */
       .no-fullscreen #fs-btn { display: none; }
+
+      /* In-App Browser Overlay */
+      #iab-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100dvw;
+        height: 100dvh;
+        background: #1a1a2e;
+        color: #fff;
+        z-index: 9999;
+        display: none; /* Shown via JS */
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 40px 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      #iab-logo {
+        width: 140px;
+        height: 140px;
+        margin-bottom: 20px;
+        object-fit: contain;
+      }
+      #iab-overlay h1 {
+        font-size: 36px;
+        margin-bottom: 10px;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      #iab-overlay h2 {
+        font-size: 22px;
+        margin-bottom: 20px;
+        color: #ff4d4d;
+      }
+      #iab-overlay p {
+        font-size: 20px;
+        line-height: 1.5;
+        margin-bottom: 30px;
+        max-width: 500px;
+      }
+      #iab-overlay .btn-container {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        width: 100%;
+        max-width: 300px;
+      }
+      #iab-overlay button {
+        padding: 15px 25px;
+        font-size: 18px;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      #iab-dismiss {
+        background: #4ecdc4;
+        color: #1a1a2e;
+      }
+      #iab-overlay button:active {
+        opacity: 0.8;
+      }
     </style>
     <script>
       window.global = window;
     </script>
   </head>
   <body>
+    <div id="iab-overlay">
+      <img id="iab-logo" src="assets/floorball-frenzy.png" alt="Floorball Frenzy Logo">
+      <h1>Floorball Frenzy</h1>
+      <h2 id="iab-title">In-App Browser Detected</h2>
+      <p id="iab-message">
+        It looks like you're playing inside <strong>the app</strong>. This game may have issues here.
+        <br><br>
+        For the best experience, please tap the menu (⋮ or ...) or share icon and select <strong>'Open in Chrome'</strong> or <strong>'Open in Safari'</strong>.
+      </p>
+      <div class="btn-container">
+        <button id="iab-dismiss">Play Anyway</button>
+      </div>
+    </div>
+
     <button id="fs-btn" title="Toggle fullscreen">&#x26F6;</button>
 
     <script>
