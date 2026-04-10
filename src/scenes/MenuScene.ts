@@ -39,7 +39,6 @@ export class MenuScene extends Phaser.Scene {
   private _lobbyRowObjs: Phaser.GameObjects.GameObject[] = [];
   private _hostingObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyAutoRefresh: Phaser.Time.TimerEvent | null = null;
-  private _controlMode: "stick" | "follow" = "stick";
   private _isLobbyVisible = false;
   private _isHostingVisible = false;
   private _hostingInput: HTMLInputElement | null = null;
@@ -52,7 +51,6 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    this._controlMode = (localStorage.getItem("floorball:controls") as "stick" | "follow") || "stick";
     this._savedGameName = localStorage.getItem("floorball:gameName") ?? "";
 
     const hashCode = window.location.hash.slice(1).toUpperCase();
@@ -131,13 +129,11 @@ export class MenuScene extends Phaser.Scene {
       this._drawBackgroundPortrait(sw, sh);
       this._drawTitlePortrait(sw, sh);
       this._drawButtonsPortrait(sw, sh);
-      this._drawControlTogglePortrait(sw, sh);
       this._drawHelpButton(sw, sh, isPortrait);
     } else {
       this._drawBackgroundLandscape();
       this._drawTitleLandscape();
       this._drawButtonsLandscape();
-      this._drawControlToggleLandscape();
       this._drawHelpButton(sw, sh, isPortrait);
     }
 
@@ -209,51 +205,6 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(sw / 2, titleY + titleSize + 20, "LAMBS FLOORBALL CLUB\nFirst to 5 goals wins", {
       fontSize: "20px", color: "#ffffff", letterSpacing: 1, align: "center"
     }).setOrigin(0.5);
-  }
-
-  private _drawControlToggleLandscape(): void {
-    const cx = W / 2;
-    const cy = H - 120;
-    this._drawControlToggle(cx, cy, 1);
-  }
-
-  private _drawControlTogglePortrait(sw: number, sh: number): void {
-    const cx = sw / 2;
-    const cy = sh * 0.82;
-    this._drawControlToggle(cx, cy, 1.5);
-  }
-
-  private _drawControlToggle(cx: number, cy: number, scale: number): void {
-    this.add.text(cx, cy - 35 * scale, "STEERING MODE", {
-      fontSize: `${14 * scale}px`, color: "#556688", fontStyle: "bold", letterSpacing: 2
-    }).setOrigin(0.5);
-
-    this.add.rectangle(cx, cy, 280 * scale, 50 * scale, 0x111111, 1).setStrokeStyle(1, 0x333333, 1);
-
-    const stickBtn = this.add.text(cx - 70 * scale, cy, "STICK", {
-      fontSize: `${18 * scale}px`, fontStyle: "bold", color: this._controlMode === "stick" ? "#ffffff" : "#444466"
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    const followBtn = this.add.text(cx + 70 * scale, cy, "FOLLOW", {
-      fontSize: `${18 * scale}px`, fontStyle: "bold", color: this._controlMode === "follow" ? "#ffffff" : "#444466"
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    const updateVisuals = () => {
-      stickBtn.setColor(this._controlMode === "stick" ? "#ffffff" : "#444466");
-      followBtn.setColor(this._controlMode === "follow" ? "#ffffff" : "#444466");
-    };
-
-    stickBtn.on("pointerup", () => {
-      this._controlMode = "stick";
-      localStorage.setItem("floorball:controls", "stick");
-      updateVisuals();
-    });
-
-    followBtn.on("pointerup", () => {
-      this._controlMode = "follow";
-      localStorage.setItem("floorball:controls", "follow");
-      updateVisuals();
-    });
   }
 
   private _drawButtonsLandscape(): void {
