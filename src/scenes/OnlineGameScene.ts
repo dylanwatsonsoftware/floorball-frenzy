@@ -170,7 +170,7 @@ export class OnlineGameScene extends GameScene {
       .setDepth(15);
 
     this.add.text(640, 708,
-      `Room: ${this._roomId} · ${this._isHost ? "Host (Green)" : "Client (Black)"}`, {
+      `Room: ${this._roomId} · ${this._isHost ? "Host (Red)" : "Client (Blue)"}`, {
       fontSize: "13px", color: "#888888",
     })
       .setOrigin(0.5, 1)

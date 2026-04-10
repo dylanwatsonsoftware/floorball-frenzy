@@ -30,6 +30,7 @@ describe("createPlayer", () => {
     expect(p.vx).toBe(0);
     expect(p.vy).toBe(0);
     expect(p.dashCooldownMs).toBe(0);
+    expect(p.dashCharges).toBe(3);
   });
 });
 
@@ -109,11 +110,13 @@ describe("stepPlayer — dash", () => {
     const p = createPlayer("p1", 640, 360);
     const input: InputState = { moveX: 1, moveY: 0, slap: false, dash: true };
     stepPlayer(p, input, FIXED_DT, FIXED_DT * 1000);
-    expect(p.dashCooldownMs).toBeGreaterThan(0);
+    expect(p.dashCooldownMs).toBe(DASH_COOLDOWN);
+    expect(p.dashCharges).toBe(2);
   });
 
-  it("does not dash again while cooldown active", () => {
+  it("does not dash again while no charges are left", () => {
     const p = createPlayer("p1", 640, 360);
+    p.dashCharges = 0;
     p.dashCooldownMs = DASH_COOLDOWN;
     const input: InputState = { moveX: 1, moveY: 0, slap: false, dash: true };
     const vxBefore = p.vx;
@@ -123,11 +126,21 @@ describe("stepPlayer — dash", () => {
     expect(p.vx).toBeCloseTo(expectedWithoutDash, 2);
   });
 
-  it("decrements dashCooldownMs by elapsedMs each step", () => {
+  it("decrements dashCooldownMs and recharges a dash", () => {
     const p = createPlayer("p1", 640, 360);
-    p.dashCooldownMs = DASH_COOLDOWN;
-    const elapsed = 16;
-    stepPlayer(p, noInput, FIXED_DT, elapsed);
-    expect(p.dashCooldownMs).toBe(DASH_COOLDOWN - elapsed);
+    p.dashCharges = 2;
+    p.dashCooldownMs = 100;
+    stepPlayer(p, noInput, FIXED_DT, 100);
+    expect(p.dashCharges).toBe(3);
+    expect(p.dashCooldownMs).toBe(0);
+  });
+
+  it("decrements dashCooldownMs and moves to next charge recharge", () => {
+    const p = createPlayer("p1", 640, 360);
+    p.dashCharges = 1;
+    p.dashCooldownMs = 100;
+    stepPlayer(p, noInput, FIXED_DT, 100);
+    expect(p.dashCharges).toBe(2);
+    expect(p.dashCooldownMs).toBe(DASH_COOLDOWN);
   });
 });

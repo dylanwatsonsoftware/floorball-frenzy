@@ -26,6 +26,7 @@ export type GoalEvent = "host" | "client" | null;
  * Returns which side scored ("host" | "client") or null.
  */
 export function stepBall(ball: Ball, dt: number): GoalEvent {
+  const oldX = ball.x;
   const elapsedMs = dt * 1000;
   if (ball.boltTimerMs && ball.boltTimerMs > 0) {
     ball.boltTimerMs = Math.max(0, ball.boltTimerMs - elapsedMs);
@@ -53,7 +54,7 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
   ball.y += ball.vy * dt;
 
   // Goal detection (at goal line — only scores if entering through the mouth)
-  const goal = checkGoal(ball);
+  const goal = checkGoal(ball, oldX);
   if (goal) return goal;
 
   // ── Goal cage physics ──────────────────────────────────────────────────────
@@ -123,7 +124,7 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
   return null;
 }
 
-function checkGoal(ball: Ball): GoalEvent {
+function checkGoal(ball: Ball, oldX: number): GoalEvent {
   const inMouth = ball.y >= GOAL_TOP && ball.y <= GOAL_BOTTOM;
   if (!inMouth || ball.z >= GOAL_Z_THRESHOLD) return null;
 
@@ -132,10 +133,14 @@ function checkGoal(ball: Ball): GoalEvent {
   const LEFT_CAGE_BACK  = GOAL_LINE_LEFT  - GOAL_CAGE_DEPTH;
   const RIGHT_CAGE_BACK = GOAL_LINE_RIGHT + GOAL_CAGE_DEPTH;
 
+  // Anti-tunneling: check if the ball crossed the goal line between oldX and ball.x
+  const crossedLeftLine = (oldX >= GOAL_LINE_LEFT && ball.x < GOAL_LINE_LEFT);
+  const crossedRightLine = (oldX <= GOAL_LINE_RIGHT && ball.x > GOAL_LINE_RIGHT);
+
   // Left goal (blue/host net): client scores
-  if (ball.x - BALL_RADIUS < GOAL_LINE_LEFT && ball.x > LEFT_CAGE_BACK && ball.vx < 0) return "client";
+  if ((crossedLeftLine || (ball.x - BALL_RADIUS < GOAL_LINE_LEFT && ball.x > LEFT_CAGE_BACK)) && ball.vx < 0) return "client";
   // Right goal (red/client net): host scores
-  if (ball.x + BALL_RADIUS > GOAL_LINE_RIGHT && ball.x < RIGHT_CAGE_BACK && ball.vx > 0) return "host";
+  if ((crossedRightLine || (ball.x + BALL_RADIUS > GOAL_LINE_RIGHT && ball.x < RIGHT_CAGE_BACK)) && ball.vx > 0) return "host";
   return null;
 }
 
