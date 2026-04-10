@@ -61,15 +61,13 @@ describe("simpleAI", () => {
     expect(input.moveY).toBeGreaterThan(0); // Should steer down
   });
 
-  it("clamps steering Y to goal boundaries", () => {
+  it("clamps steering Y to field boundaries and steers up when opponent is below", () => {
     const ai = createDummyPlayer("ai", 500, GOAL_TOP + 10);
     const opponent = createDummyPlayer("opp", 400, GOAL_TOP + 20); // Opponent below
     const ball = createDummyBall(500, GOAL_TOP + 10, "ai");
 
     const input = getNextAIInput(ai, ball, opponent);
-    // Steering up would hit GOAL_TOP
-    // Target Y logic: targetY = Math.max(GOAL_TOP, aiPlayer.y - 150);
-    // Here ai.y - 150 < GOAL_TOP, so targetY = GOAL_TOP.
+    // Steering up should produce negative moveY
     expect(input.moveY).toBeLessThan(0);
   });
 

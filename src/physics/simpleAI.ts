@@ -77,11 +77,7 @@ export function getNextAIInput(aiPlayer: Player, ball: Ball, opponent: Player): 
   if ((isNearLeftGoalX || isNearRightGoalX) && isOutsideGoalMouthY) {
     // Steer vertically toward the center of the pitch to avoid getting stuck behind goals
     const midY = (FIELD_TOP + FIELD_BOTTOM) / 2;
-    if (aiPlayer.y < midY) {
-        targetY = aiPlayer.y + 50;
-    } else {
-        targetY = aiPlayer.y - 50;
-    }
+    targetY = midY;
   }
 
   // Clamp target within field boundaries with padding
