@@ -92,6 +92,7 @@ export const MAX_HEAT = 100;
 export const HEAT_GAIN_PERFECT = 30;
 export const HEAT_GAIN_STEAL = 20;
 export const HEAT_GAIN_DASH = 5;
+export const HEAT_GAIN_GOAL = 50;
 export const HEAT_DECAY_RATE = 2; // per second
 export const EN_FUEGO_DURATION_MS = 8000;
 export const EN_FUEGO_SPEED_BOOST = 1.2;

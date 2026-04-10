@@ -52,6 +52,7 @@ import {
   HEAT_GAIN_PERFECT,
   HEAT_GAIN_STEAL,
   HEAT_GAIN_DASH,
+  HEAT_GAIN_GOAL,
   EN_FUEGO_DURATION_MS,
   POSSESSION_PULL_FACTOR,
   POSSESSION_PULL_CAP,
@@ -920,6 +921,7 @@ export class GameScene extends Phaser.Scene {
 
   protected _onGoal(scorer: "host" | "client"): void {
     this.score[scorer]++;
+    this._gainHeat(scorer, HEAT_GAIN_GOAL);
     const isWin = this.score[scorer] >= WINNING_SCORE;
     const label = scorer === "host" ? "Red scores!" : "Blue scores!";
     if (isWin) {
