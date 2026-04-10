@@ -40,7 +40,8 @@ function makeBtn(
       gfx.beginPath();
       gfx.moveTo(cx - 15, cy - 25);
       gfx.lineTo(cx - 15, cy + 5);
-      (gfx as any).quadraticCurveTo(cx - 15, cy + 20, cx + 15, cy + 20);
+      // Phaser's Graphics doesn't have quadraticCurveTo; use arc for a simple blade curve
+      gfx.arc(cx, cy + 5, 15, Math.PI, Math.PI / 2, true);
       gfx.strokePath();
     } else if (label === "QUICK DASH") {
       for (let i = 0; i < 3; i++) {
