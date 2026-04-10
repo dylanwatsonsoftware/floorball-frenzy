@@ -218,10 +218,6 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start("GameScene", { mode: "local" });
     });
 
-    this._makeButton(W / 2, H / 2 + 170, btnW, btnH, "📖  How to Play", "VIEW TUTORIAL", 0x8844aa, 0x442266, () => {
-      this.scene.launch("TutorialScene", { onComplete: () => {} });
-    });
-
     this._drawCommitInfoLandscape();
   }
 
@@ -239,10 +235,6 @@ export class MenuScene extends Phaser.Scene {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
     }, 2.3);
-
-    this._makeButton(sw / 2, startY + 460, btnW, btnH, "📖  How to Play", "VIEW TUTORIAL", 0x8844aa, 0x442266, () => {
-        this.scene.launch("TutorialScene", { onComplete: () => {} });
-      }, 2.3);
 
     this._drawCommitInfoPortrait(sw, sh);
   }

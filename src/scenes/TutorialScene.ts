@@ -14,17 +14,19 @@ export class TutorialScene extends Phaser.Scene {
   private _descText!: Phaser.GameObjects.Text;
   private _nextBtn!: Phaser.GameObjects.Rectangle;
   private _nextBtnText!: Phaser.GameObjects.Text;
-  private _onComplete: () => void = () => {};
+  private _onComplete: (() => void) | null = null;
   private _team: "host" | "client" = "host";
+  private _finished = false;
 
   constructor() {
     super({ key: "TutorialScene" });
   }
 
-  init(data: { onComplete: () => void, team?: "host" | "client" }): void {
-    this._onComplete = data.onComplete;
-    this._team = data.team ?? "host";
+  init(data?: { onComplete: () => void, team?: "host" | "client" }): void {
+    this._onComplete = data?.onComplete ?? null;
+    this._team = data?.team ?? "host";
     this._currentStepIdx = 0;
+    this._finished = false;
   }
 
   create(): void {
@@ -41,8 +43,9 @@ export class TutorialScene extends Phaser.Scene {
       fontSize: "32px", color: "#00ff66", fontStyle: "bold"
     }).setOrigin(0.5).setDepth(102);
 
+    const responsiveWordWrap = Math.min(800, Math.floor(width * 0.9));
     this._descText = this.add.text(width / 2, panelY + 80, "", {
-      fontSize: "20px", color: "#ffffff", align: "center", wordWrap: { width: 800 }
+      fontSize: "20px", color: "#ffffff", align: "center", wordWrap: { width: responsiveWordWrap }
     }).setOrigin(0.5).setDepth(102);
 
     // Next Button
@@ -143,7 +146,12 @@ export class TutorialScene extends Phaser.Scene {
   }
 
   private _finish(): void {
-    if (this._onComplete) this._onComplete();
+    if (this._finished) return;
+    this._finished = true;
+    if (this._onComplete) {
+      this._onComplete();
+      this._onComplete = null;
+    }
     this.scene.stop();
   }
 }

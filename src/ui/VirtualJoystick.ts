@@ -64,11 +64,19 @@ export class VirtualJoystick {
       fontSize: "14px", color: "#ffffff", fontStyle: "bold", letterSpacing: 2
     }).setOrigin(0.5).setAlpha(0.7).setDepth(16);
 
-    scene.events.on("update", () => {
+    const updateHandler = () => {
       const show = this.enabled && !this.isActive();
       hintBase.setVisible(show);
       hintKnob.setVisible(show);
       hintText.setVisible(show);
+    };
+
+    scene.events.on("update", updateHandler);
+    scene.events.once("shutdown", () => {
+      scene.events.off("update", updateHandler);
+    });
+    hintBase.on("destroy", () => {
+      scene.events.off("update", updateHandler);
     });
   }
 
