@@ -353,7 +353,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once("shutdown", () => this.scale.off("resize", applyScroll));
 
     // Touch UI — buttons are always present
-    this._hostButtons = new ActionButtons(this, 1210, 360);
+    this._hostButtons = new ActionButtons(this, 1190, 360);
 
     // Joystick only if in stick mode
     const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
@@ -464,10 +464,6 @@ export class GameScene extends Phaser.Scene {
     elapsedMs: number,
     isClientPrediction = false
   ): void {
-    // Inject current dash charges into ActionButtons for visual feedback
-    const localPlayer = this._mode === "online" ? (this._isAuthoritative ? this.host : this.client) : this.host;
-    this._hostButtons.updateDashState(localPlayer.dashCharges, localPlayer.dashCooldownMs);
-
     if (hostInput.moveX !== 0 || hostInput.moveY !== 0) {
       this._hostAim = { x: hostInput.moveX, y: hostInput.moveY };
     }
@@ -495,9 +491,6 @@ export class GameScene extends Phaser.Scene {
     this.client.aimX = this._clientAimSmooth.x;
     this.client.aimY = this._clientAimSmooth.y;
 
-    this.host.chargeMs = this._hostShoot.chargeMs;
-    this.client.chargeMs = this._clientShoot.chargeMs;
-
     if (this._hostSlapWasDown && !hostInput.slap) {
       if (this._hostShoot.chargeMs > 0) this._doSlapShot("host");
       this._hostShoot.chargeMs = 0;
@@ -512,6 +505,9 @@ export class GameScene extends Phaser.Scene {
     this._clientSlapWasDown = clientInput.slap;
     updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
     updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
+
+    this.host.chargeMs = this._hostShoot.chargeMs;
+    this.client.chargeMs = this._clientShoot.chargeMs;
 
     // Tick down shot cooldowns
     this._hostShotCooldownMs = Math.max(0, this._hostShotCooldownMs - elapsedMs);
@@ -556,6 +552,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     this._updateLastTouch();
+
+    // Inject current dash and slap state into ActionButtons for visual feedback
+    const localPlayer = this._mode === "online" ? (this._isAuthoritative ? this.host : this.client) : this.host;
+    this._hostButtons.updateDashState(localPlayer.dashCharges, localPlayer.dashCooldownMs);
+    this._hostButtons.updateSlapState(localPlayer.chargeMs);
 
     if (!isClientPrediction) {
       const goal = stepBall(this.ball, dt);
