@@ -14,6 +14,9 @@ export class VirtualJoystick {
 
   private _base: Phaser.GameObjects.Arc;
   private _knob: Phaser.GameObjects.Arc;
+  private _hintBase?: Phaser.GameObjects.Arc;
+  private _hintKnob?: Phaser.GameObjects.Arc;
+  private _hintText?: Phaser.GameObjects.Text;
   private _pointer: Phaser.Input.Pointer | null = null;
   private _originX = 0;
   private _originY = 0;
@@ -65,6 +68,10 @@ export class VirtualJoystick {
     const hintText = scene.add.text(cx, cy + this._radius + 25, "MOVE", {
       fontSize: "14px", color: "#ffffff", fontStyle: "bold", letterSpacing: 2
     }).setOrigin(0.5).setAlpha(0.7).setDepth(16).setScrollFactor(0);
+
+    this._hintBase = hintBase;
+    this._hintKnob = hintKnob;
+    this._hintText = hintText;
 
     const updateHandler = () => {
       const show = this.enabled && !this.isActive();
@@ -118,6 +125,15 @@ export class VirtualJoystick {
     this.value.y = 0;
     this._base.setVisible(false);
     this._knob.setVisible(false);
+  }
+
+  /** Returns all internal game objects for camera filtering. */
+  getGameObjects(): Phaser.GameObjects.GameObject[] {
+    const objs: Phaser.GameObjects.GameObject[] = [this._base, this._knob];
+    if (this._hintBase) objs.push(this._hintBase);
+    if (this._hintKnob) objs.push(this._hintKnob);
+    if (this._hintText) objs.push(this._hintText);
+    return objs;
   }
 
   isActive(): boolean {

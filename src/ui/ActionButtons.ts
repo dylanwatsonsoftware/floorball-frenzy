@@ -219,6 +219,15 @@ export class ActionButtons {
     }
   }
 
+  /** Returns all internal game objects for camera filtering. */
+  getGameObjects(): Phaser.GameObjects.GameObject[] {
+    return [
+      this._slapBaseGfx, this._dashBaseGfx,
+      this._slapLabel, this._dashLabel,
+      this._dashRingGfx, this._slapRingGfx
+    ];
+  }
+
   read(): ActionState {
     const state: ActionState = {
       slapHeld: this._slapDown,

@@ -79,7 +79,14 @@ export class TutorialScene extends Phaser.Scene {
 
     const cy = height / 2;
 
-    // VirtualJoystick hint is centered in screen at x=384 (because scrollFactor 0)
+    // VirtualJoystick hint is centered in screen at x=384 + initOffsetX
+    // (Wait, joystick world zone in GameScene was [-initOffsetX, 768], so screen CX was 384)
+    // Actually GameScene now just uses relative scale.width / 2 for HUD.
+    // Joystick hint center is at 384 in screen coords if screen was 1280.
+    // If wider, it stays left-aligned? No, let's look at VirtualJoystick.ts
+    // cx = (visibleLeft + visibleRight) / 2 where visibleLeft = Math.max(0, zX).
+    // In GameScene: zX = -initOffsetX, zW = 768 + initOffsetX.
+    // visibleLeft = 0, visibleRight = 768. cx = 384.
     const joystickCenterX = 384;
 
     const isRed = this._team === "host";
