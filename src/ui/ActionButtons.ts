@@ -1,4 +1,9 @@
 import Phaser from "phaser";
+import {
+  DASH_COOLDOWN,
+  MAX_DASH_CHARGES,
+  SHOOT_MAX_CHARGE_MS,
+} from "../physics/constants";
 
 export interface ActionState {
   slapHeld: boolean; // held down
@@ -65,7 +70,7 @@ export class ActionButtons {
   private _dashBounds: Phaser.Geom.Circle;
 
   private _dashGfx: Phaser.GameObjects.Graphics;
-  private _dashCharges = 3;
+  private _dashCharges = MAX_DASH_CHARGES;
   private _dashCooldownMs = 0;
   private _dashCX = 0;
   private _dashCY = 0;
@@ -152,8 +157,7 @@ export class ActionButtons {
     g.clear();
 
     if (this._slapChargeMs > 0) {
-      const maxCharge = 800; // Match SHOOT_MAX_CHARGE_MS
-      const progress = Math.min(this._slapChargeMs / maxCharge, 1);
+      const progress = Phaser.Math.Clamp(this._slapChargeMs / SHOOT_MAX_CHARGE_MS, 0, 1);
       g.lineStyle(6, 0xffff00, 0.9); // Yellow ring
       g.beginPath();
       g.arc(cx, cy, r + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2, false);
@@ -177,11 +181,14 @@ export class ActionButtons {
     g.strokeCircle(cx, cy, r);
 
     // Total Stamina ring (recharge progress)
-    // 0 charges = 0.0, 3 charges = 1.0
-    // Each charge is 1/3 of the total gauge.
-    const cooldownTotal = 3000; // Match DASH_COOLDOWN
-    const partialProgress = (this._dashCharges < 3) ? (1 - this._dashCooldownMs / cooldownTotal) : 0;
-    const totalProgress = (this._dashCharges + partialProgress) / 3;
+    // 0 charges = 0.0, MAX_DASH_CHARGES charges = 1.0
+    // Each charge is 1/MAX_DASH_CHARGES of the total gauge.
+    const cooldownClamped = Phaser.Math.Clamp(this._dashCooldownMs, 0, DASH_COOLDOWN);
+    const partialProgress = (this._dashCharges < MAX_DASH_CHARGES)
+      ? Phaser.Math.Clamp(1 - cooldownClamped / DASH_COOLDOWN, 0, 1)
+      : 0;
+
+    const totalProgress = Phaser.Math.Clamp((this._dashCharges + partialProgress) / MAX_DASH_CHARGES, 0, 1);
 
     if (totalProgress > 0) {
       g.lineStyle(6, 0x00ff66, 0.9); // Thicker green circle
