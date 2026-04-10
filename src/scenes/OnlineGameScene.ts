@@ -48,7 +48,6 @@ export class OnlineGameScene extends GameScene {
 
   private _rematchRequested = false;
   private _opponentRequestedRematch = false;
-  private _rematchText: Phaser.GameObjects.Text | null = null;
 
   protected override get _isAuthoritative(): boolean {
     return this._isHost;
@@ -167,7 +166,7 @@ export class OnlineGameScene extends GameScene {
     this._statusText = this.add
       .text(640, 30, "", { fontSize: "18px", color: "#ff8800", stroke: "#000", strokeThickness: 2 })
       .setOrigin(0.5, 0)
-      .setDepth(15);
+      .setDepth(35); // Above match-over overlay (30)
 
     this.add.text(640, 708,
       `Room: ${this._roomId} · ${this._isHost ? "Host (Green)" : "Client (Black)"}`, {
@@ -450,7 +449,6 @@ export class OnlineGameScene extends GameScene {
         this._startCountdown();
         this._rematchRequested = false;
         this._opponentRequestedRematch = false;
-        this._rematchText = null;
         break;
       }
       case "state": {
@@ -502,8 +500,10 @@ export class OnlineGameScene extends GameScene {
       }
       case "rematch": {
         this._opponentRequestedRematch = true;
-        if (this._rematchText?.active) {
+        this._playDing();
+        if (this._rematchBtn && !this._rematchRequested) {
           this._statusText.setText("Opponent wants a rematch!");
+          this._rematchBtnText?.setText("ACCEPT REMATCH");
         }
         if (this._isHost && this._rematchRequested) {
           // Host sends start signal
@@ -644,8 +644,9 @@ export class OnlineGameScene extends GameScene {
   protected override _showMatchOver(winner: "host" | "client"): void {
     super._showMatchOver(winner);
 
-    if (this._opponentRequestedRematch) {
+    if (this._opponentRequestedRematch && this._rematchBtnText) {
       this._statusText.setText("Opponent wants a rematch!");
+      this._rematchBtnText.setText("ACCEPT REMATCH");
     }
   }
 
@@ -654,7 +655,7 @@ export class OnlineGameScene extends GameScene {
     btn.disableInteractive();
     btn.setAlpha(0.6);
     this._rematchRequested = true;
-    this._rematchText = text;
+    this._statusText.setText("");
     this._peer.send({ type: "rematch" });
 
     if (this._isHost && this._opponentRequestedRematch) {
