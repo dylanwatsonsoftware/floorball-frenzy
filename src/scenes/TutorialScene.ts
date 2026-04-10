@@ -73,28 +73,35 @@ export class TutorialScene extends Phaser.Scene {
   private _setupSteps(): void {
     const { width, height } = this.scale;
 
-    // The game world is 1280x720, centered in the screen.
+    // The game world is 1280x720, centered in the screen by default.
     const extra = Math.max(0, width - 1280);
     const initOffsetX = Math.floor(extra / 2);
 
     const cy = height / 2;
-    // GameScene joystick world zone is [-initOffsetX, 768].
-    // World CX = (768 - initOffsetX) / 2.
-    // Screen CX = World CX - scrollX = World CX + initOffsetX = (768 - initOffsetX)/2 + initOffsetX = (768 + initOffsetX) / 2.
-    // Wait, let's re-verify VirtualJoystick.ts: cx = (x + w) / 2.
-    // In GameScene: x = -initOffsetX, w = 768 + initOffsetX.
-    // World CX = (-initOffsetX + 768 + initOffsetX) / 2 = 384.
-    // Screen CX = 384 + initOffsetX.
-    const joystickCenterX = 384 + initOffsetX;
+
+    // VirtualJoystick hint is centered in screen at x=384 (because scrollFactor 0)
+    const joystickCenterX = 384;
 
     const isRed = this._team === "host";
     const goalX = isRed ? 1100 : 180;
     const goalTeam = isRed ? "Red" : "Blue";
     const goalDir = isRed ? "right" : "left";
 
-    // ActionButtons are at world 1190 + initOffsetX.
-    // Screen X = (1190 + initOffsetX) + initOffsetX = 1190 + 2 * initOffsetX
-    const buttonsX = 1190 + 2 * initOffsetX;
+    // ActionButtons are screen-locked at 1190 + initOffsetX
+    const buttonsX = 1190 + initOffsetX;
+
+    // For world objects like the Goal, we need to account for the GameScene camera
+    const gameScene = this.scene.manager.getScenes(true).find(s => s.scene.key === "GameScene" || s.scene.key === "OnlineGameScene") as any;
+    let goalScreenPos = { x: goalX + initOffsetX, y: cy };
+
+    if (gameScene && gameScene.cameras && gameScene.cameras.main) {
+      const cam = gameScene.cameras.main;
+      // Convert world goal position to screen position
+      // goalX is world coord. cy is world mid-y (360)
+      const p = cam.getScreenPoint(goalX, 360);
+      goalScreenPos.x = p.x;
+      goalScreenPos.y = p.y;
+    }
 
     this._steps = [
       {
@@ -115,7 +122,7 @@ export class TutorialScene extends Phaser.Scene {
       {
         title: "Scoring Goals",
         description: `Attack the opponent's goal on the ${goalDir} (if you're ${goalTeam}).\nThe first player to score 5 goals wins!`,
-        highlight: { x: goalX + initOffsetX, y: cy, r: 180 }
+        highlight: { x: goalScreenPos.x, y: goalScreenPos.y, r: 180 * (gameScene?.cameras?.main?.zoom || 1) }
       }
     ];
   }

@@ -36,11 +36,13 @@ export class VirtualJoystick {
       .circle(0, 0, radius, 0x07070f, 0.4)
       .setStrokeStyle(2, GLOW, 0.4)
       .setDepth(20)
+      .setScrollFactor(0)
       .setVisible(false);
 
     this._knob = scene.add
       .circle(0, 0, radius * 0.4, 0xffffff, 0.8)
       .setDepth(21)
+      .setScrollFactor(0)
       .setVisible(false);
 
     scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => this._onDown(p));
@@ -58,11 +60,11 @@ export class VirtualJoystick {
     const cx = (visibleLeft + visibleRight) / 2;
     const cy = zY + zH / 2;
     const hintBase = scene.add.circle(cx, cy, this._radius, 0xffffff, 0.15)
-      .setStrokeStyle(2, 0xffffff, 0.4).setDepth(15);
-    const hintKnob = scene.add.circle(cx, cy, this._radius * 0.4, 0xffffff, 0.25).setDepth(16);
+      .setStrokeStyle(2, 0xffffff, 0.4).setDepth(15).setScrollFactor(0);
+    const hintKnob = scene.add.circle(cx, cy, this._radius * 0.4, 0xffffff, 0.25).setDepth(16).setScrollFactor(0);
     const hintText = scene.add.text(cx, cy + this._radius + 25, "MOVE", {
       fontSize: "14px", color: "#ffffff", fontStyle: "bold", letterSpacing: 2
-    }).setOrigin(0.5).setAlpha(0.7).setDepth(16);
+    }).setOrigin(0.5).setAlpha(0.7).setDepth(16).setScrollFactor(0);
 
     const updateHandler = () => {
       const show = this.enabled && !this.isActive();
@@ -83,23 +85,24 @@ export class VirtualJoystick {
   private _onDown(p: Phaser.Input.Pointer): void {
     if (!this.enabled || this._pointer !== null) return;
     // Only activate if not handled by buttons and within zone
-    if (!this._zone.contains(p.worldX, p.worldY)) return;
+    // zone is defined in screen coordinates in GameScene
+    if (!this._zone.contains(p.x, p.y)) return;
 
     // We check button containment in GameScene to avoid circular deps or passing buttons here
     // but the scene's input system will emit for all pointers.
 
     this._pointer = p;
-    this._originX = p.worldX;
-    this._originY = p.worldY;
+    this._originX = p.x;
+    this._originY = p.y;
 
-    this._base.setPosition(p.worldX, p.worldY).setVisible(true);
-    this._knob.setPosition(p.worldX, p.worldY).setVisible(true);
+    this._base.setPosition(p.x, p.y).setVisible(true);
+    this._knob.setPosition(p.x, p.y).setVisible(true);
   }
 
   private _onMove(p: Phaser.Input.Pointer): void {
     if (this._pointer?.id !== p.id) return;
 
-    const v = normaliseJoystick(this._originX, this._originY, p.worldX, p.worldY, this._radius);
+    const v = normaliseJoystick(this._originX, this._originY, p.x, p.y, this._radius);
     this.value.x = deadZone(v.x, DEAD);
     this.value.y = deadZone(v.y, DEAD);
 
