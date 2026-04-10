@@ -271,19 +271,19 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private _drawButtonsPortrait(sw: number, sh: number): void {
-    const btnW = sw * 0.9;
-    const btnH = 140;
-    const startY = sh * 0.55;
+    const btnW = sw * 0.96;
+    const btnH = 250;
+    const startY = sh * 0.50;
 
     this._makeButton(sw / 2, startY, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       this._isLobbyVisible = true;
       this._render();
-    }, 1.5);
+    }, 2.3);
 
-    this._makeButton(sw / 2, startY + 180, btnW, btnH, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
+    this._makeButton(sw / 2, startY + 290, btnW, btnH, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
-    }, 1.5);
+    }, 2.3);
 
     this._drawCommitInfoPortrait(sw, sh);
   }
