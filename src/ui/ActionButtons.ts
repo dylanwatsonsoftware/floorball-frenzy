@@ -136,7 +136,8 @@ export class ActionButtons {
     g.clear();
 
     // Background
-    g.fillStyle(DARK, 0.9);
+    const bgColor = this._dashCharges > 0 ? 0x00cc66 : 0x333333; // Green or Gray
+    g.fillStyle(bgColor, 0.85);
     g.fillCircle(cx, cy, r);
 
     // Border
