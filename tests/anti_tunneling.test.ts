@@ -5,7 +5,6 @@ import {
   GOAL_LINE_RIGHT,
   GOAL_TOP,
   GOAL_BOTTOM,
-  BALL_RADIUS,
 } from "../src/physics/constants";
 
 describe("stepBall — goal anti-tunneling", () => {
