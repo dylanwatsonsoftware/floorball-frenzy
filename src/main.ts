@@ -24,10 +24,33 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
 };
 
-const game = new Phaser.Game(config);
-
 // Handle In-App Browsers (Facebook, Messenger, Instagram, LinkedIn)
 const iabInfo = detectInAppBrowser();
+
+const initGame = () => {
+  const game = new Phaser.Game(config);
+
+  // Dynamic viewport management for mobile
+  const scream = new Scream({
+    viewport: true,
+    width: {
+      portrait: window.screen.width,
+      landscape: window.screen.height,
+    },
+  });
+
+  scream.on("orientationchangeend", () => {
+    game.scale.refresh();
+  });
+
+  scream.on("viewchange", () => {
+    game.scale.refresh();
+  });
+
+  new ResizeObserver(() => game.scale.refresh()).observe(document.body);
+  document.addEventListener("fullscreenchange", () => game.scale.refresh());
+};
+
 if (iabInfo.isInApp) {
   const overlay = document.getElementById("iab-overlay");
   const messageEl = document.getElementById("iab-message");
@@ -43,26 +66,11 @@ if (iabInfo.isInApp) {
 
     dismissBtn.addEventListener("click", () => {
       overlay.style.display = "none";
+      initGame();
     });
+  } else {
+    initGame();
   }
+} else {
+  initGame();
 }
-
-// Dynamic viewport management for mobile
-const scream = new Scream({
-  viewport: true,
-  width: {
-    portrait: window.screen.width,
-    landscape: window.screen.height,
-  },
-});
-
-scream.on("orientationchangeend", () => {
-  game.scale.refresh();
-});
-
-scream.on("viewchange", () => {
-  game.scale.refresh();
-});
-
-new ResizeObserver(() => game.scale.refresh()).observe(document.body);
-document.addEventListener("fullscreenchange", () => game.scale.refresh());

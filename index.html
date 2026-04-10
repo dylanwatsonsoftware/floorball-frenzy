@@ -82,8 +82,21 @@
         padding: 40px 20px;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       }
+      #iab-logo {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 20px;
+        object-fit: contain;
+      }
+      #iab-overlay h1 {
+        font-size: 32px;
+        margin-bottom: 10px;
+        color: #fff;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
       #iab-overlay h2 {
-        font-size: 24px;
+        font-size: 20px;
         margin-bottom: 20px;
         color: #ff4d4d;
       }
@@ -123,6 +136,8 @@
   </head>
   <body>
     <div id="iab-overlay">
+      <img id="iab-logo" src="assets/floorball-frenzy.png" alt="Floorball Frenzy Logo">
+      <h1>Floorball Frenzy</h1>
       <h2 id="iab-title">In-App Browser Detected</h2>
       <p id="iab-message">
         It looks like you're playing inside <strong>the app</strong>. This game may have issues here.
