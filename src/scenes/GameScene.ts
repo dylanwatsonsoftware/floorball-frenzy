@@ -175,6 +175,8 @@ export class GameScene extends Phaser.Scene {
   protected _clientHasPossession = false;
 
   protected _matchOverObjects: Phaser.GameObjects.GameObject[] = [];
+  protected _rematchBtn: Phaser.GameObjects.Rectangle | null = null;
+  protected _rematchBtnText: Phaser.GameObjects.Text | null = null;
 
   protected get _isAuthoritative(): boolean {
     return this._mode === "local";
@@ -890,6 +892,8 @@ export class GameScene extends Phaser.Scene {
     // Rematch button
     const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, winner === "host" ? COLOR_RED : COLOR_BLUE, 1).setDepth(31).setInteractive({ useHandCursor: true });
     const rematchText = this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    this._rematchBtn = rematchBtn;
+    this._rematchBtnText = rematchText;
 
     rematchBtn.on("pointerover", () => { rematchBtn.setScale(1.05); rematchBtn.setFillStyle(0x00ee77); });
     rematchBtn.on("pointerout", () => { rematchBtn.setScale(1.0); rematchBtn.setFillStyle(0x00cc66); });
@@ -905,12 +909,14 @@ export class GameScene extends Phaser.Scene {
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
 
-    this._matchOverObjects = [bg, title, winLabel, streakLabel, rematchBtn, rematchText, menuBtn, menuText];
+    this._matchOverObjects = [bg, title, winLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
   }
 
   protected _clearMatchOver(): void {
     this._matchOverObjects.forEach(obj => obj.destroy());
     this._matchOverObjects = [];
+    this._rematchBtn = null;
+    this._rematchBtnText = null;
   }
 
   protected _resetMatch(): void {
