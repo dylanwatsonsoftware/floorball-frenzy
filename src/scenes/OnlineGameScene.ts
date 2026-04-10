@@ -164,24 +164,29 @@ export class OnlineGameScene extends GameScene {
     }
 
     this._pingText = this.add
-      .text(1270, 10, "", { fontSize: "13px", color: "#888888" })
+      .text(this.scale.width - 10, 10, "", { fontSize: "13px", color: "#888888" })
       .setOrigin(1, 0)
-      .setDepth(15);
+      .setDepth(15)
+      .setScrollFactor(0);
+
+    const midX = this.scale.width / 2;
 
     this._statusText = this.add
-      .text(640, 30, "", { fontSize: "18px", color: "#ff8800", stroke: "#000", strokeThickness: 2 })
+      .text(midX, 30, "", { fontSize: "18px", color: "#ff8800", stroke: "#000", strokeThickness: 2 })
       .setOrigin(0.5, 0)
-      .setDepth(35); // Above match-over overlay (30)
+      .setDepth(35)
+      .setScrollFactor(0); // Above match-over overlay (30)
 
-    this.add.text(640, 708,
+    const roomText = this.add.text(midX, 708,
       `Room: ${this._roomId} · ${this._isHost ? "Host (Red)" : "Client (Blue)"}`, {
       fontSize: "13px", color: "#888888",
     })
       .setOrigin(0.5, 1)
-      .setDepth(15);
+      .setDepth(15)
+      .setScrollFactor(0);
 
     this._countdownText = this.add
-      .text(640, 360, "", {
+      .text(midX, 360, "", {
         fontSize: "120px",
         color: "#ffffff",
         fontStyle: "bold",
@@ -190,8 +195,10 @@ export class OnlineGameScene extends GameScene {
       })
       .setOrigin(0.5)
       .setDepth(22)
+      .setScrollFactor(0)
       .setVisible(false);
 
+    this._addUI([this._pingText, this._statusText, roomText, this._countdownText]);
     this._buildSharePanel();
 
     if (!localStorage.getItem("floorball:tutorialDone")) {
@@ -225,7 +232,7 @@ export class OnlineGameScene extends GameScene {
       const len = Math.hypot(...this._waitingBallQuat);
       this._waitingBallQuat = this._waitingBallQuat.map(v => v / len) as [number, number, number, number];
 
-      const ballX = this._isHost ? 640 + 155 : 640;
+      const ballX = this.scale.width / 2 + (this._isHost ? 155 : 0);
       const ballY = this._isHost ? 360 - 120 : 360;
       this._waitingBallGfx.clear();
       this._waitingBallGfx.setPosition(ballX, ballY);
@@ -553,40 +560,43 @@ export class OnlineGameScene extends GameScene {
 
   /** Big centered panel shown while waiting to connect. Host sees share UI; client sees connecting UI. */
   private _buildSharePanel(): void {
-    const cx = 640, cy = 360;
+    const cx = this.scale.width / 2, cy = 360;
+    const isPortrait = this.scale.height > this.scale.width;
 
     this._waitingBallQuat = [1, 0, 0, 0];
-    this._waitingBallGfx = this.add.graphics().setDepth(19);
+    this._waitingBallGfx = this.add.graphics().setDepth(19).setScrollFactor(0);
 
     if (!this._isHost) {
-      const overlay = this.add.rectangle(cx, cy, 520, 260, 0x000000, 0.8).setDepth(18);
+      const overlay = this.add.rectangle(cx, cy, isPortrait ? this.scale.width * 0.9 : 520, 260, 0x000000, 0.8).setDepth(18).setScrollFactor(0);
       const title = this.add.text(cx, cy - 70, "Connecting…", {
         fontSize: "28px", color: "#ffffff", fontStyle: "bold",
-      }).setOrigin(0.5).setDepth(19);
+      }).setOrigin(0.5).setDepth(19).setScrollFactor(0);
       const sub = this.add.text(cx, cy + 60, "Getting you into the game", {
         fontSize: "16px", color: "#556688", align: "center",
-      }).setOrigin(0.5).setDepth(19);
+      }).setOrigin(0.5).setDepth(19).setScrollFactor(0);
       this._waitingTitleText = title;
       this._waitingSubText = sub;
       this._sharePanelObjects = [overlay, title, sub, this._waitingBallGfx];
+      this._addUI(this._sharePanelObjects);
       return;
     }
 
     const shareUrl = `${window.location.origin}${window.location.pathname}#${this._roomId}`;
 
-    const overlay = this.add.rectangle(cx, cy, 560, 340, 0x000000, 0.8).setDepth(18);
+    const overlay = this.add.rectangle(cx, cy, isPortrait ? this.scale.width * 0.95 : 560, 340, 0x000000, 0.8).setDepth(18).setScrollFactor(0);
 
     const title = this.add.text(cx - 30, cy - 120, "Waiting for opponent", {
       fontSize: "24px", color: "#ffffff", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(19);
+    }).setOrigin(0.5).setDepth(19).setScrollFactor(0);
     this._waitingTitleText = title;
 
     const gameName = localStorage.getItem("floorball:gameName") || this._roomId;
     const roomLabel = this.add.text(cx, cy - 72, gameName, {
       fontSize: "26px", color: "#aaaaff", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(19);
+    }).setOrigin(0.5).setDepth(19).setScrollFactor(0);
 
     this._sharePanelObjects = [overlay, title, roomLabel, this._waitingBallGfx];
+    this._addUI(this._sharePanelObjects);
 
     // Lazy-load QR code from external API
     const qrKey = `qr-${this._roomId}`;
@@ -595,7 +605,8 @@ export class OnlineGameScene extends GameScene {
     this.load.image(qrKey, qrUrl);
     this.load.once(`filecomplete-image-${qrKey}`, () => {
       if (!this.scene.isActive("OnlineGameScene")) return;
-      const qrSprite = this.add.sprite(cx, cy + 45, qrKey).setDepth(19);
+      const qrSprite = this.add.sprite(cx, cy + 45, qrKey).setDepth(19).setScrollFactor(0);
+      this._addUI(qrSprite);
       this._sharePanelObjects.push(qrSprite);
       // If we already connected while loading, hide it immediately
       if (this._connected) qrSprite.setVisible(false);
@@ -650,28 +661,31 @@ export class OnlineGameScene extends GameScene {
 
   /** Full-screen overlay shown when reconnection gives up. */
   private _buildDisconnectOverlay(): void {
-    const cx = 640, cy = 360;
+    const cx = this.scale.width / 2, cy = 360;
 
-    this.add.rectangle(cx, cy, 560, 280, 0x000000, 0.85).setDepth(25);
+    const overlay = this.add.rectangle(cx, cy, 560, 280, 0x000000, 0.85).setDepth(25).setScrollFactor(0);
 
-    this.add.text(cx, cy - 80, "Connection lost", {
+    const title = this.add.text(cx, cy - 80, "Connection lost", {
       fontSize: "30px", color: "#ff6644", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(26);
+    }).setOrigin(0.5).setDepth(26).setScrollFactor(0);
 
-    this.add.text(cx, cy - 38, "Could not reconnect to your opponent.", {
+    const sub = this.add.text(cx, cy - 38, "Could not reconnect to your opponent.", {
       fontSize: "18px", color: "#888888",
-    }).setOrigin(0.5).setDepth(26);
+    }).setOrigin(0.5).setDepth(26).setScrollFactor(0);
 
     const btnBg = this.add
       .rectangle(cx, cy + 50, 320, 70, 0x2a55d4, 1)
       .setStrokeStyle(2, 0x6699ff, 1)
       .setInteractive({ useHandCursor: true })
-      .setDepth(26);
+      .setDepth(26)
+      .setScrollFactor(0);
 
     const btnLabel = this.add.text(cx, cy + 50, "← Back to Menu", {
       fontSize: "22px", color: "#ffffff", fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(26);
+    }).setOrigin(0.5).setDepth(26).setScrollFactor(0);
     btnLabel.disableInteractive();
+
+    this._addUI([overlay, title, sub, btnBg, btnLabel]);
 
     btnBg.on("pointerover", () => btnBg.setFillStyle(0x3a66e5, 1));
     btnBg.on("pointerout", () => btnBg.setFillStyle(0x2a55d4, 1));
