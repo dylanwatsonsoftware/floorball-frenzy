@@ -43,12 +43,17 @@ import {
   PX_PER_M,
   STICK_REACH,
   DASH_COOLDOWN,
+  MAX_DASH_CHARGES,
   DASH_STEAL_WINDOW,
   DASH_STEAL_FORCE,
   BOLT_SHOT_BOOST,
   BOLT_SHOT_DURATION_MS,
   POSSESSION_PULL_FACTOR,
   POSSESSION_PULL_CAP,
+  COLOR_RED,
+  COLOR_BLUE,
+  COLOR_RED_STR,
+  COLOR_BLUE_STR,
 } from "../physics/constants";
 
 const WINNING_SCORE = 5;
@@ -237,7 +242,7 @@ export class GameScene extends Phaser.Scene {
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
     // Dash cooldown rings (drawn below players)
-    this._dashRingGfx = this.add.graphics().setDepth(4.5);
+    this._dashRingGfx = this.add.graphics().setDepth(4.5).setVisible(false);
     // Dash ghosts
     this._ghostGraphics = this.add.graphics().setDepth(4.6);
     // Fire trail — drawn behind the ball
@@ -256,19 +261,19 @@ export class GameScene extends Phaser.Scene {
     const HUD_H = 95;
     const hudGfx = this.add.graphics().setDepth(14);
 
-    // Left team panel (green tint)
-    hudGfx.fillGradientStyle(0x0a2a18, 0x0a2a18, 0x06060e, 0x06060e, 1);
+    // Left team panel (Red tint)
+    hudGfx.fillGradientStyle(0x2a0a10, 0x2a0a10, 0x06060e, 0x06060e, 1);
     hudGfx.fillRect(0, 0, 640, HUD_H);
-    // Right team panel (red/dark tint)
-    hudGfx.fillGradientStyle(0x06060e, 0x06060e, 0x2a0a10, 0x2a0a10, 1);
+    // Right team panel (Blue tint)
+    hudGfx.fillGradientStyle(0x06060e, 0x06060e, 0x0a182a, 0x0a182a, 1);
     hudGfx.fillRect(640, 0, 640, HUD_H);
     // Bottom separator
     hudGfx.lineStyle(1, 0xffffff, 0.12);
     hudGfx.lineBetween(0, HUD_H, 1280, HUD_H);
     // Team color accent lines along the top
-    hudGfx.lineStyle(3, 0x00cc66, 1);
+    hudGfx.lineStyle(3, COLOR_RED, 1);
     hudGfx.lineBetween(0, 0, 560, 0);
-    hudGfx.lineStyle(3, 0xdd2244, 1);
+    hudGfx.lineStyle(3, COLOR_BLUE, 1);
     hudGfx.lineBetween(720, 0, 1280, 0);
     // Center score zone pill
     hudGfx.fillStyle(0x08080f, 0.9);
@@ -277,9 +282,9 @@ export class GameScene extends Phaser.Scene {
     hudGfx.strokeRoundedRect(480, 8, 320, HUD_H - 16, 12);
 
     // Team labels with color
-    this.add.text(200, HUD_H / 2, "HOME", { fontSize: "14px", color: "#00cc66", fontStyle: "bold", letterSpacing: 3 })
+    this.add.text(200, HUD_H / 2, "RED", { fontSize: "14px", color: COLOR_RED_STR, fontStyle: "bold", letterSpacing: 3 })
       .setOrigin(0.5).setDepth(15);
-    this.add.text(1080, HUD_H / 2, "AWAY", { fontSize: "14px", color: "#dd2244", fontStyle: "bold", letterSpacing: 3 })
+    this.add.text(1080, HUD_H / 2, "BLUE", { fontSize: "14px", color: COLOR_BLUE_STR, fontStyle: "bold", letterSpacing: 3 })
       .setOrigin(0.5).setDepth(15);
 
     // "SCORE" eyebrow inside pill
@@ -457,6 +462,10 @@ export class GameScene extends Phaser.Scene {
     elapsedMs: number,
     isClientPrediction = false
   ): void {
+    // Inject current dash charges into ActionButtons for visual feedback
+    const localPlayer = this._mode === "online" ? (this._isAuthoritative ? this.host : this.client) : this.host;
+    this._hostButtons.updateDashState(localPlayer.dashCharges, localPlayer.dashCooldownMs);
+
     if (hostInput.moveX !== 0 || hostInput.moveY !== 0) {
       this._hostAim = { x: hostInput.moveX, y: hostInput.moveY };
     }
@@ -714,7 +723,8 @@ export class GameScene extends Phaser.Scene {
     const player = who === "host" ? this.host : this.client;
     const isOT = this._isOneTouch(who);
     if (isOT) this._spawnOneTouchJuice();
-    const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200;
+    // Bolt shot triggers if we dashed very recently
+    const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200 && player.dashCharges < MAX_DASH_CHARGES;
     const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy);
     this.ball.isPerfect = isPerfect;
     if (isBolt) {
@@ -794,8 +804,8 @@ export class GameScene extends Phaser.Scene {
 
   protected _onPlayerPlayerContact(p1: PlayerExtended, p2: PlayerExtended): void {
     // Check if either player is dashing
-    const p1Dashing = p1.dashCooldownMs > DASH_COOLDOWN - DASH_STEAL_WINDOW;
-    const p2Dashing = p2.dashCooldownMs > DASH_COOLDOWN - DASH_STEAL_WINDOW;
+    const p1Dashing = p1.dashCooldownMs > DASH_COOLDOWN - DASH_STEAL_WINDOW && p1.dashCharges < MAX_DASH_CHARGES;
+    const p2Dashing = p2.dashCooldownMs > DASH_COOLDOWN - DASH_STEAL_WINDOW && p2.dashCharges < MAX_DASH_CHARGES;
 
     if (p1Dashing && this._clientHasPossession) {
       this._pokeBall(p1);
@@ -836,9 +846,9 @@ export class GameScene extends Phaser.Scene {
   protected _onGoal(scorer: "host" | "client"): void {
     this.score[scorer]++;
     const isWin = this.score[scorer] >= WINNING_SCORE;
-    const label = scorer === "host" ? "Green scores!" : "Black scores!";
+    const label = scorer === "host" ? "Red scores!" : "Blue scores!";
     if (isWin) {
-      this._messageText.setText(`${scorer === "host" ? "Green" : "Black"} wins!`);
+      this._messageText.setText(`${scorer === "host" ? "Red" : "Blue"} wins!`);
       this._frozenMs = 5000; // Give time for the overlay
       this._isGoalPause = true;
       this._updateWinStreak(scorer);
@@ -874,11 +884,11 @@ export class GameScene extends Phaser.Scene {
     const bg = this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30);
 
     const title = this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
-    const winLabel = this.add.text(cx, cy - 40, `${winner === "host" ? "GREEN" : "BLACK"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const winLabel = this.add.text(cx, cy - 40, `${winner === "host" ? "RED" : "BLUE"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
     const streakLabel = this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
 
     // Rematch button
-    const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, 0x00cc66, 1).setDepth(31).setInteractive({ useHandCursor: true });
+    const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, winner === "host" ? COLOR_RED : COLOR_BLUE, 1).setDepth(31).setInteractive({ useHandCursor: true });
     const rematchText = this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
 
     rematchBtn.on("pointerover", () => { rematchBtn.setScale(1.05); rematchBtn.setFillStyle(0x00ee77); });
@@ -1095,7 +1105,8 @@ export class GameScene extends Phaser.Scene {
       aim: { x: number; y: number },
       isLocal: boolean,
       shootState: ShootState,
-      hasPossession: boolean
+      hasPossession: boolean,
+      teamColor: number
     ) => {
       // 1. Aim direction indicator — gradient arrow that grows with charge
       // Only appears when charging AND has possession
@@ -1121,8 +1132,8 @@ export class GameScene extends Phaser.Scene {
         const hx = ax - nx * headLen;
         const hy = ay - ny * headLen;
 
-        // Orange to Yellow gradient
-        g.fillGradientStyle(0xff8800, 0xffff00, 0xff8800, 0xffff00, 0.9, 0.9, 0.9, 0.9);
+        // Team color gradient
+        g.fillGradientStyle(teamColor, 0xffffff, teamColor, 0xffffff, 0.9, 0.9, 0.9, 0.9);
 
         g.beginPath();
         // Arrow Stem
@@ -1145,13 +1156,13 @@ export class GameScene extends Phaser.Scene {
 
       // 2. Ownership "YOU" indicator
       if (isLocal) {
-        // Yellow oval below the character
-        gu.lineStyle(3, 0xffff00, 0.8);
+        // Team colored oval below the character
+        gu.lineStyle(3, teamColor, 0.8);
         gu.strokeEllipse(player.x + 5, player.y + 30, 60, 30);
 
         // Small triangle above
         const ty = player.y - PLAYER_RADIUS - 30;
-        g.fillStyle(0xffff00, 1);
+        g.fillStyle(teamColor, 1);
         g.fillTriangle(
           player.x - 6, ty - 8,
           player.x + 6, ty - 8,
@@ -1161,12 +1172,12 @@ export class GameScene extends Phaser.Scene {
     };
 
     if (this._mode === "local") {
-      drawForPlayer(this.host, this._hostAimSmooth, true, this._hostShoot, this._hostHasPossession);
-      drawForPlayer(this.client, this._clientAimSmooth, false, this._clientShoot, this._clientHasPossession);
+      drawForPlayer(this.host, this._hostAimSmooth, true, this._hostShoot, this._hostHasPossession, COLOR_RED);
+      drawForPlayer(this.client, this._clientAimSmooth, false, this._clientShoot, this._clientHasPossession, COLOR_BLUE);
     } else {
       const isHostLocal = this._isAuthoritative;
-      drawForPlayer(this.host, this._hostAimSmooth, isHostLocal, this._hostShoot, this._hostHasPossession);
-      drawForPlayer(this.client, this._clientAimSmooth, !isHostLocal, this._clientShoot, this._clientHasPossession);
+      drawForPlayer(this.host, this._hostAimSmooth, isHostLocal, this._hostShoot, this._hostHasPossession, COLOR_RED);
+      drawForPlayer(this.client, this._clientAimSmooth, !isHostLocal, this._clientShoot, this._clientHasPossession, COLOR_BLUE);
     }
   }
 
@@ -1224,7 +1235,7 @@ export class GameScene extends Phaser.Scene {
   private _updateGhosts(delta: number): void {
     // Spawn ghosts
     const DASH_BURST = DASH_COOLDOWN - 200;
-    if (this.host.dashCooldownMs > DASH_BURST && Math.floor(this.time.now / 40) % 2 === 0) {
+    if (this.host.dashCooldownMs > DASH_BURST && this.host.dashCharges < MAX_DASH_CHARGES && Math.floor(this.time.now / 40) % 2 === 0) {
       this._ghosts.push({
         x: this.host.x,
         y: this.host.y,
@@ -1235,7 +1246,7 @@ export class GameScene extends Phaser.Scene {
         color: 0x00cc66,
       });
     }
-    if (this.client.dashCooldownMs > DASH_BURST && Math.floor(this.time.now / 40) % 2 === 0) {
+    if (this.client.dashCooldownMs > DASH_BURST && this.client.dashCharges < MAX_DASH_CHARGES && Math.floor(this.time.now / 40) % 2 === 0) {
       this._ghosts.push({
         x: this.client.x,
         y: this.client.y,
@@ -1294,6 +1305,10 @@ export class GameScene extends Phaser.Scene {
     this._hostShoot.charging = false;
     this._clientShoot.chargeMs = 0;
     this._clientShoot.charging = false;
+    this.host.dashCharges = MAX_DASH_CHARGES;
+    this.host.dashCooldownMs = 0;
+    this.client.dashCharges = MAX_DASH_CHARGES;
+    this.client.dashCooldownMs = 0;
   }
 
   protected _drawSticks(): void {
@@ -1462,7 +1477,7 @@ export class GameScene extends Phaser.Scene {
       const cageBackX = left ? mouthX - GOAL_CAGE_DEPTH : mouthX + GOAL_CAGE_DEPTH;
       const netFillX = left ? cageBackX : mouthX;
 
-      const teamColor = left ? 0x004422 : 0xdd2244;
+      const teamColor = left ? COLOR_BLUE : COLOR_RED;
 
       // Crease extends into the field from the goal mouth (field side only, per IFF rules)
       const creaseX = left ? mouthX : mouthX - DZONE_DEPTH;

@@ -10,11 +10,10 @@ import {
   FIELD_BOTTOM,
   DASH_FORCE,
   DASH_COOLDOWN,
+  MAX_DASH_CHARGES,
 } from "./constants";
 
-export interface PlayerExtended extends Player {
-  dashCooldownMs: number;
-}
+export interface PlayerExtended extends Player {}
 
 /**
  * Advance player state by dt seconds given the current input.
@@ -27,18 +26,29 @@ export function stepPlayer(
   elapsedMs: number
 ): void {
   // Dash cooldown countdown
-  if (player.dashCooldownMs > 0) {
+  if (player.dashCharges < MAX_DASH_CHARGES) {
     player.dashCooldownMs = Math.max(0, player.dashCooldownMs - elapsedMs);
+    if (player.dashCooldownMs <= 0) {
+      player.dashCharges++;
+      if (player.dashCharges < MAX_DASH_CHARGES) {
+        player.dashCooldownMs = DASH_COOLDOWN;
+      } else {
+        player.dashCooldownMs = 0;
+      }
+    }
   }
 
   // Dash impulse — direction is move input; caller injects aim when standing still
-  if (input.dash && player.dashCooldownMs === 0) {
+  if (input.dash && player.dashCharges > 0) {
     const len = Math.hypot(input.moveX, input.moveY);
     if (len > 0) {
       player.vx += (input.moveX / len) * DASH_FORCE;
       player.vy += (input.moveY / len) * DASH_FORCE;
     }
-    player.dashCooldownMs = DASH_COOLDOWN;
+    player.dashCharges--;
+    if (player.dashCooldownMs <= 0) {
+      player.dashCooldownMs = DASH_COOLDOWN;
+    }
   }
 
   // Acceleration from input
@@ -82,6 +92,7 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     aimX: 1,
     aimY: 0,
     dashCooldownMs: 0,
+    dashCharges: MAX_DASH_CHARGES,
     chargeMs: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false },
   };

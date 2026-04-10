@@ -170,7 +170,7 @@ export class OnlineGameScene extends GameScene {
       .setDepth(15);
 
     this.add.text(640, 708,
-      `Room: ${this._roomId} · ${this._isHost ? "Host (Green)" : "Client (Black)"}`, {
+      `Room: ${this._roomId} · ${this._isHost ? "Host (Red)" : "Client (Blue)"}`, {
       fontSize: "13px", color: "#888888",
     })
       .setOrigin(0.5, 1)
@@ -419,6 +419,7 @@ export class OnlineGameScene extends GameScene {
           vx: this.host.vx, vy: this.host.vy,
           aimX: this.host.aimX, aimY: this.host.aimY,
           dashCooldownMs: this.host.dashCooldownMs,
+          dashCharges: this.host.dashCharges,
           chargeMs: this.host.chargeMs,
           input: this.host.input,
         },
@@ -427,6 +428,7 @@ export class OnlineGameScene extends GameScene {
           vx: this.client.vx, vy: this.client.vy,
           aimX: this.client.aimX, aimY: this.client.aimY,
           dashCooldownMs: this.client.dashCooldownMs,
+          dashCharges: this.client.dashCharges,
           chargeMs: this.client.chargeMs,
           input: this.client.input,
         },

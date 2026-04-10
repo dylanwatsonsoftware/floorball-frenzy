@@ -8,6 +8,8 @@ export interface ActionState {
 const GLOW   = 0x00e5ff;
 const ACTIVE = 0x1af0ff;
 const DARK   = 0x07070f;
+const DASH_READY = 0x00ff66;
+const DASH_EMPTY = 0x444444;
 
 interface Btn {
   bounds: Phaser.Geom.Circle;
@@ -63,6 +65,13 @@ export class ActionButtons {
   private _slapBounds: Phaser.Geom.Circle;
   private _dashBounds: Phaser.Geom.Circle;
 
+  private _dashGfx: Phaser.GameObjects.Graphics;
+  private _dashCharges = 3;
+  private _dashCooldownMs = 0;
+  private _dashCX = 0;
+  private _dashCY = 0;
+  private _dashR = 50;
+
   constructor(scene: Phaser.Scene, panelCX: number, panelCY: number) {
     const BIG_R = 70;
     const SM_R  = 50;
@@ -71,11 +80,21 @@ export class ActionButtons {
     const slapY  = panelCY - 80;
     const dashX  = panelCX;
     const dashY  = panelCY + 100;
+    this._dashCX = dashX;
+    this._dashCY = dashY;
+    this._dashR = SM_R;
 
     const slapBtn = makeBtn(scene, slapX, slapY, BIG_R, "SLAP");
-    const dashBtn = makeBtn(scene, dashX, dashY, SM_R,  "DASH");
+    this._dashGfx = scene.add.graphics().setDepth(20);
     this._slapBounds = slapBtn.bounds;
-    this._dashBounds = dashBtn.bounds;
+    this._dashBounds = new Phaser.Geom.Circle(dashX, dashY, SM_R);
+
+    // DASH label
+    scene.add.text(dashX, dashY, "DASH", {
+      fontSize: `${Math.round(SM_R * 0.45)}px`,
+      color: "#ffffff",
+      fontStyle: "bold",
+    }).setOrigin(0.5).setDepth(21);
 
     scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (this._slapPtr === null && slapBtn.bounds.contains(p.worldX, p.worldY)) {
@@ -83,16 +102,17 @@ export class ActionButtons {
         this._slapDown = true;
         slapBtn.setActive();
       }
-      if (this._dashPtr === null && dashBtn.bounds.contains(p.worldX, p.worldY)) {
+      if (this._dashPtr === null && this._dashBounds.contains(p.worldX, p.worldY)) {
         this._dashPtr    = p.id;
-        this._dashTapped = true;
-        dashBtn.setActive();
+        if (this._dashCharges > 0) {
+          this._dashTapped = true;
+        }
       }
     });
 
     scene.input.on("pointerup", (p: Phaser.Input.Pointer) => {
       if (this._slapPtr  === p.id) { this._slapPtr  = null; this._slapDown = false; slapBtn.setNormal(); }
-      if (this._dashPtr  === p.id) { this._dashPtr  = null; dashBtn.setNormal(); }
+      if (this._dashPtr  === p.id) { this._dashPtr  = null; }
     });
 
     scene.input.on("pointerupoutside", (p: Phaser.Input.Pointer) => {
@@ -103,6 +123,53 @@ export class ActionButtons {
   /** Checks if a point is within any of the buttons. */
   contains(x: number, y: number): boolean {
     return this._slapBounds.contains(x, y) || this._dashBounds.contains(x, y);
+  }
+
+  updateDashState(charges: number, cooldownMs: number): void {
+    this._dashCharges = charges;
+    this._dashCooldownMs = cooldownMs;
+    this._drawDash();
+  }
+
+  private _drawDash(): void {
+    const g = this._dashGfx;
+    const cx = this._dashCX, cy = this._dashCY, r = this._dashR;
+    g.clear();
+
+    // Background
+    g.fillStyle(DARK, 0.9);
+    g.fillCircle(cx, cy, r);
+
+    // Border
+    const borderColor = this._dashCharges > 0 ? GLOW : DASH_EMPTY;
+    g.lineStyle(2, borderColor, 0.7);
+    g.strokeCircle(cx, cy, r);
+
+    // Segments (3 small dots or arcs)
+    const segmentR = 4;
+    const padding = 12;
+    for (let i = 0; i < 3; i++) {
+      const angle = -Math.PI / 2 + (i - 1) * (Math.PI / 4);
+      const sx = cx + Math.cos(angle) * (r - padding);
+      const sy = cy + Math.sin(angle) * (r - padding);
+
+      if (i < this._dashCharges) {
+        g.fillStyle(DASH_READY, 1);
+      } else {
+        g.fillStyle(DASH_EMPTY, 0.5);
+      }
+      g.fillCircle(sx, sy, segmentR);
+    }
+
+    // Stamina ring (recharge progress)
+    if (this._dashCharges < 3) {
+      const cooldownTotal = 3000; // Match DASH_COOLDOWN
+      const progress = 1 - this._dashCooldownMs / cooldownTotal;
+      g.lineStyle(6, 0x00ff66, 0.9); // Thicker green circle
+      g.beginPath();
+      g.arc(cx, cy, r + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2, false);
+      g.strokePath();
+    }
   }
 
   read(): ActionState {

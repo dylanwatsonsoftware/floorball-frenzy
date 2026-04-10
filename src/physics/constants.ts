@@ -70,7 +70,8 @@ export const POSSESSION_PULL_CAP = 7;
 
 // ─── Dash ─────────────────────────────────────────────────────────────────────
 export const DASH_FORCE    = 950;
-export const DASH_COOLDOWN = 4000;
+export const DASH_COOLDOWN = 3000;
+export const MAX_DASH_CHARGES = 3;
 export const DASH_STEAL_WINDOW = 200;
 export const DASH_STEAL_FORCE = 1.6;
 
@@ -85,6 +86,12 @@ export const PERFECT_SHOT_BOOST = 1.3;
 export const BOLT_SHOT_BOOST = 1.2;
 export const BOLT_SHOT_DURATION_MS = 600;
 export const BOLT_FRICTION_POWER = 0.5;
+
+// ─── Colors ──────────────────────────────────────────────────────────────────
+export const COLOR_RED = 0xdd2244;
+export const COLOR_BLUE = 0x2a55d4;
+export const COLOR_RED_STR = "#dd2244";
+export const COLOR_BLUE_STR = "#2a55d4";
 
 // ─── One-touch bonus ──────────────────────────────────────────────────────────
 export const ONE_TOUCH_WINDOW      = 300;
