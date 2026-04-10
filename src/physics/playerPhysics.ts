@@ -32,6 +32,9 @@ export function stepPlayer(
     player.heat = Math.max(0, player.heat - HEAT_DECAY_RATE * dt);
   } else {
     player.enFuegoTimerMs = Math.max(0, player.enFuegoTimerMs - elapsedMs);
+    if (player.enFuegoTimerMs <= 0) {
+      player.heat = 0;
+    }
     // En Fuego grants instant dash recharge
     if (player.dashCharges < MAX_DASH_CHARGES) {
       player.dashCooldownMs = 0;

@@ -494,14 +494,7 @@ export class GameScene extends Phaser.Scene {
   protected _fixedUpdate(dt: number): void {
     const elapsedMs = dt * 1000;
     this._elapsedMs += elapsedMs;
-    const hIn = this._readHostInput();
-    const cIn = this._readClientInput();
-
-    // Heat for dash
-    if (hIn.dash && this.host.dashCharges > 0) this._gainHeat("host", HEAT_GAIN_DASH);
-    if (cIn.dash && this.client.dashCharges > 0) this._gainHeat("client", HEAT_GAIN_DASH);
-
-    this._runPhysics(hIn, cIn, dt, elapsedMs);
+    this._runPhysics(this._readHostInput(), this._readClientInput(), dt, elapsedMs);
   }
 
   /**
@@ -536,8 +529,14 @@ export class GameScene extends Phaser.Scene {
       ? { ...clientInput, moveX: this._clientAimSmooth.x, moveY: this._clientAimSmooth.y }
       : clientInput;
 
+    const hostDashBefore = this.host.dashCharges;
+    const clientDashBefore = this.client.dashCharges;
+
     stepPlayer(this.host, hostInputActual, dt, elapsedMs);
     stepPlayer(this.client, clientInputActual, dt, elapsedMs);
+
+    if (this.host.dashCharges < hostDashBefore) this._gainHeat("host", HEAT_GAIN_DASH);
+    if (this.client.dashCharges < clientDashBefore) this._gainHeat("client", HEAT_GAIN_DASH);
 
     this.host.aimX = this._hostAimSmooth.x;
     this.host.aimY = this._hostAimSmooth.y;
@@ -907,7 +906,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private _gainHeat(who: "host" | "client", amt: number): void {
+  protected _gainHeat(who: "host" | "client", amt: number): void {
     const p = who === "host" ? this.host : this.client;
     if (p.enFuegoTimerMs > 0) return;
     p.heat = Math.min(MAX_HEAT, p.heat + amt);
@@ -1011,6 +1010,11 @@ export class GameScene extends Phaser.Scene {
     this._messageText.setText("");
     this._hostShotCooldownMs = 0;
     this._clientShotCooldownMs = 0;
+
+    this.host.heat = 0;
+    this.host.enFuegoTimerMs = 0;
+    this.client.heat = 0;
+    this.client.enFuegoTimerMs = 0;
   }
 
   protected _handleRematchClick(btn: Phaser.GameObjects.Rectangle, text: Phaser.GameObjects.Text): void {
@@ -1494,11 +1498,6 @@ export class GameScene extends Phaser.Scene {
     this.host.dashCooldownMs = 0;
     this.client.dashCharges = MAX_DASH_CHARGES;
     this.client.dashCooldownMs = 0;
-
-    this.host.heat = 0;
-    this.host.enFuegoTimerMs = 0;
-    this.client.heat = 0;
-    this.client.enFuegoTimerMs = 0;
   }
 
   protected _drawSticks(): void {
