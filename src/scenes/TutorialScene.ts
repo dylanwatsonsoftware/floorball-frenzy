@@ -15,13 +15,15 @@ export class TutorialScene extends Phaser.Scene {
   private _nextBtn!: Phaser.GameObjects.Rectangle;
   private _nextBtnText!: Phaser.GameObjects.Text;
   private _onComplete: () => void = () => {};
+  private _team: "host" | "client" = "host";
 
   constructor() {
     super({ key: "TutorialScene" });
   }
 
-  init(data: { onComplete: () => void }): void {
+  init(data: { onComplete: () => void, team?: "host" | "client" }): void {
     this._onComplete = data.onComplete;
+    this._team = data.team ?? "host";
     this._currentStepIdx = 0;
   }
 
@@ -52,12 +54,6 @@ export class TutorialScene extends Phaser.Scene {
 
     this._nextBtn.on("pointerup", () => this._nextStep());
 
-    // Skip Button
-    const skipBtn = this.add.text(width - 60, height - 35, "SKIP", {
-      fontSize: "18px", color: "#888888", fontStyle: "bold"
-    }).setOrigin(0.5).setDepth(102).setInteractive({ useHandCursor: true });
-    skipBtn.on("pointerup", () => this._finish());
-
     this._setupSteps();
     this._startStep(0);
   }
@@ -70,12 +66,18 @@ export class TutorialScene extends Phaser.Scene {
     const initOffsetX = Math.floor(extra / 2);
 
     const cy = height / 2;
+    const joystickCenterX = (768 / 2) + initOffsetX;
+
+    const isRed = this._team === "host";
+    const goalX = isRed ? 1100 : 180;
+    const goalTeam = isRed ? "Red" : "Blue";
+    const goalDir = isRed ? "right" : "left";
 
     this._steps = [
       {
         title: "Movement",
         description: "Use the Virtual Joystick on the left to move your player around the rink.\nPoint in the direction you want to face.",
-        highlight: { x: (768 + initOffsetX) / 2, y: cy, r: 140 }
+        highlight: { x: joystickCenterX, y: cy, r: 140 }
       },
       {
         title: "Slap Hit",
@@ -89,8 +91,8 @@ export class TutorialScene extends Phaser.Scene {
       },
       {
         title: "Scoring Goals",
-        description: "Attack the opponent's goal on the right (if you're Red).\nThe first player to score 5 goals wins!",
-        highlight: { x: 1220 + initOffsetX, y: cy, r: 150 }
+        description: `Attack the opponent's goal on the ${goalDir} (if you're ${goalTeam}).\nThe first player to score 5 goals wins!`,
+        highlight: { x: goalX + initOffsetX, y: cy, r: 180 }
       }
     ];
   }

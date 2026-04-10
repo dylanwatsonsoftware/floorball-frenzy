@@ -52,14 +52,17 @@ export class VirtualJoystick {
   }
 
   private _drawHint(scene: Phaser.Scene, zX: number, zY: number, zW: number, zH: number): void {
-    const cx = zX + zW / 2;
+    // Center the hint in the visible area (where worldX >= 0)
+    const visibleLeft = Math.max(0, zX);
+    const visibleRight = zX + zW;
+    const cx = (visibleLeft + visibleRight) / 2;
     const cy = zY + zH / 2;
-    const hintBase = scene.add.circle(cx, cy, this._radius, 0xffffff, 0.08)
-      .setStrokeStyle(1.5, 0xffffff, 0.2).setDepth(15);
-    const hintKnob = scene.add.circle(cx, cy, this._radius * 0.4, 0xffffff, 0.15).setDepth(16);
+    const hintBase = scene.add.circle(cx, cy, this._radius, 0xffffff, 0.15)
+      .setStrokeStyle(2, 0xffffff, 0.4).setDepth(15);
+    const hintKnob = scene.add.circle(cx, cy, this._radius * 0.4, 0xffffff, 0.25).setDepth(16);
     const hintText = scene.add.text(cx, cy + this._radius + 25, "MOVE", {
       fontSize: "14px", color: "#ffffff", fontStyle: "bold", letterSpacing: 2
-    }).setOrigin(0.5).setAlpha(0.5).setDepth(16);
+    }).setOrigin(0.5).setAlpha(0.7).setDepth(16);
 
     scene.events.on("update", () => {
       const show = this.enabled && !this.isActive();

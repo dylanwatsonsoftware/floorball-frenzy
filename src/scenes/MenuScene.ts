@@ -129,12 +129,10 @@ export class MenuScene extends Phaser.Scene {
       this._drawBackgroundPortrait(sw, sh);
       this._drawTitlePortrait(sw, sh);
       this._drawButtonsPortrait(sw, sh);
-      this._drawHelpButton(sw, sh, isPortrait);
     } else {
       this._drawBackgroundLandscape();
       this._drawTitleLandscape();
       this._drawButtonsLandscape();
-      this._drawHelpButton(sw, sh, isPortrait);
     }
 
     this._mainMenuObjs = (this.children.list as Phaser.GameObjects.GameObject[]).slice(menuStart);
@@ -256,20 +254,6 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(W / 2, H - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
       fontSize: "15px", color: "#ffffff",
     }).setOrigin(0.5, 1);
-  }
-
-  private _drawHelpButton(sw: number, _sh: number, isPortrait: boolean): void {
-    const x = isPortrait ? sw - 50 : W - 50;
-    const y = 50;
-    const btn = this.add.circle(x, y, isPortrait ? 40 : 25, 0x333344, 1)
-      .setStrokeStyle(2, 0x666688, 1)
-      .setInteractive({ useHandCursor: true });
-
-    this.add.text(x, y, "?", { fontSize: isPortrait ? "40px" : "24px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5);
-
-    btn.on("pointerover", () => btn.setFillStyle(0x444466));
-    btn.on("pointerout", () => btn.setFillStyle(0x333344));
-    btn.on("pointerup", () => this.scene.launch("TutorialScene", { onComplete: () => {} }));
   }
 
   private _drawCommitInfoPortrait(sw: number, sh: number): void {

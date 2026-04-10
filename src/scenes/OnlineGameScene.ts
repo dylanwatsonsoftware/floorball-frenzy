@@ -194,13 +194,14 @@ export class OnlineGameScene extends GameScene {
 
     this._buildSharePanel();
 
-    if (!this._isHost && !localStorage.getItem("floorball:tutorialDone")) {
-      this._peer.send({ type: "tutorial", status: "start" });
+    if (!localStorage.getItem("floorball:tutorialDone")) {
+      if (!this._isHost) this._peer.send({ type: "tutorial", status: "start" });
       this.scene.pause();
       this.scene.launch("TutorialScene", {
+        team: this._isHost ? "host" : "client",
         onComplete: () => {
           localStorage.setItem("floorball:tutorialDone", "true");
-          this._peer.send({ type: "tutorial", status: "end" });
+          if (!this._isHost) this._peer.send({ type: "tutorial", status: "end" });
           this.scene.resume();
         }
       });
