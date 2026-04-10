@@ -180,6 +180,10 @@ export class GameScene extends Phaser.Scene {
   protected _rematchBtn: Phaser.GameObjects.Rectangle | null = null;
   protected _rematchBtnText: Phaser.GameObjects.Text | null = null;
 
+  // AI start delay for local matches
+  protected _aiDelayMs = 2000;
+  protected _playerTouched = false;
+
   protected get _isAuthoritative(): boolean {
     return this._mode === "local";
   }
@@ -217,6 +221,8 @@ export class GameScene extends Phaser.Scene {
     this._elapsedMs = 0;
     this._hostSlapWasDown = false;
     this._clientSlapWasDown = false;
+    this._aiDelayMs = 2000;
+    this._playerTouched = false;
   }
 
   create(): void {
@@ -482,7 +488,21 @@ export class GameScene extends Phaser.Scene {
   protected _fixedUpdate(dt: number): void {
     const elapsedMs = dt * 1000;
     this._elapsedMs += elapsedMs;
-    this._runPhysics(this._readHostInput(), this._readClientInput(), dt, elapsedMs);
+
+    const hostInput = this._readHostInput();
+
+    if (this._mode === "local") {
+      const isNeutral = hostInput.moveX === 0 && hostInput.moveY === 0 && !hostInput.slap && !hostInput.dash;
+      if (!this._playerTouched && !isNeutral) {
+        this._playerTouched = true;
+        this._aiDelayMs = Math.min(this._aiDelayMs, 500);
+      }
+      if (this._aiDelayMs > 0) {
+        this._aiDelayMs -= elapsedMs;
+      }
+    }
+
+    this._runPhysics(hostInput, this._readClientInput(), dt, elapsedMs);
   }
 
   /**
@@ -830,6 +850,7 @@ export class GameScene extends Phaser.Scene {
 
   protected _readClientInput(): InputState {
     if (this._mode === "local") {
+      if (this._aiDelayMs > 0) return NEUTRAL_INPUT;
       return getNextAIInput(this.client, this.ball, this.host);
     }
 
@@ -1347,6 +1368,8 @@ export class GameScene extends Phaser.Scene {
     this.host.dashCooldownMs = 0;
     this.client.dashCharges = MAX_DASH_CHARGES;
     this.client.dashCooldownMs = 0;
+    this._aiDelayMs = 2000;
+    this._playerTouched = false;
   }
 
   protected _drawSticks(): void {
