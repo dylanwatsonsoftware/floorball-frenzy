@@ -305,6 +305,7 @@ export class OnlineGameScene extends GameScene {
     this.host.aimX = lerp(s0.state.players.host.aimX, s1.state.players.host.aimX);
     this.host.aimY = lerp(s0.state.players.host.aimY, s1.state.players.host.aimY);
     this.host.dashCooldownMs = s1.state.players.host.dashCooldownMs;
+    this.host.dashBurstMs = s1.state.players.host.dashBurstMs;
     this.host.chargeMs = s1.state.players.host.chargeMs;
     this.host.heat = lerp(s0.state.players.host.heat, s1.state.players.host.heat);
     this.host.heatModeMs = lerp(s0.state.players.host.heatModeMs, s1.state.players.host.heatModeMs);
@@ -421,6 +422,7 @@ export class OnlineGameScene extends GameScene {
           vx: this.host.vx, vy: this.host.vy,
           aimX: this.host.aimX, aimY: this.host.aimY,
           dashCooldownMs: this.host.dashCooldownMs,
+          dashBurstMs: this.host.dashBurstMs,
           chargeMs: this.host.chargeMs,
           heat: this.host.heat,
           heatModeMs: this.host.heatModeMs,
@@ -431,6 +433,7 @@ export class OnlineGameScene extends GameScene {
           vx: this.client.vx, vy: this.client.vy,
           aimX: this.client.aimX, aimY: this.client.aimY,
           dashCooldownMs: this.client.dashCooldownMs,
+          dashBurstMs: this.client.dashBurstMs,
           chargeMs: this.client.chargeMs,
           heat: this.client.heat,
           heatModeMs: this.client.heatModeMs,

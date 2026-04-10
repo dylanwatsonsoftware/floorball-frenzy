@@ -15,14 +15,14 @@ describe("type contracts", () => {
 
   it("Player has id, position, velocity, and input", () => {
     const input: InputState = { moveX: 0, moveY: 0, slap: false, dash: false };
-    const player: Player = { id: "p1", x: 0, y: 0, vx: 0, vy: 0, aimX: 1, aimY: 0, dashCooldownMs: 0, chargeMs: 0, heat: 0, heatModeMs: 0, input };
+    const player: Player = { id: "p1", x: 0, y: 0, vx: 0, vy: 0, aimX: 1, aimY: 0, dashCooldownMs: 0, dashBurstMs: 0, chargeMs: 0, heat: 0, heatModeMs: 0, input };
     expect(player.id).toBe("p1");
     expect(player.input.dash).toBe(false);
   });
 
   it("GameState contains ball, players, and score", () => {
     const input: InputState = { moveX: 0, moveY: 0, slap: false, dash: false };
-    const p: Player = { id: "host", x: 0, y: 0, vx: 0, vy: 0, aimX: 1, aimY: 0, dashCooldownMs: 0, chargeMs: 0, heat: 0, heatModeMs: 0, input };
+    const p: Player = { id: "host", x: 0, y: 0, vx: 0, vy: 0, aimX: 1, aimY: 0, dashCooldownMs: 0, dashBurstMs: 0, chargeMs: 0, heat: 0, heatModeMs: 0, input };
     const ball: Ball = { x: 640, y: 360, z: 0, vx: 0, vy: 0, vz: 0, possessedBy: null };
     const state: GameState = {
       t: 0,

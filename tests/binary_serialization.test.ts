@@ -34,6 +34,7 @@ describe("Binary Serialization", () => {
         aimX: 0.707,
         aimY: 0.707,
         dashCooldownMs: 1500.5,
+        dashBurstMs: 120.5,
         chargeMs: 200.1,
         heat: 45.5,
         heatModeMs: 0,
@@ -48,6 +49,7 @@ describe("Binary Serialization", () => {
         aimX: -0.707,
         aimY: -0.707,
         dashCooldownMs: 0,
+        dashBurstMs: 0,
         chargeMs: 0,
         heat: 100,
         heatModeMs: 2000,
@@ -60,7 +62,7 @@ describe("Binary Serialization", () => {
   it("encodes and decodes a GameState snapshot accurately", () => {
     const encoded = encodeMessage({ type: "state", snapshot: mockState });
     expect(encoded).toBeInstanceOf(Uint8Array);
-    expect((encoded as Uint8Array).length).toBe(137);
+    expect((encoded as Uint8Array).length).toBe(145);
 
     const decoded = decodeMessage(encoded);
     expect(decoded?.type).toBe("state");
@@ -74,8 +76,10 @@ describe("Binary Serialization", () => {
       expect(s.players.host.x).toBeCloseTo(mockState.players.host.x, 2);
       expect(s.players.host.heat).toBeCloseTo(mockState.players.host.heat, 2);
       expect(s.players.host.heatModeMs).toBeCloseTo(mockState.players.host.heatModeMs, 2);
+      expect(s.players.host.dashBurstMs).toBeCloseTo(mockState.players.host.dashBurstMs, 2);
       expect(s.players.client.heat).toBeCloseTo(mockState.players.client.heat, 2);
       expect(s.players.client.heatModeMs).toBeCloseTo(mockState.players.client.heatModeMs, 2);
+      expect(s.players.client.dashBurstMs).toBeCloseTo(mockState.players.client.dashBurstMs, 2);
       expect(s.players.host.input.slap).toBe(true);
       expect(s.players.client.input.slap).toBe(false);
       expect(s.score.host).toBe(3);
@@ -138,7 +142,7 @@ describe("Binary Serialization", () => {
 
   it("returns null for truncated binary payloads", () => {
     const encoded = encodeMessage({ type: "state", snapshot: mockState }) as Uint8Array;
-    const truncated = encoded.subarray(0, 100); // 100 < 137
+    const truncated = encoded.subarray(0, 100); // 100 < 145
     expect(decodeMessage(truncated)).toBeNull();
   });
 

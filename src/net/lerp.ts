@@ -28,6 +28,7 @@ export function lerpState(current: GameState, snapshot: GameState, t: number): v
     current.players[role].aimX = lerp(current.players[role].aimX, snapshot.players[role].aimX);
     current.players[role].aimY = lerp(current.players[role].aimY, snapshot.players[role].aimY);
     current.players[role].dashCooldownMs = snapshot.players[role].dashCooldownMs;
+    current.players[role].dashBurstMs = lerp(current.players[role].dashBurstMs, snapshot.players[role].dashBurstMs);
     current.players[role].chargeMs = snapshot.players[role].chargeMs;
     current.players[role].heat = lerp(current.players[role].heat, snapshot.players[role].heat);
     current.players[role].heatModeMs = lerp(current.players[role].heatModeMs, snapshot.players[role].heatModeMs);

@@ -13,6 +13,7 @@ function makePlayer(overrides: Partial<PlayerExtended> = {}): PlayerExtended {
     id: "p1", x: 0, y: 0, vx: 0, vy: 0,
     aimX: 1, aimY: 0,
     dashCooldownMs: 0,
+    dashBurstMs: 0,
     chargeMs: 0,
     heat: 0,
     heatModeMs: 0,

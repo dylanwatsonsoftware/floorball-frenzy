@@ -31,6 +31,11 @@ export function stepPlayer(
 ): boolean {
   let heatTriggered = false;
 
+  // Dash burst decay
+  if (player.dashBurstMs > 0) {
+    player.dashBurstMs = Math.max(0, player.dashBurstMs - elapsedMs);
+  }
+
   // Heat Mode decay
   if (player.heatModeMs > 0) {
     player.heatModeMs = Math.max(0, player.heatModeMs - elapsedMs);
@@ -55,6 +60,7 @@ export function stepPlayer(
     }
     // Set base cooldown; shared handler will apply multiplier if heat triggers
     player.dashCooldownMs = DASH_COOLDOWN;
+    player.dashBurstMs = 200; // 200ms burst window
 
     // Heat accumulation from dash
     if (!isHeatMode) {
@@ -109,6 +115,7 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     aimX: 1,
     aimY: 0,
     dashCooldownMs: 0,
+    dashBurstMs: 0,
     chargeMs: 0,
     heat: 0,
     heatModeMs: 0,

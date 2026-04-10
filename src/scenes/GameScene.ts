@@ -52,7 +52,6 @@ import {
   PX_PER_M,
   STICK_REACH,
   DASH_COOLDOWN,
-  DASH_STEAL_WINDOW,
   DASH_STEAL_FORCE,
   BOLT_SHOT_BOOST,
   BOLT_SHOT_DURATION_MS,
@@ -144,6 +143,7 @@ export class GameScene extends Phaser.Scene {
   private _fireParticles: Array<{
     x: number; y: number; vx: number; vy: number;
     life: number; maxLife: number; size: number;
+    kind?: "fire" | "cyan" | "violet" | "heat";
   }> = [];
   private _scoreText!: Phaser.GameObjects.Text;
   protected _messageText!: Phaser.GameObjects.Text;
@@ -708,6 +708,7 @@ export class GameScene extends Phaser.Scene {
         life: 300,
         maxLife: 300,
         size: 6 + Math.random() * 4,
+        kind: "fire",
       });
     }
   }
@@ -741,7 +742,7 @@ export class GameScene extends Phaser.Scene {
 
     const speed = Math.hypot(player.vx, player.vy);
     const isHeatMode = player.heatModeMs > 0;
-    const isBolt = (player.dashCooldownMs > DASH_COOLDOWN - 200) || isHeatMode;
+    const isBolt = (player.dashBurstMs > 0) || isHeatMode;
 
     // Wrist Snap Detection
     const isWristSnap = state.chargeMs < WRIST_SNAP_MAX_CHARGE && speed > PLAYER_MAX_SPEED * WRIST_SNAP_MIN_SPEED_FRAC;
@@ -792,8 +793,8 @@ export class GameScene extends Phaser.Scene {
   private _activateHeatMode(player: PlayerExtended): void {
     player.heatModeMs = HEAT_MODE_DURATION;
     // Apply dash cooldown reduction if they just dashed to trigger heat
-    if (player.dashCooldownMs === DASH_COOLDOWN) {
-      player.dashCooldownMs *= HEAT_MODE_DASH_COOLDOWN_MULT;
+    if (player.dashBurstMs > 0) {
+      player.dashCooldownMs = DASH_COOLDOWN * HEAT_MODE_DASH_COOLDOWN_MULT;
     }
     this._frozenMs = Math.max(this._frozenMs, 80);
     this.cameras.main.shake(200, 0.012);
@@ -859,8 +860,8 @@ export class GameScene extends Phaser.Scene {
 
   protected _onPlayerPlayerContact(p1: PlayerExtended, p2: PlayerExtended): void {
     // Check if either player is dashing
-    const p1Dashing = p1.dashCooldownMs > DASH_COOLDOWN - DASH_STEAL_WINDOW;
-    const p2Dashing = p2.dashCooldownMs > DASH_COOLDOWN - DASH_STEAL_WINDOW;
+    const p1Dashing = p1.dashBurstMs > 0;
+    const p2Dashing = p2.dashBurstMs > 0;
 
     if (p1Dashing && this._clientHasPossession) {
       this._pokeBall(p1);
@@ -894,6 +895,7 @@ export class GameScene extends Phaser.Scene {
         life: 250,
         maxLife: 250,
         size: 8 + Math.random() * 6,
+        kind: "fire",
       });
     }
   }
@@ -1070,6 +1072,10 @@ export class GameScene extends Phaser.Scene {
 
       for (let i = 0; i < spawnCount; i++) {
         const maxLife = 180 + Math.random() * 120;
+        let kind: "cyan" | "violet" | "fire" = "fire";
+        if (this.ball.isPerfect) kind = "cyan";
+        else if (this.ball.isBolt) kind = "violet";
+
         this._fireParticles.push({
           x: this.ball.x + dvx * BALL_RADIUS * 0.5,
           y: visualY + dvy * BALL_RADIUS * 0.5,
@@ -1078,6 +1084,7 @@ export class GameScene extends Phaser.Scene {
           life: maxLife,
           maxLife,
           size: 3 + Math.random() * 5,
+          kind,
         });
       }
     }
@@ -1094,18 +1101,25 @@ export class GameScene extends Phaser.Scene {
       const t = p.life / p.maxLife; // 1=fresh, 0=dead
 
       let color = 0xff0000;
-      if (this.ball.isPerfect) {
+      const kind = p.kind || "fire";
+
+      if (kind === "cyan") {
         // Cyan (t=1) -> White (t=0.5) -> Cyan (0)
         const g = 255;
         const b = 255;
         const r = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
         color = (r << 16) | (g << 8) | b;
-      } else if (this.ball.isBolt) {
+      } else if (kind === "violet") {
         // Bright Violet/Pink (t=1) -> White (t=0.5) -> Violet (t=0)
         const r = 255;
         const b = 255;
         const g = Math.round(Math.max(0, 1 - Math.abs(t - 0.5) * 2) * 255);
         color = (r << 16) | (g << 8) | b;
+      } else if (kind === "heat") {
+        // Orange (t=1) -> Red (t=0)
+        const r = 0xff;
+        const g = Math.round(t * 0x88);
+        color = (r << 16) | (g << 8);
       } else {
         // Classic Fire: bright yellow (t=1) → orange (t=0.5) → pure red (t<0.5)
         const r = 0xff;
@@ -1164,6 +1178,7 @@ export class GameScene extends Phaser.Scene {
         life: 400 + Math.random() * 200,
         maxLife: 600,
         size: 10 + Math.random() * 10,
+        kind: "heat",
       });
     }
   }
@@ -1363,6 +1378,7 @@ export class GameScene extends Phaser.Scene {
           life: 300,
           maxLife: 300,
           size: 4 + Math.random() * 6,
+          kind: "heat",
         });
       }
     }
@@ -1419,8 +1435,7 @@ export class GameScene extends Phaser.Scene {
 
   private _updateGhosts(delta: number): void {
     // Spawn ghosts
-    const DASH_BURST = DASH_COOLDOWN - 200;
-    if (this.host.dashCooldownMs > DASH_BURST && Math.floor(this.time.now / 40) % 2 === 0) {
+    if (this.host.dashBurstMs > 0 && Math.floor(this.time.now / 40) % 2 === 0) {
       this._ghosts.push({
         x: this.host.x,
         y: this.host.y,
@@ -1431,7 +1446,7 @@ export class GameScene extends Phaser.Scene {
         color: 0x00cc66,
       });
     }
-    if (this.client.dashCooldownMs > DASH_BURST && Math.floor(this.time.now / 40) % 2 === 0) {
+    if (this.client.dashBurstMs > 0 && Math.floor(this.time.now / 40) % 2 === 0) {
       this._ghosts.push({
         x: this.client.x,
         y: this.client.y,
