@@ -328,14 +328,16 @@ export class GameScene extends Phaser.Scene {
       dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
       slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.E),
     };
-    this._arrows = {
-      up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-      down: kb.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
-      left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-      right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-      dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.PERIOD),
-    };
+    if (this._mode === "online") {
+      this._arrows = {
+        up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+        down: kb.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
+        left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+        right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+        dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+        slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.PERIOD),
+      };
+    }
 
     kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC).on("down", () => {
       this._confirmLeave();
