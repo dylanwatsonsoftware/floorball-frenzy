@@ -358,7 +358,7 @@ export class GameScene extends Phaser.Scene {
 
     // Touch UI — buttons are always present
     const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
-    this._hostButtons = new ActionButtons(this, 1210 + initOffsetX, 360);
+    this._hostButtons = new ActionButtons(this, 1190 + initOffsetX, 360);
 
     // Joystick only if in stick mode
     this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 60);
@@ -370,7 +370,7 @@ export class GameScene extends Phaser.Scene {
       const extra = Math.max(0, this.scale.width - 1280);
       const newInitOffsetX = Math.floor(extra / 2);
       this.cameras.main.scrollX = -newInitOffsetX;
-      this._hostButtons.reposition(1210 + newInitOffsetX, 360);
+      this._hostButtons.reposition(1190 + newInitOffsetX, 360);
     };
     applyScroll();
     this.scale.on("resize", applyScroll);

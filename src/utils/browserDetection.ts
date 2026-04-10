@@ -6,14 +6,14 @@ export interface InAppInfo {
 export function detectInAppBrowser(): InAppInfo {
   const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
 
+  if (/Messenger/i.test(ua)) {
+    return { isInApp: true, appName: "Messenger" };
+  }
   if (/FBAN|FBAV/i.test(ua)) {
     return { isInApp: true, appName: "Facebook" };
   }
   if (/Instagram/i.test(ua)) {
     return { isInApp: true, appName: "Instagram" };
-  }
-  if (/Messenger/i.test(ua)) {
-    return { isInApp: true, appName: "Messenger" };
   }
   if (/LinkedInApp/i.test(ua)) {
     return { isInApp: true, appName: "LinkedIn" };
