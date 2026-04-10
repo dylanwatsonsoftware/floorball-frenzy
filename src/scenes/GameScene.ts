@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { Ball, GameMode, InputState } from "../types/game";
+import { NEUTRAL_INPUT } from "../types/game";
 import type { PlayerExtended } from "../physics/playerPhysics";
 import { createPlayer, stepPlayer } from "../physics/playerPhysics";
 import { stepBall, resetBall, applyPossessionAssist } from "../physics/ballPhysics";
@@ -16,6 +17,7 @@ import {
   releaseShot,
 } from "../physics/shooting";
 import type { ShootState } from "../physics/shooting";
+import { getNextAIInput } from "../physics/simpleAI";
 import { VirtualJoystick } from "../ui/VirtualJoystick";
 import { ActionButtons } from "../ui/ActionButtons";
 import {
@@ -825,14 +827,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   protected _readClientInput(): InputState {
-    const k = this._arrows;
-    let mx = 0;
-    let my = 0;
-    if (k.left.isDown) mx -= 1;
-    if (k.right.isDown) mx += 1;
-    if (k.up.isDown) my -= 1;
-    if (k.down.isDown) my += 1;
-    return { moveX: mx, moveY: my, slap: k.slap.isDown, dash: k.dash.isDown };
+    if (this._mode === "local") {
+      return getNextAIInput(this.client, this.ball, this.host);
+    }
+
+    return NEUTRAL_INPUT;
   }
 
   protected _onPlayerPlayerContact(p1: PlayerExtended, p2: PlayerExtended): void {
