@@ -132,11 +132,13 @@ export class MenuScene extends Phaser.Scene {
       this._drawTitlePortrait(sw, sh);
       this._drawButtonsPortrait(sw, sh);
       this._drawControlTogglePortrait(sw, sh);
+      this._drawHelpButton(sw, sh, isPortrait);
     } else {
       this._drawBackgroundLandscape();
       this._drawTitleLandscape();
       this._drawButtonsLandscape();
       this._drawControlToggleLandscape();
+      this._drawHelpButton(sw, sh, isPortrait);
     }
 
     this._mainMenuObjs = (this.children.list as Phaser.GameObjects.GameObject[]).slice(menuStart);
@@ -257,14 +259,18 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtonsLandscape(): void {
     const btnW = 520;
     const btnH = 76;
-    this._makeButton(W / 2, H / 2 + 30, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
+    this._makeButton(W / 2, H / 2 - 20, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       this._isLobbyVisible = true;
       this._render();
     });
 
-    this._makeButton(W / 2, H / 2 + 145, btnW, btnH, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
+    this._makeButton(W / 2, H / 2 + 75, btnW, btnH, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
+    });
+
+    this._makeButton(W / 2, H / 2 + 170, btnW, btnH, "📖  How to Play", "VIEW TUTORIAL", 0x8844aa, 0x442266, () => {
+      this.scene.launch("TutorialScene", { onComplete: () => {} });
     });
 
     this._drawCommitInfoLandscape();
@@ -272,18 +278,22 @@ export class MenuScene extends Phaser.Scene {
 
   private _drawButtonsPortrait(sw: number, sh: number): void {
     const btnW = sw * 0.96;
-    const btnH = 250;
-    const startY = sh * 0.50;
+    const btnH = 200;
+    const startY = sh * 0.45;
 
     this._makeButton(sw / 2, startY, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       this._isLobbyVisible = true;
       this._render();
     }, 2.3);
 
-    this._makeButton(sw / 2, startY + 290, btnW, btnH, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
+    this._makeButton(sw / 2, startY + 230, btnW, btnH, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
     }, 2.3);
+
+    this._makeButton(sw / 2, startY + 460, btnW, btnH, "📖  How to Play", "VIEW TUTORIAL", 0x8844aa, 0x442266, () => {
+        this.scene.launch("TutorialScene", { onComplete: () => {} });
+      }, 2.3);
 
     this._drawCommitInfoPortrait(sw, sh);
   }
@@ -295,6 +305,20 @@ export class MenuScene extends Phaser.Scene {
     this.add.text(W / 2, H - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
       fontSize: "15px", color: "#ffffff",
     }).setOrigin(0.5, 1);
+  }
+
+  private _drawHelpButton(sw: number, _sh: number, isPortrait: boolean): void {
+    const x = isPortrait ? sw - 50 : W - 50;
+    const y = 50;
+    const btn = this.add.circle(x, y, isPortrait ? 40 : 25, 0x333344, 1)
+      .setStrokeStyle(2, 0x666688, 1)
+      .setInteractive({ useHandCursor: true });
+
+    this.add.text(x, y, "?", { fontSize: isPortrait ? "40px" : "24px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5);
+
+    btn.on("pointerover", () => btn.setFillStyle(0x444466));
+    btn.on("pointerout", () => btn.setFillStyle(0x333344));
+    btn.on("pointerup", () => this.scene.launch("TutorialScene", { onComplete: () => {} }));
   }
 
   private _drawCommitInfoPortrait(sw: number, sh: number): void {

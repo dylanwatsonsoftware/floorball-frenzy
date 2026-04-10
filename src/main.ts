@@ -8,6 +8,7 @@ import { BootScene } from "./scenes/BootScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { GameScene } from "./scenes/GameScene";
 import { OnlineGameScene } from "./scenes/OnlineGameScene";
+import { TutorialScene } from "./scenes/TutorialScene";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -20,7 +21,7 @@ const config: Phaser.Types.Core.GameConfig = {
     fullscreenTarget: 'parent',
     expandParent: true,
   },
-  scene: [BootScene, MenuScene, GameScene, OnlineGameScene],
+  scene: [BootScene, MenuScene, GameScene, OnlineGameScene, TutorialScene],
 };
 
 const game = new Phaser.Game(config);

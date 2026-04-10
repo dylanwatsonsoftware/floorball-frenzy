@@ -33,14 +33,35 @@ function makeBtn(
     gfx.fillCircle(cx, cy, radius);
     gfx.lineStyle(borderW, borderColor, borderAlpha);
     gfx.strokeCircle(cx, cy, radius);
+
+    // Draw Icon
+    gfx.lineStyle(4, 0xffffff, 0.4);
+    if (label === "SLAP HIT") {
+      gfx.beginPath();
+      gfx.moveTo(cx - 15, cy - 25);
+      gfx.lineTo(cx - 15, cy + 5);
+      (gfx as any).quadraticCurveTo(cx - 15, cy + 20, cx + 15, cy + 20);
+      gfx.strokePath();
+    } else if (label === "QUICK DASH") {
+      for (let i = 0; i < 3; i++) {
+        const ox = cx - 12 + i * 10;
+        const oy = cy - 5;
+        gfx.beginPath();
+        gfx.moveTo(ox, oy - 8);
+        gfx.lineTo(ox + 8, oy);
+        gfx.lineTo(ox, oy + 8);
+        gfx.strokePath();
+      }
+    }
   };
 
   draw(GLOW, 0.7, 2);
 
   // Label inside button
+  const isSlap = label === "SLAP HIT";
   scene.add
-    .text(cx, cy, label, {
-      fontSize: `${Math.round(radius * 0.45)}px`,
+    .text(cx, isSlap ? cy + 40 : cy + 30, label, {
+      fontSize: `${Math.round(radius * (isSlap ? 0.3 : 0.28))}px`,
       color: "#ffffff",
       fontStyle: "bold",
     })
@@ -84,17 +105,11 @@ export class ActionButtons {
     this._dashCY = dashY;
     this._dashR = SM_R;
 
-    const slapBtn = makeBtn(scene, slapX, slapY, BIG_R, "SLAP");
+    const slapBtn = makeBtn(scene, slapX, slapY, BIG_R, "SLAP HIT");
+    const dashBtn = makeBtn(scene, dashX, dashY, SM_R, "QUICK DASH");
     this._dashGfx = scene.add.graphics().setDepth(20);
     this._slapBounds = slapBtn.bounds;
-    this._dashBounds = new Phaser.Geom.Circle(dashX, dashY, SM_R);
-
-    // DASH label
-    scene.add.text(dashX, dashY, "DASH", {
-      fontSize: `${Math.round(SM_R * 0.45)}px`,
-      color: "#ffffff",
-      fontStyle: "bold",
-    }).setOrigin(0.5).setDepth(21);
+    this._dashBounds = dashBtn.bounds;
 
     scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
       if (this._slapPtr === null && slapBtn.bounds.contains(p.worldX, p.worldY)) {
@@ -102,17 +117,18 @@ export class ActionButtons {
         this._slapDown = true;
         slapBtn.setActive();
       }
-      if (this._dashPtr === null && this._dashBounds.contains(p.worldX, p.worldY)) {
+      if (this._dashPtr === null && dashBtn.bounds.contains(p.worldX, p.worldY)) {
         this._dashPtr    = p.id;
         if (this._dashCharges > 0) {
           this._dashTapped = true;
+          dashBtn.setActive();
         }
       }
     });
 
     scene.input.on("pointerup", (p: Phaser.Input.Pointer) => {
       if (this._slapPtr  === p.id) { this._slapPtr  = null; this._slapDown = false; slapBtn.setNormal(); }
-      if (this._dashPtr  === p.id) { this._dashPtr  = null; }
+      if (this._dashPtr  === p.id) { this._dashPtr  = null; dashBtn.setNormal(); }
     });
 
     scene.input.on("pointerupoutside", (p: Phaser.Input.Pointer) => {
@@ -136,16 +152,7 @@ export class ActionButtons {
     const cx = this._dashCX, cy = this._dashCY, r = this._dashR;
     g.clear();
 
-    // Background
-    g.fillStyle(DARK, 0.9);
-    g.fillCircle(cx, cy, r);
-
-    // Border
-    const borderColor = this._dashCharges > 0 ? GLOW : DASH_EMPTY;
-    g.lineStyle(2, borderColor, 0.7);
-    g.strokeCircle(cx, cy, r);
-
-    // Segments (3 small dots or arcs)
+    // Segments (3 small dots)
     const segmentR = 4;
     const padding = 12;
     for (let i = 0; i < 3; i++) {
