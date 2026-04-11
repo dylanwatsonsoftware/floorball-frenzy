@@ -1115,7 +1115,6 @@ export class GameScene extends Phaser.Scene {
     this._gainHeat(scorer, HEAT_GAIN_GOAL);
     const isWin = this.score[scorer] >= WINNING_SCORE;
     const label = scorer === "host" ? "Red scores!" : "Blue scores!";
-    const teamColor = scorer === "host" ? COLOR_RED : COLOR_BLUE;
 
     // Confetti explosion
     for (let i = 0; i < 100; i++) {
