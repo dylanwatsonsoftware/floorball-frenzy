@@ -25,7 +25,8 @@ export function stepPlayer(
   player: PlayerExtended,
   input: InputState,
   dt: number,
-  elapsedMs: number
+  elapsedMs: number,
+  totalTimeMs = 0
 ): void {
   // Heat decay
   if (player.enFuegoTimerMs <= 0) {
@@ -62,6 +63,7 @@ export function stepPlayer(
       player.vy += (input.moveY / len) * DASH_FORCE;
     }
     player.dashCharges--;
+    player.lastDashTimeMs = totalTimeMs;
     if (player.dashCooldownMs <= 0) {
       player.dashCooldownMs = DASH_COOLDOWN;
     }
@@ -110,6 +112,7 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     aimY: 0,
     dashCooldownMs: 0,
     dashCharges: MAX_DASH_CHARGES,
+    lastDashTimeMs: -1000,
     chargeMs: 0,
     heat: 0,
     enFuegoTimerMs: 0,

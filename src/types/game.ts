@@ -25,6 +25,7 @@ export interface Player {
   aimY: number;
   dashCooldownMs: number;
   dashCharges: number;
+  lastDashTimeMs: number;
   chargeMs: number;
   heat: number;
   enFuegoTimerMs: number;
@@ -40,6 +41,7 @@ export interface Ball {
   vz: number;
   isPerfect?: boolean;
   isBolt?: boolean;
+  isTrailblazer?: boolean;
   boltTimerMs?: number;
   isScoop?: boolean;
   scoopTimerMs?: number;
