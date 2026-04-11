@@ -48,7 +48,7 @@ export class TutorialScene extends Phaser.Scene {
     // Button is 50px tall, centered at buttonY, extends from buttonY - 25 to buttonY + 25
     // Panel bottom (panelY + 180) should be at buttonY - 45 (buttonY - 25 - 20 gap)
     const panelY = buttonY - 225;
-    this._panelBg = this.add.rectangle(safeCenterX, panelY + 90, Math.min(width - MARGIN * 2, width), 180, 0x000000, 0.7).setDepth(101);
+    this._panelBg = this.add.rectangle(safeCenterX, panelY + 90, width, 180, 0x000000, 0.7).setDepth(101);
 
     this._titleText = this.add.text(safeCenterX, panelY + 30, "", {
       fontSize: "32px", color: "#00ff66", fontStyle: "bold"
@@ -194,7 +194,7 @@ export class TutorialScene extends Phaser.Scene {
     const panelY = buttonY - 225;
     
     // Reposition UI elements with margins
-    this._panelBg.setPosition(safeCenterX, panelY + 90).setDisplaySize(Math.min(width - MARGIN * 2, width), 180);
+    this._panelBg.setPosition(safeCenterX, panelY + 90).setDisplaySize(width, 180);
     this._titleText.setPosition(safeCenterX, panelY + 30);
 
     const responsiveWordWrap = Math.min(800, Math.floor(width * 0.9) - MARGIN * 2);
