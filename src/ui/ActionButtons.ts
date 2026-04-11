@@ -172,7 +172,7 @@ export class ActionButtons {
     g.clear();
 
     // Background
-    g.fillStyle(0x00cc66, 0.85); // Green
+    g.fillStyle(0xff8800, 0.85); // Orange
     g.fillCircle(cx, cy, r);
 
     // Border
