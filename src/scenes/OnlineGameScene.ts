@@ -226,7 +226,11 @@ export class OnlineGameScene extends GameScene {
     if (this._opponentInTutorial) {
       this._statusText?.setText("Opponent in tutorial…");
       return;
+    } else {
+      this._statusText?.setText("");
     }
+
+    
 
     if (this._startedCountdown && !this._matchOverObjects.length) return;
 
