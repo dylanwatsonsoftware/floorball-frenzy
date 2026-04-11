@@ -152,6 +152,13 @@ export class GameScene extends Phaser.Scene {
   }> = [];
   private _scoreText!: Phaser.GameObjects.Text;
   protected _messageText!: Phaser.GameObjects.Text;
+  private _hudGfx!: Phaser.GameObjects.Graphics;
+  private _teamLabelRed!: Phaser.GameObjects.Text;
+  private _teamLabelBlue!: Phaser.GameObjects.Text;
+  private _scoreEyebrow!: Phaser.GameObjects.Text;
+  private _backBtnObjs: Phaser.GameObjects.GameObject[] = [];
+  private _helpBtn!: Phaser.GameObjects.Arc;
+  private _helpText!: Phaser.GameObjects.Text;
 
   protected _addUI(objs: Phaser.GameObjects.GameObject | Phaser.GameObjects.GameObject[]): void {
     const arr = Array.isArray(objs) ? objs : [objs];
@@ -288,40 +295,17 @@ export class GameScene extends Phaser.Scene {
     this._clientSprite = this.add.sprite(this.client.x, this.client.y, "char_client").setDepth(5).setScale(1.26).setOrigin(0.5, 0.56);
 
     // ── Top HUD bar ────────────────────────────────────────────────────────────
-    const HUD_H = 95;
-    const SW = this.scale.width;
-    const uiMidX = SW / 2;
-    const hudGfx = this.add.graphics().setDepth(14).setScrollFactor(0);
-
-    // Left team panel (Red tint)
-    hudGfx.fillGradientStyle(0x2a0a10, 0x2a0a10, 0x06060e, 0x06060e, 1);
-    hudGfx.fillRect(0, 0, uiMidX, HUD_H);
-    // Right team panel (Blue tint)
-    hudGfx.fillGradientStyle(0x06060e, 0x06060e, 0x0a182a, 0x0a182a, 1);
-    hudGfx.fillRect(uiMidX, 0, SW - uiMidX, HUD_H);
-    // Bottom separator
-    hudGfx.lineStyle(1, 0xffffff, 0.12);
-    hudGfx.lineBetween(0, HUD_H, SW, HUD_H);
-    // Team color accent lines along the top
-    hudGfx.lineStyle(3, COLOR_RED, 1);
-    hudGfx.lineBetween(0, 0, uiMidX - 80, 0);
-    hudGfx.lineStyle(3, COLOR_BLUE, 1);
-    hudGfx.lineBetween(uiMidX + 80, 0, SW, 0);
-    // Center score zone pill
-    hudGfx.fillStyle(0x08080f, 0.9);
-    hudGfx.fillRoundedRect(uiMidX - 160, 8, 320, HUD_H - 16, 12);
-    hudGfx.lineStyle(1, 0xffffff, 0.12);
-    hudGfx.strokeRoundedRect(uiMidX - 160, 8, 320, HUD_H - 16, 12);
+    this._hudGfx = this.add.graphics().setDepth(14).setScrollFactor(0);
 
     // Team labels with color
-    this.add.text(uiMidX - 440, HUD_H / 2, "RED", { fontSize: "14px", color: COLOR_RED_STR, fontStyle: "bold", letterSpacing: 3 })
+    this._teamLabelRed = this.add.text(0, 0, "RED", { fontSize: "14px", color: COLOR_RED_STR, fontStyle: "bold", letterSpacing: 3 })
       .setOrigin(0.5).setDepth(15).setScrollFactor(0);
-    this.add.text(uiMidX + 440, HUD_H / 2, "BLUE", { fontSize: "14px", color: COLOR_BLUE_STR, fontStyle: "bold", letterSpacing: 3 })
+    this._teamLabelBlue = this.add.text(0, 0, "BLUE", { fontSize: "14px", color: COLOR_BLUE_STR, fontStyle: "bold", letterSpacing: 3 })
       .setOrigin(0.5).setDepth(15).setScrollFactor(0);
 
     // "SCORE" eyebrow inside pill
-    this.add
-      .text(uiMidX, 14, "SCORE", {
+    this._scoreEyebrow = this.add
+      .text(0, 14, "SCORE", {
         fontSize: "9px", color: "#555577", fontStyle: "bold", letterSpacing: 2,
       })
       .setOrigin(0.5, 0)
@@ -330,14 +314,14 @@ export class GameScene extends Phaser.Scene {
 
     // Score — updated every frame
     this._scoreText = this.add
-      .text(uiMidX, 55, "0  —  0", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" })
+      .text(0, 55, "0  —  0", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" })
       .setOrigin(0.5)
       .setDepth(15)
       .setScrollFactor(0);
 
     // Goal / win message
     this._messageText = this.add
-      .text(uiMidX, 360, "", {
+      .text(0, 360, "", {
         fontSize: "48px",
         color: "#ffff00",
         fontStyle: "bold",
@@ -375,14 +359,12 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Back button — top-left, inside HUD bar
-    const backBtnObjs = this._makeButton(64, 47, 100, 38, "‹  BACK", "", 0x555566, 0x222233, () => this._confirmLeave(), 0.6, 16);
+    this._backBtnObjs = this._makeButton(64, 47, 100, 38, "‹  BACK", "", 0x555566, 0x222233, () => this._confirmLeave(), 0.6, 16);
 
     // Help button - top-right, inside HUD bar
-    const helpBtnX = SW - 64;
-    const helpBtnY = 47;
-    const hBtn = this.add.circle(helpBtnX, helpBtnY, 20, 0x555566, 1).setDepth(16).setInteractive({ useHandCursor: true }).setScrollFactor(0);
-    const hText = this.add.text(helpBtnX, helpBtnY, "?", { fontSize: "20px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5).setDepth(17).setScrollFactor(0);
-    hBtn.on("pointerup", () => {
+    this._helpBtn = this.add.circle(0, 47, 20, 0x555566, 1).setDepth(16).setInteractive({ useHandCursor: true }).setScrollFactor(0);
+    this._helpText = this.add.text(0, 47, "?", { fontSize: "20px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5).setDepth(17).setScrollFactor(0);
+    this._helpBtn.on("pointerup", () => {
       this.scene.pause();
       this.scene.launch("TutorialScene", {
         onComplete: () => {
@@ -394,7 +376,7 @@ export class GameScene extends Phaser.Scene {
     this._uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height).setName("UI");
 
     // UI elements should be ignored by the world camera and world elements by the UI camera.
-    const uiElements = [hudGfx, this._scoreText, this._messageText, hBtn, hText, this._hudOverlayGfx, ...backBtnObjs];
+    const uiElements = [this._hudGfx, this._scoreText, this._messageText, this._helpBtn, this._helpText, this._hudOverlayGfx, ...this._backBtnObjs, this._teamLabelRed, this._teamLabelBlue, this._scoreEyebrow];
     this._addUI(uiElements);
 
     // Touch UI — buttons are always present
@@ -412,18 +394,10 @@ export class GameScene extends Phaser.Scene {
       !this._hostButtons.getGameObjects().includes(c as any) &&
       !this._hostJoy.getGameObjects().includes(c as any)));
 
-    // Center the 1280×720 game world in the available canvas on wider screens.
-    // Re-apply on every resize so mobile browser-chrome changes don't break it.
-    const applyScroll = () => {
-      const extra = Math.max(0, this.scale.width - 1280);
-      const newInitOffsetX = Math.floor(extra / 2);
-      // We no longer set scrollX directly here as _updateCamera will handle it
-      this._uiCam.setViewport(0, 0, this.scale.width, this.scale.height).setScroll(0, 0);
-      this._hostButtons.reposition(1190 + newInitOffsetX, 360);
-    };
-    applyScroll();
-    this.scale.on("resize", applyScroll);
-    this.events.once("shutdown", () => this.scale.off("resize", applyScroll));
+    this._repositionUI();
+    const resizeHandler = () => this._repositionUI();
+    this.scale.on("resize", resizeHandler);
+    this.events.once("shutdown", () => this.scale.off("resize", resizeHandler));
 
     // Initialize Animations
     this._createAnimations();
@@ -1482,7 +1456,8 @@ export class GameScene extends Phaser.Scene {
       const isRed = teamColor === COLOR_RED;
       const barW = 180;
       const barH = 10;
-      const barX = isRed ? 260 : 1020 - barW;
+      const midX = this.scale.width / 2;
+      const barX = isRed ? midX - 380 : midX + 380 - barW;
       const barY = 55;
 
       // BG
@@ -1794,6 +1769,67 @@ export class GameScene extends Phaser.Scene {
     if (delta < -Math.PI) delta += 2 * Math.PI;
     const newAngle = curAngle + Math.max(-MAX_RAD, Math.min(MAX_RAD, delta));
     return { x: Math.cos(newAngle), y: Math.sin(newAngle) };
+  }
+
+  protected _repositionUI(): void {
+    const sw = this.scale.width;
+    const sh = this.scale.height;
+    const midX = sw / 2;
+    const HUD_H = 95;
+
+    this._uiCam.setViewport(0, 0, sw, sh).setScroll(0, 0);
+
+    const extra = Math.max(0, sw - 1280);
+    const initOffsetX = Math.floor(extra / 2);
+    this._hostButtons.reposition(1190 + initOffsetX, 360);
+    this._hostJoy.reposition(-initOffsetX, 0, 768 + initOffsetX, 720);
+
+    // Redraw HUD
+    if (this._hudGfx) {
+      const gfx = this._hudGfx;
+      gfx.clear();
+      // Left team panel (Red tint)
+      gfx.fillGradientStyle(0x2a0a10, 0x2a0a10, 0x06060e, 0x06060e, 1);
+      gfx.fillRect(0, 0, midX, HUD_H);
+      // Right team panel (Blue tint)
+      gfx.fillGradientStyle(0x06060e, 0x06060e, 0x0a182a, 0x0a182a, 1);
+      gfx.fillRect(midX, 0, sw - midX, HUD_H);
+      // Bottom separator
+      gfx.lineStyle(1, 0xffffff, 0.12);
+      gfx.lineBetween(0, HUD_H, sw, HUD_H);
+      // Team color accent lines along the top
+      gfx.lineStyle(3, COLOR_RED, 1);
+      gfx.lineBetween(0, 0, midX - 80, 0);
+      gfx.lineStyle(3, COLOR_BLUE, 1);
+      gfx.lineBetween(midX + 80, 0, sw, 0);
+      // Center score zone pill
+      gfx.fillStyle(0x08080f, 0.9);
+      gfx.fillRoundedRect(midX - 160, 8, 320, HUD_H - 16, 12);
+      gfx.lineStyle(1, 0xffffff, 0.12);
+      gfx.strokeRoundedRect(midX - 160, 8, 320, HUD_H - 16, 12);
+    }
+
+    if (this._teamLabelRed) this._teamLabelRed.setPosition(midX - 440, HUD_H / 2);
+    if (this._teamLabelBlue) this._teamLabelBlue.setPosition(midX + 440, HUD_H / 2);
+    if (this._scoreEyebrow) this._scoreEyebrow.setPosition(midX, 14);
+    if (this._scoreText) this._scoreText.setPosition(midX, 55);
+    if (this._messageText) this._messageText.setPosition(midX, 360);
+
+    if (this._helpBtn) this._helpBtn.setPosition(sw - 64, 47);
+    if (this._helpText) this._helpText.setPosition(sw - 64, 47);
+
+    // If match over is visible, reposition those too
+    if (this._matchOverObjects.length > 0) {
+      this._matchOverObjects.forEach(obj => {
+        if (obj instanceof Phaser.GameObjects.Rectangle || obj instanceof Phaser.GameObjects.Text) {
+           // Most match over elements are at cx = scale.width / 2
+           // Big background pill is also centered.
+           if (obj.scrollFactorX === 0) {
+              obj.setX(midX);
+           }
+        }
+      });
+    }
   }
 
   shutdown(): void {
