@@ -418,7 +418,7 @@ export class GameScene extends Phaser.Scene {
       const extra = Math.max(0, this.scale.width - 1280);
       const newInitOffsetX = Math.floor(extra / 2);
       // We no longer set scrollX directly here as _updateCamera will handle it
-      this._uiCam.setViewport(0, 0, this.scale.width, this.scale.height);
+      this._uiCam.setViewport(0, 0, this.scale.width, this.scale.height).setScroll(0, 0);
       this._hostButtons.reposition(1190 + newInitOffsetX, 360);
     };
     applyScroll();
