@@ -128,12 +128,12 @@ export class TutorialScene extends Phaser.Scene {
       {
         title: "Slap Hit",
         description: "Hold SLAP HIT to charge a powerful shot, then release to fire!\nGreat for long-range goals.",
-        highlight: { x: buttonsX, y: cy - 80, r: 90 }
+        highlight: { x: buttonsX, y: cy - 90, r: 105 }
       },
       {
         title: "Quick Dash",
         description: "Tap QUICK DASH for a burst of speed.\nYou have 3 charges that refill every few seconds.",
-        highlight: { x: buttonsX, y: cy + 100, r: 80 }
+        highlight: { x: buttonsX, y: cy + 110, r: 85 }
       },
       {
         title: "Scoring Goals",

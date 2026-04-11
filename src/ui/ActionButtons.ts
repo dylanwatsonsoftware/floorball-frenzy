@@ -32,13 +32,13 @@ export class ActionButtons {
   private _dashCooldownMs = 0;
   private _dashCX = 0;
   private _dashCY = 0;
-  private _dashR = 50;
+  private _dashR = 65;
 
   private _slapRingGfx: Phaser.GameObjects.Graphics;
   private _slapChargeMs = 0;
   private _slapCX = 0;
   private _slapCY = 0;
-  private _slapR = 70;
+  private _slapR = 85;
 
   private _slapBaseGfx!: Phaser.GameObjects.Graphics;
   private _dashBaseGfx!: Phaser.GameObjects.Graphics;
@@ -46,25 +46,25 @@ export class ActionButtons {
   private _dashLabel!: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, panelCX: number, panelCY: number) {
-    const BIG_R = 70;
-    const SM_R  = 50;
+    const BIG_R = 85;
+    const SM_R  = 65;
 
     const slapX  = panelCX;
-    const slapY  = panelCY - 80;
+    const slapY  = panelCY - 90;
     this._slapCX = slapX;
     this._slapCY = slapY;
     this._slapR = BIG_R;
 
     const dashX  = panelCX;
-    const dashY  = panelCY + 100;
+    const dashY  = panelCY + 110;
     this._dashCX = dashX;
     this._dashCY = dashY;
     this._dashR = SM_R;
 
     this._slapBaseGfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
     this._dashBaseGfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
-    this._slapLabel = scene.add.text(0, 0, "SLAP\nHIT", { fontSize: "24px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21).setScrollFactor(0);
-    this._dashLabel = scene.add.text(0, 0, "QUICK\nDASH", { fontSize: "16px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21).setScrollFactor(0);
+    this._slapLabel = scene.add.text(0, 0, "SLAP\nHIT", { fontSize: "30px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21).setScrollFactor(0);
+    this._dashLabel = scene.add.text(0, 0, "QUICK\nDASH", { fontSize: "20px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21).setScrollFactor(0);
 
     this._dashRingGfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
     this._slapRingGfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
@@ -113,16 +113,16 @@ export class ActionButtons {
   }
 
   reposition(panelCX: number, panelCY: number): void {
-    const BIG_R = 70;
-    const SM_R  = 50;
+    const BIG_R = 85;
+    const SM_R  = 65;
 
     this._slapCX = panelCX;
-    this._slapCY = panelCY - 80;
+    this._slapCY = panelCY - 90;
     this._slapR = BIG_R;
     this._slapBounds.setTo(this._slapCX, this._slapCY, this._slapR);
 
     this._dashCX = panelCX;
-    this._dashCY = panelCY + 100;
+    this._dashCY = panelCY + 110;
     this._dashR = SM_R;
     this._dashBounds.setTo(this._dashCX, this._dashCY, this._dashR);
 
