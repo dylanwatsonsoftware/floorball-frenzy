@@ -27,3 +27,13 @@ export function detectInAppBrowser(): InAppInfo {
 
   return { isInApp: false, appName: "" };
 }
+
+export function isIOS(): boolean {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // iPad Pro
+}
+
+export function isStandalone(): boolean {
+  return (window.navigator as any).standalone === true ||
+    window.matchMedia("(display-mode: standalone)").matches;
+}

@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { isIOS, isStandalone } from "../utils/browserDetection";
 
 interface LobbyEntry {
   roomId: string;
@@ -20,10 +21,15 @@ function timeAgo(ms: number): string {
 function checkIsPortrait(sw: number, sh: number): boolean {
   let isPortrait = sh > sw;
   if (typeof navigator !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    if (typeof window !== "undefined" && window.screen && window.screen.orientation) {
-      isPortrait = window.screen.orientation.type.startsWith("portrait");
-    } else if (typeof window !== "undefined" && window.screen) {
-      isPortrait = window.screen.height > window.screen.width;
+    try {
+      if (typeof window !== "undefined" && window.screen && window.screen.orientation && window.screen.orientation.type) {
+        isPortrait = window.screen.orientation.type.startsWith("portrait");
+      } else if (typeof window !== "undefined" && window.screen) {
+        isPortrait = window.screen.height > window.screen.width;
+      }
+    } catch (e) {
+      console.warn("checkIsPortrait failed, falling back to sh > sw", e);
+      isPortrait = sh > sw;
     }
   }
   return isPortrait;
@@ -51,7 +57,12 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    this._savedGameName = localStorage.getItem("floorball:gameName") ?? "";
+    try {
+      this._savedGameName = localStorage.getItem("floorball:gameName") ?? "";
+    } catch (e) {
+      this._savedGameName = "";
+      console.warn("localStorage access failed", e);
+    }
 
     const hashCode = window.location.hash.slice(1).toUpperCase();
     if (hashCode.length > 0) {
@@ -216,7 +227,9 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtonsLandscape(): void {
     const btnW = 520;
     const btnH = 76;
-    const hasInstall = (window as any).deferredPrompt;
+    const hasPrompt = !!(window as any).deferredPrompt;
+    const showIOSInstall = isIOS() && !isStandalone();
+    const hasInstall = hasPrompt || showIOSInstall;
 
     const startY = hasInstall ? H / 2 + 10 : H / 2 - 20;
 
@@ -232,11 +245,16 @@ export class MenuScene extends Phaser.Scene {
 
     if (hasInstall) {
       this._makeButton(W / 2, startY + 190, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
-        void (window as any).deferredPrompt.prompt();
-        void (window as any).deferredPrompt.userChoice.then(() => {
-          (window as any).deferredPrompt = null;
-          this._render();
-        });
+        if (hasPrompt) {
+          void (window as any).deferredPrompt.prompt();
+          void (window as any).deferredPrompt.userChoice.then(() => {
+            (window as any).deferredPrompt = null;
+            this._render();
+          });
+        } else if (showIOSInstall) {
+          const el = document.getElementById("ios-install-overlay");
+          if (el) el.style.display = "flex";
+        }
       });
     }
 
@@ -246,7 +264,10 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtonsPortrait(sw: number, sh: number): void {
     const btnW = sw * 0.96;
     const btnH = 200;
-    const hasInstall = (window as any).deferredPrompt;
+    const hasPrompt = !!(window as any).deferredPrompt;
+    const showIOSInstall = isIOS() && !isStandalone();
+    const hasInstall = hasPrompt || showIOSInstall;
+
     // Push buttons lower to avoid overlap with title/logo on shorter screens
     const startY = hasInstall ? sh * 0.58 : sh * 0.62;
 
@@ -262,11 +283,16 @@ export class MenuScene extends Phaser.Scene {
 
     if (hasInstall) {
       this._makeButton(sw / 2, startY + 460, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
-        void (window as any).deferredPrompt.prompt();
-        void (window as any).deferredPrompt.userChoice.then(() => {
-          (window as any).deferredPrompt = null;
-          this._render();
-        });
+        if (hasPrompt) {
+          void (window as any).deferredPrompt.prompt();
+          void (window as any).deferredPrompt.userChoice.then(() => {
+            (window as any).deferredPrompt = null;
+            this._render();
+          });
+        } else if (showIOSInstall) {
+          const el = document.getElementById("ios-install-overlay");
+          if (el) el.style.display = "flex";
+        }
       }, 2.3);
     }
 
@@ -274,18 +300,20 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private _drawCommitInfoLandscape(): void {
-    const diffMs = Date.now() - Number(__GIT_DATE__) * 1000;
+    const gitDate = Number(__GIT_DATE__);
+    const diffMs = isNaN(gitDate) ? 0 : Date.now() - gitDate * 1000;
     const m = Math.floor(diffMs / 60000);
-    const ago = m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`;
+    const ago = isNaN(gitDate) ? "unknown" : m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`;
     this.add.text(W / 2, H - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
       fontSize: "15px", color: "#ffffff",
     }).setOrigin(0.5, 1);
   }
 
   private _drawCommitInfoPortrait(sw: number, sh: number): void {
-    const diffMs = Date.now() - Number(__GIT_DATE__) * 1000;
+    const gitDate = Number(__GIT_DATE__);
+    const diffMs = isNaN(gitDate) ? 0 : Date.now() - gitDate * 1000;
     const m = Math.floor(diffMs / 60000);
-    const ago = m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`;
+    const ago = isNaN(gitDate) ? "unknown" : m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`;
     this.add.text(sw / 2, sh - 10, `${__GIT_HASH__}\n${ago}  ·  ${__GIT_MSG__}`, {
       fontSize: "14px", color: "#ffffff", align: "center"
     }).setOrigin(0.5, 1);
@@ -539,7 +567,11 @@ export class MenuScene extends Phaser.Scene {
         this._hostingInput = null;
       }
       this._cleanup();
-      localStorage.setItem("floorball:gameName", hostName);
+      try {
+        localStorage.setItem("floorball:gameName", hostName);
+      } catch (e) {
+        console.warn("localStorage setItem failed", e);
+      }
       const roomId = randomRoomId();
       window.location.hash = roomId;
       void fetch("/api/lobby", {

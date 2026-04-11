@@ -1,10 +1,15 @@
 import LogRocket from "logrocket";
 import Phaser from "phaser";
-import { detectInAppBrowser } from "./utils/browserDetection";
+import { detectInAppBrowser, isIOS, isStandalone } from "./utils/browserDetection";
 // @ts-ignore
 import Scream from "scream";
 
-LogRocket.init("floorball/floorball-frenzy");
+try {
+  LogRocket.init("floorball/floorball-frenzy");
+} catch (e) {
+  console.error("LogRocket init failed", e);
+}
+
 import { BootScene } from "./scenes/BootScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { GameScene } from "./scenes/GameScene";
@@ -27,8 +32,12 @@ const config: Phaser.Types.Core.GameConfig = {
 
 // Handle In-App Browsers (Facebook, Messenger, Instagram, LinkedIn)
 const iabInfo = detectInAppBrowser();
+const iosNeedInstall = isIOS() && !isStandalone();
 
+let gameStarted = false;
 const initGame = () => {
+  if (gameStarted) return;
+  gameStarted = true;
   const game = new Phaser.Game(config);
   (window as any).phaserGame = game;
 
@@ -78,6 +87,18 @@ if (iabInfo.isInApp) {
     messageEl.appendChild(document.createTextNode("."));
     overlay.style.display = "flex";
 
+    dismissBtn.addEventListener("click", () => {
+      overlay.style.display = "none";
+      initGame();
+    });
+  } else {
+    initGame();
+  }
+} else if (iosNeedInstall) {
+  const overlay = document.getElementById("ios-install-overlay");
+  const dismissBtn = document.getElementById("ios-dismiss");
+  if (overlay && dismissBtn) {
+    overlay.style.display = "flex";
     dismissBtn.addEventListener("click", () => {
       overlay.style.display = "none";
       initGame();

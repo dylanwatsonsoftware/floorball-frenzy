@@ -1,17 +1,18 @@
-const CACHE_NAME = 'floorball-frenzy-v2';
-const RUNTIME_CACHE = 'runtime-v1';
-const ASSETS = [
-  './',
-  './index.html',
+const CACHE_NAME = 'floorball-frenzy-v4';
+const RUNTIME_CACHE = 'runtime-v3';
+
+// Core assets that should be cached immediately
+const PRECACHE_ASSETS = [
   './manifest.webmanifest',
-  './assets/floorball-frenzy.png'
+  './assets/floorball-frenzy.png',
+  './lambs-logo.png'
 ];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
+      return cache.addAll(PRECACHE_ASSETS);
     })
   );
 });
@@ -33,6 +34,26 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
+
+  // Network-First for index.html and root to prevent serving stale versions
+  // that point to deleted hashed assets.
+  if (url.pathname === '/' || url.pathname.endsWith('index.html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.status === 200) {
+            const copy = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-First for everything else
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -40,7 +61,6 @@ self.addEventListener('fetch', (event) => {
       }
 
       return fetch(event.request).then((response) => {
-        // Check if we received a valid response
         if (!response || response.status !== 200 || response.type !== 'basic') {
           return response;
         }
@@ -52,8 +72,7 @@ self.addEventListener('fetch', (event) => {
 
         return response;
       }).catch(() => {
-        // Fallback or just let it fail
-        return cachedResponse;
+        return null;
       });
     })
   );
