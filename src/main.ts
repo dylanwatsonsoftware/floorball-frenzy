@@ -4,7 +4,12 @@ import { detectInAppBrowser } from "./utils/browserDetection";
 // @ts-ignore
 import Scream from "scream";
 
-LogRocket.init("floorball/floorball-frenzy");
+try {
+  LogRocket.init("floorball/floorball-frenzy");
+} catch (e) {
+  console.error("LogRocket init failed", e);
+}
+
 import { BootScene } from "./scenes/BootScene";
 import { MenuScene } from "./scenes/MenuScene";
 import { GameScene } from "./scenes/GameScene";
