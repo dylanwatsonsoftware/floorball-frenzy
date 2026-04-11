@@ -359,7 +359,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Back button — top-left, inside HUD bar
-    this._backBtnObjs = this._makeButton(64, 47, 100, 38, "‹  BACK", "", 0x555566, 0x222233, () => this._confirmLeave(), 0.6, 16);
+    this._backBtnObjs = this._makeButton(84, 47, 140, 50, "‹  BACK", "", 0x555566, 0x222233, () => this._confirmLeave(), 0.8, 16);
 
     // Help button - top-right, inside HUD bar
     this._helpBtn = this.add.circle(0, 47, 20, 0x555566, 1).setDepth(16).setInteractive({ useHandCursor: true }).setScrollFactor(0);
