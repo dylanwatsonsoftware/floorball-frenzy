@@ -56,6 +56,7 @@ export class MenuScene extends Phaser.Scene {
   private _lobbyRowObjs: Phaser.GameObjects.GameObject[] = [];
   private _hostingObjs: Phaser.GameObjects.GameObject[] = [];
   private _lobbyAutoRefresh: Phaser.Time.TimerEvent | null = null;
+  private _lobbyRefreshDelay = 5000;
   private _isLobbyVisible = false;
   private _isHostingVisible = false;
   private _hostingInput: HTMLInputElement | null = null;
@@ -378,7 +379,10 @@ export class MenuScene extends Phaser.Scene {
     const b1 = this._makeButton(backX, smallBtnY, backWidth, bgH, "‹  BACK", "", 0x666677, 0x333344, () => this._hideLobby(), ts, 10);
 
     const refreshX = isPortrait ? cx + sw * 0.25 : cx + (180 * BTN_SCALE / 2) + 15;
-    const b2 = this._makeButton(refreshX, smallBtnY, backWidth, bgH, "↻  REFRESH", "", 0x1a44bb, 0x051144, () => { void loadGames(); }, ts, 10);
+    const b2 = this._makeButton(refreshX, smallBtnY, backWidth, bgH, "↻  REFRESH", "", 0x1a44bb, 0x051144, () => {
+      this._lobbyRefreshDelay = 5000;
+      void loadGames();
+    }, ts, 10);
 
     const newGameY = BAR_Y;
     const newH = isPortrait ? 132 : 48 * BTN_SCALE;
@@ -392,6 +396,7 @@ export class MenuScene extends Phaser.Scene {
 
     // ── Game rows (rebuilt on every refresh) ──────────────────────────────────
     let knownRoomIds: Set<string> | null = null; // null = first load, no ding
+    this._lobbyRefreshDelay = 5000;
 
     const loadGames = async (): Promise<void> => {
       // Async safety: check if the scene or lobby is still active
@@ -409,6 +414,8 @@ export class MenuScene extends Phaser.Scene {
       } catch {
         if (!this.scene.isActive() || !this._isLobbyVisible) return;
         statusTxt.setText("Could not load games.\nCheck your connection.");
+        // Even on error, we might want to retry with backoff
+        scheduleNext();
         return;
       }
 
@@ -422,6 +429,7 @@ export class MenuScene extends Phaser.Scene {
 
       if (games.length === 0) {
         statusTxt.setText("No open games right now.\nPress CREATE NEW GAME to start one!");
+        scheduleNext();
         return;
       }
       statusTxt.setVisible(false);
@@ -472,12 +480,26 @@ export class MenuScene extends Phaser.Scene {
 
         this._lobbyRowObjs.push(rowBg, dot, nameTxt, ageTxt, joinBg, joinTxt);
       }
+
+      scheduleNext();
+    };
+
+    const scheduleNext = () => {
+      if (this._lobbyAutoRefresh) this._lobbyAutoRefresh.destroy();
+      if (this._lobbyRefreshDelay > 180000) {
+        this._lobbyAutoRefresh = null;
+        return;
+      }
+      this._lobbyAutoRefresh = this.time.addEvent({
+        delay: this._lobbyRefreshDelay,
+        callback: () => {
+          this._lobbyRefreshDelay = Math.min(this._lobbyRefreshDelay * 1.5, 180001);
+          void loadGames();
+        }
+      });
     };
 
     await loadGames();
-
-    const autoRefresh = this.time.addEvent({ delay: 5000, loop: true, callback: () => { void loadGames(); } });
-    this._lobbyAutoRefresh = autoRefresh;
   }
 
   private _hideLobby(): void {
