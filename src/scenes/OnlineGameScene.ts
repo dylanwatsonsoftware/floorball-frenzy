@@ -605,21 +605,36 @@ export class OnlineGameScene extends GameScene {
       const isPortrait = this.scale.height > this.scale.width;
       const cy = 360;
 
-      // This is a bit complex since _buildSharePanel was called with specific coords.
-      // Easiest is to just re-build it if it's currently visible.
-      // But let's try to just move things first.
+      // Iterate through all share panel objects and update their positions relative to midX/cy
+      this._sharePanelObjects.forEach(obj => {
+        if (obj instanceof Phaser.GameObjects.Rectangle) {
+          obj.setPosition(midX, cy);
+          if (obj.width > 500 || isPortrait) { // Main overlay
+            obj.width = isPortrait ? sw * 0.95 : 560;
+          }
+        } else if (obj instanceof Phaser.GameObjects.Text) {
+          // Adjust labels relative to center
+          const label = obj as Phaser.GameObjects.Text;
+          if (label.text === "Waiting for opponent" || label.text === "Connecting…") {
+            label.setPosition(midX + (label.text === "Connecting…" ? 0 : -30), cy - 120 + (label.text === "Connecting…" ? 20 : 0));
+          } else if (label.text === "Getting you into the game") {
+            label.setPosition(midX, cy + 100);
+          } else if (label.text === this._roomId || label.style.color === "#aaaaff") { // Room name label
+            label.setPosition(midX, cy - 72);
+          } else if (label.text.includes("FULLSCREEN")) {
+             label.setPosition(midX, cy + 20);
+          }
+        } else if (obj instanceof Phaser.GameObjects.Sprite) {
+          // QR Code
+          obj.setPosition(midX, cy + 45);
+        }
+      });
 
-      // Overlay is usually first
-      const overlay = this._sharePanelObjects[0] as Phaser.GameObjects.Rectangle;
-      overlay.setPosition(midX, cy);
-      if (isPortrait) {
-          overlay.width = sw * 0.95;
-      } else {
-          overlay.width = 560;
+      if (this._waitingBallGfx) {
+        const ballX = midX + (this._isHost ? 155 : 0);
+        const ballY = this._isHost ? cy - 120 : cy;
+        this._waitingBallGfx.setPosition(ballX, ballY);
       }
-
-      // We should probably just call _buildSharePanel again if we want it perfect,
-      // but that might double up objects if we are not careful.
     }
   }
 
