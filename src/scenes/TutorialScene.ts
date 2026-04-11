@@ -33,26 +33,35 @@ export class TutorialScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.scale;
 
+    // Safe margins for buttons and text (iPad and other wide screens)
+    const MARGIN = 40;
+    const safeCenterX = width / 2;
+
     // Overlay and Spotlight
     this._overlay = this.add.graphics().setDepth(100);
 
-    // UI Panel (Bottom)
-    const panelY = height - 180;
-    this._panelBg = this.add.rectangle(width / 2, panelY + 90, width, 180, 0x000000, 0.7).setDepth(101);
+    // Next Button — respects bottom and side margins
+    const buttonY = Math.max(height - 60, MARGIN + 50);
+    
+    // UI Panel (Bottom) — positioned above button with 20px gap
+    // Panel is 180px tall, centered at panelY + 90, extends from panelY to panelY + 180
+    // Button is 50px tall, centered at buttonY, extends from buttonY - 25 to buttonY + 25
+    // Panel bottom (panelY + 180) should be at buttonY - 45 (buttonY - 25 - 20 gap)
+    const panelY = buttonY - 225;
+    this._panelBg = this.add.rectangle(safeCenterX, panelY + 90, Math.min(width - MARGIN * 2, width), 180, 0x000000, 0.7).setDepth(101);
 
-    this._titleText = this.add.text(width / 2, panelY + 30, "", {
+    this._titleText = this.add.text(safeCenterX, panelY + 30, "", {
       fontSize: "32px", color: "#00ff66", fontStyle: "bold"
     }).setOrigin(0.5).setDepth(102);
 
-    const responsiveWordWrap = Math.min(800, Math.floor(width * 0.9));
-    this._descText = this.add.text(width / 2, panelY + 80, "", {
+    const responsiveWordWrap = Math.min(800, Math.floor(width * 0.9) - MARGIN * 2);
+    this._descText = this.add.text(safeCenterX, panelY + 80, "", {
       fontSize: "20px", color: "#ffffff", align: "center", wordWrap: { width: responsiveWordWrap }
     }).setOrigin(0.5).setDepth(102);
 
-    // Next Button
-    this._nextBtn = this.add.rectangle(width / 2, height - 35, 200, 50, 0x00ff66, 1)
+    this._nextBtn = this.add.rectangle(safeCenterX, buttonY, 200, 50, 0x00ff66, 1)
       .setDepth(102).setInteractive({ useHandCursor: true });
-    this._nextBtnText = this.add.text(width / 2, height - 35, "NEXT", {
+    this._nextBtnText = this.add.text(safeCenterX, buttonY, "NEXT", {
       fontSize: "24px", color: "#000000", fontStyle: "bold"
     }).setOrigin(0.5).setDepth(103);
 
@@ -174,16 +183,25 @@ export class TutorialScene extends Phaser.Scene {
   private _relayout(): void {
     const { width, height } = this.scale;
 
-    // Reposition UI elements
-    const panelY = height - 180;
-    this._panelBg.setPosition(width / 2, panelY + 90).setDisplaySize(width, 180);
-    this._titleText.setPosition(width / 2, panelY + 30);
+    // Safe margins for buttons and text (iPad and other wide screens)
+    const MARGIN = 40;
+    const safeCenterX = width / 2;
 
-    const responsiveWordWrap = Math.min(800, Math.floor(width * 0.9));
-    this._descText.setPosition(width / 2, panelY + 80).setWordWrapWidth(responsiveWordWrap);
+    // Button position with margin from bottom
+    const buttonY = Math.max(height - 60, MARGIN + 50);
+    
+    // Panel positioned above button with proper spacing
+    const panelY = buttonY - 225;
+    
+    // Reposition UI elements with margins
+    this._panelBg.setPosition(safeCenterX, panelY + 90).setDisplaySize(Math.min(width - MARGIN * 2, width), 180);
+    this._titleText.setPosition(safeCenterX, panelY + 30);
 
-    this._nextBtn.setPosition(width / 2, height - 35);
-    this._nextBtnText.setPosition(width / 2, height - 35);
+    const responsiveWordWrap = Math.min(800, Math.floor(width * 0.9) - MARGIN * 2);
+    this._descText.setPosition(safeCenterX, panelY + 80).setWordWrapWidth(responsiveWordWrap);
+
+    this._nextBtn.setPosition(safeCenterX, buttonY);
+    this._nextBtnText.setPosition(safeCenterX, buttonY);
 
     // Recalculate spotlight positions for all steps
     this._setupSteps();
