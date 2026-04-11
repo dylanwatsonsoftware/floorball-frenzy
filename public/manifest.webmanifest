@@ -2,7 +2,9 @@
   "name": "Floorball Frenzy",
   "short_name": "Floorball",
   "description": "Fast-paced 2-player online floorball game.",
-  "start_url": "./index.html",
+  "id": "/floorball-frenzy/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",
@@ -11,12 +13,26 @@
     {
       "src": "assets/floorball-frenzy.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "assets/floorball-frenzy.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/floorball-frenzy.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/floorball-frenzy.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
