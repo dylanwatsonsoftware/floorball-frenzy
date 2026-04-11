@@ -65,8 +65,8 @@ export const STICK_REACH  = PLAYER_RADIUS + STICK_LENGTH; // 48 px
 
 // ─── Possession ───────────────────────────────────────────────────────────────
 export const CONTROL_RADIUS = 40;
-export const POSSESSION_PULL_FACTOR = 0.18;
-export const POSSESSION_PULL_CAP = 7;
+export const POSSESSION_PULL_FACTOR = 0.25;
+export const POSSESSION_PULL_CAP = 10;
 
 // ─── Dash ─────────────────────────────────────────────────────────────────────
 export const DASH_FORCE    = 950;

@@ -797,7 +797,7 @@ export class GameScene extends Phaser.Scene {
       if (distToBlade > 75) return false;
       if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-      // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+      // Velocity coupling: 0.40 total (0.15 from assist + 0.25 here)
       applyPossessionAssist(this.ball, player.vx, player.vy);
       this.ball.vx += (player.vx - this.ball.vx) * 0.25;
       this.ball.vy += (player.vy - this.ball.vy) * 0.25;
@@ -827,7 +827,7 @@ export class GameScene extends Phaser.Scene {
 
     if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-    // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+    // Velocity coupling: 0.40 total (0.15 from assist + 0.25 here)
     applyPossessionAssist(this.ball, player.vx, player.vy);
     this.ball.vx += (player.vx - this.ball.vx) * 0.25;
     this.ball.vy += (player.vy - this.ball.vy) * 0.25;
