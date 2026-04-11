@@ -1,9 +1,8 @@
-const CACHE_NAME = 'floorball-frenzy-v3';
-const RUNTIME_CACHE = 'runtime-v2';
+const CACHE_NAME = 'floorball-frenzy-v4';
+const RUNTIME_CACHE = 'runtime-v3';
 
 // Core assets that should be cached immediately
 const PRECACHE_ASSETS = [
-  './',
   './manifest.webmanifest',
   './assets/floorball-frenzy.png',
   './lambs-logo.png'

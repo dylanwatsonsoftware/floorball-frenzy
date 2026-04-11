@@ -133,6 +133,67 @@
       #iab-overlay button:active {
         opacity: 0.8;
       }
+
+      /* iOS Install Overlay */
+      #ios-install-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100dvw;
+        height: 100dvh;
+        background: rgba(10, 15, 10, 0.95);
+        color: #fff;
+        z-index: 10000;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 40px 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+      #ios-install-overlay .ios-card {
+        background: #1a2e1e;
+        border: 2px solid #36b346;
+        border-radius: 20px;
+        padding: 30px;
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      }
+      #ios-install-overlay h2 {
+        color: #36b346;
+        font-size: 28px;
+        margin-bottom: 20px;
+      }
+      #ios-install-overlay ol {
+        text-align: left;
+        margin: 20px 0;
+        padding-left: 20px;
+        font-size: 18px;
+        line-height: 1.6;
+      }
+      #ios-install-overlay li {
+        margin-bottom: 15px;
+      }
+      #ios-install-overlay .icon {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        vertical-align: middle;
+        margin: 0 4px;
+      }
+      #ios-install-overlay .close-btn {
+        margin-top: 20px;
+        background: #36b346;
+        color: #000;
+        border: none;
+        padding: 12px 30px;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 8px;
+        cursor: pointer;
+      }
     </style>
     <script>
       window.global = window;
@@ -150,6 +211,20 @@
       </p>
       <div class="btn-container">
         <button id="iab-dismiss">Play Anyway</button>
+      </div>
+    </div>
+
+    <div id="ios-install-overlay">
+      <div class="ios-card">
+        <h2>Install App</h2>
+        <p>Install <b>Floorball Frenzy</b> on your home screen for fullscreen play and better performance.</p>
+        <ol>
+          <li>Tap the <b>Share</b> button <svg class="icon" viewBox="0 0 50 50" fill="none" stroke="#36b346" stroke-width="3"><path d="M25 10v25M15 20l10-10 10 10M10 25v15h30V25"/></svg> in the browser bar.</li>
+          <li>Scroll down and tap <b>'Add to Home Screen'</b> <svg class="icon" viewBox="0 0 50 50" fill="none" stroke="#36b346" stroke-width="3"><rect x="10" y="10" width="30" height="30" rx="5"/><path d="M25 18v14M18 25h14"/></svg>.</li>
+        </ol>
+        <div class="btn-container" style="display: flex; flex-direction: column; gap: 10px; width: 100%; align-items: center;">
+          <button id="ios-dismiss" style="background: #36b346; color: #000; border: none; padding: 12px 30px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%;">Play Anyway</button>
+        </div>
       </div>
     </div>
 

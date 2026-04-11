@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { isIOS, isStandalone } from "../utils/browserDetection";
 
 interface LobbyEntry {
   roomId: string;
@@ -226,7 +227,9 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtonsLandscape(): void {
     const btnW = 520;
     const btnH = 76;
-    const hasInstall = (window as any).deferredPrompt;
+    const hasPrompt = !!(window as any).deferredPrompt;
+    const showIOSInstall = isIOS() && !isStandalone();
+    const hasInstall = hasPrompt || showIOSInstall;
 
     const startY = hasInstall ? H / 2 + 10 : H / 2 - 20;
 
@@ -242,11 +245,16 @@ export class MenuScene extends Phaser.Scene {
 
     if (hasInstall) {
       this._makeButton(W / 2, startY + 190, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
-        void (window as any).deferredPrompt.prompt();
-        void (window as any).deferredPrompt.userChoice.then(() => {
-          (window as any).deferredPrompt = null;
-          this._render();
-        });
+        if (hasPrompt) {
+          void (window as any).deferredPrompt.prompt();
+          void (window as any).deferredPrompt.userChoice.then(() => {
+            (window as any).deferredPrompt = null;
+            this._render();
+          });
+        } else if (showIOSInstall) {
+          const el = document.getElementById("ios-install-overlay");
+          if (el) el.style.display = "flex";
+        }
       });
     }
 
@@ -256,7 +264,10 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtonsPortrait(sw: number, sh: number): void {
     const btnW = sw * 0.96;
     const btnH = 200;
-    const hasInstall = (window as any).deferredPrompt;
+    const hasPrompt = !!(window as any).deferredPrompt;
+    const showIOSInstall = isIOS() && !isStandalone();
+    const hasInstall = hasPrompt || showIOSInstall;
+
     // Push buttons lower to avoid overlap with title/logo on shorter screens
     const startY = hasInstall ? sh * 0.58 : sh * 0.62;
 
@@ -272,11 +283,16 @@ export class MenuScene extends Phaser.Scene {
 
     if (hasInstall) {
       this._makeButton(sw / 2, startY + 460, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
-        void (window as any).deferredPrompt.prompt();
-        void (window as any).deferredPrompt.userChoice.then(() => {
-          (window as any).deferredPrompt = null;
-          this._render();
-        });
+        if (hasPrompt) {
+          void (window as any).deferredPrompt.prompt();
+          void (window as any).deferredPrompt.userChoice.then(() => {
+            (window as any).deferredPrompt = null;
+            this._render();
+          });
+        } else if (showIOSInstall) {
+          const el = document.getElementById("ios-install-overlay");
+          if (el) el.style.display = "flex";
+        }
       }, 2.3);
     }
 
