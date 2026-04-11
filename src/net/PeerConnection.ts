@@ -22,7 +22,7 @@ async function fetchIceServers(): Promise<RTCIceServer[]> {
 const SIGNAL_POLL_MS = 250;
 // Delay before reconnecting after "disconnected" (transient drops often self-heal)
 const RECONNECT_DELAY_MS = 3000;
-const MAX_RECONNECT_ATTEMPTS = 20;
+const MAX_RECONNECT_ATTEMPTS = 6;
 
 const log = (role: string, ...args: unknown[]): void =>
   console.log(`[PeerConnection:${role}]`, ...args);

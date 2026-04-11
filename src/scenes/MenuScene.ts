@@ -213,7 +213,7 @@ export class MenuScene extends Phaser.Scene {
       this._render();
     });
 
-    this._makeButton(W / 2, H / 2 + 75, btnW, btnH, "⚡  Solo Match", "VS AI  ·  SOLO MATCH", 0x2255aa, 0x112244, () => {
+    this._makeButton(W / 2, H / 2 + 75, btnW, btnH, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
     });
@@ -231,7 +231,7 @@ export class MenuScene extends Phaser.Scene {
       this._render();
     }, 2.3);
 
-    this._makeButton(sw / 2, startY + 230, btnW, btnH, "⚡  Solo Match", "VS AI  ·  SOLO MATCH", 0x2255aa, 0x112244, () => {
+    this._makeButton(sw / 2, startY + 230, btnW, btnH, "⚡  Local Match", "SAME DEVICE  ·  2 PLAYERS", 0x2255aa, 0x112244, () => {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
     }, 2.3);
