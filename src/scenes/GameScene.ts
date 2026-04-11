@@ -193,6 +193,7 @@ export class GameScene extends Phaser.Scene {
   protected _camZoom = 1;
   protected _camX = 640;
   protected _camY = 360;
+  protected _hasReceivedInput = false;
   protected _uiCam!: Phaser.Cameras.Scene2D.Camera;
 
   protected get _isAuthoritative(): boolean {
@@ -548,9 +549,20 @@ export class GameScene extends Phaser.Scene {
     const localP = isHostLocal ? this.host : this.client;
     const otherP = isHostLocal ? this.client : this.host;
 
-    // Weights: Local(0.45), Ball(0.35), Other(0.20)
-    let targetX = localP.x * 0.45 + this.ball.x * 0.35 + otherP.x * 0.20;
-    let targetY = localP.y * 0.45 + this.ball.y * 0.35 + otherP.y * 0.20;
+    // Check if ball is possessed by local player (no weight) or close to local player (reduced weight)
+    const distToBall = Math.hypot(this.ball.x - localP.x, this.ball.y - localP.y);
+    const DRIBBLE_BUFFER = 60; // px — ball within this distance reduces shake during dribbling
+    let ballInfluence = 0.35;
+    if (this.ball.possessedBy === localP.id) {
+      ballInfluence = 0; // No weight when local player has possession
+    } else if (distToBall < DRIBBLE_BUFFER) {
+      ballInfluence = 0.1; // Reduced weight when ball is nearby but not possessed
+    }
+
+    // Weights: Local(0.45), Ball(ballInfluence), Other(adjusted)
+    const otherWeight = 1.0 - 0.45 - ballInfluence;
+    let targetX = localP.x * 0.45 + this.ball.x * ballInfluence + otherP.x * otherWeight;
+    let targetY = localP.y * 0.45 + this.ball.y * ballInfluence + otherP.y * otherWeight;
 
     // "Direction of Travel" Lead for local player (up to 30% of screen width)
     const speed = Math.hypot(localP.vx, localP.vy);
@@ -593,12 +605,22 @@ export class GameScene extends Phaser.Scene {
       targetZoom = Math.min(targetZoom, baseZoom * 1.2); // Zoom out a bit relative to current required zoom
     }
 
-    // Clamp zoom: [baseZoom, baseZoom * 1.5]
-    targetZoom = Phaser.Math.Clamp(targetZoom, baseZoom, baseZoom * 1.5);
+    // Start fully zoomed out until first input
+    if (!this._hasReceivedInput) {
+      targetZoom = baseZoom;
+    } else {
+      // Clamp zoom: [baseZoom, baseZoom * 1.5]
+      targetZoom = Phaser.Math.Clamp(targetZoom, baseZoom, baseZoom * 1.5);
+    }
 
     // Smooth lerp for zoom and position
     const lerpPos = 1 - Math.pow(0.001, deltaMs / 1000); // Responsive smoothing
-    const lerpZoom = 1 - Math.pow(0.005, deltaMs / 1000);
+    
+    // Different lerp speeds for zoom in vs out: zoom in slower, zoom out faster
+    const isZoomingIn = targetZoom > this._camZoom;
+    const lerpZoom = isZoomingIn 
+      ? 1 - Math.pow(0.30, deltaMs / 1000)   // Slower zoom in
+      : 1 - Math.pow(0.002, deltaMs / 1000); // Faster zoom out
 
     this._camX += (targetX - this._camX) * lerpPos;
     this._camY += (targetY - this._camY) * lerpPos;
@@ -820,7 +842,7 @@ export class GameScene extends Phaser.Scene {
       if (distToBlade > 75) return false;
       if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-      // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+      // Velocity coupling: 0.40 total (0.15 from assist + 0.25 here)
       applyPossessionAssist(this.ball, player.vx, player.vy);
       this.ball.vx += (player.vx - this.ball.vx) * 0.25;
       this.ball.vy += (player.vy - this.ball.vy) * 0.25;
@@ -850,7 +872,7 @@ export class GameScene extends Phaser.Scene {
 
     if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-    // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+    // Velocity coupling: 0.40 total (0.15 from assist + 0.25 here)
     applyPossessionAssist(this.ball, player.vx, player.vy);
     this.ball.vx += (player.vx - this.ball.vx) * 0.25;
     this.ball.vy += (player.vy - this.ball.vy) * 0.25;
@@ -971,12 +993,19 @@ export class GameScene extends Phaser.Scene {
 
     const touch = this._hostButtons.read();
 
-    return {
+    const input = {
       moveX: mx,
       moveY: my,
       slap: k.slap.isDown || touch.slapHeld,
       dash: k.dash.isDown || touch.dash,
     };
+
+    // Mark that input has been received
+    if (input.moveX !== 0 || input.moveY !== 0 || input.slap || input.dash) {
+      this._hasReceivedInput = true;
+    }
+
+    return input;
   }
 
   protected _readClientInput(): InputState {
@@ -1502,6 +1531,7 @@ export class GameScene extends Phaser.Scene {
     this.client.dashCooldownMs = 0;
     this._aiDelayMs = 2000;
     this._playerTouched = false;
+    this._hasReceivedInput = false;
   }
 
   protected _drawSticks(): void {
@@ -1729,7 +1759,7 @@ export class GameScene extends Phaser.Scene {
     g.strokeRoundedRect(FIELD_LEFT, FIELD_TOP, W, H, r);
   }
 
-  private _makeButton(
+  protected _makeButton(
     x: number, y: number,
     w: number, h: number,
     label: string, sublabel: string,

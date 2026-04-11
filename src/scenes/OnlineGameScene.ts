@@ -25,6 +25,7 @@ export class OnlineGameScene extends GameScene {
   private static readonly INTERP_DELAY_MS = 60; // 3.6 frames at 60Hz
   private _roomId = "";
   private _connected = false;
+  private _localInTutorial = false;
   private _opponentInTutorial = false;
   private _snapshotTimer = 0;
   private _pingTimer = 0;
@@ -90,22 +91,14 @@ export class OnlineGameScene extends GameScene {
       if (this._connectTimeoutTimer) { this._connectTimeoutTimer.destroy(); this._connectTimeoutTimer = null; }
       this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
       this._statusText?.setText("");
+
+      if (!this._isHost && this._localInTutorial) {
+        this._peer.send({ type: "tutorial", status: "start" });
+      }
+
       if (this._isHost) {
         this._playDing();
-        if (this._opponentInTutorial) {
-          this._statusText?.setText("Opponent in tutorial…");
-        }
-        // Send start signal multiple times to ensure it gets through the unreliable channel
-        this._peer.send({ type: "start" });
-        this._startSignalTimer = this.time.addEvent({
-          delay: 500,
-          repeat: 5,
-          callback: () => {
-            if (this._connected) this._peer.send({ type: "start" });
-          },
-        });
-        this._startedCountdown = true;
-        this._startCountdown();
+        this._maybeStartGame();
       }
     };
     this._peer.onAnswerReceived = () => {
@@ -202,17 +195,56 @@ export class OnlineGameScene extends GameScene {
     this._buildSharePanel();
 
     if (!localStorage.getItem("floorball:tutorialDone")) {
-      if (!this._isHost) this._peer.send({ type: "tutorial", status: "start" });
+      this._localInTutorial = true;
+      if (this._connected && !this._isHost) {
+        this._peer.send({ type: "tutorial", status: "start" });
+      }
+
       this.scene.pause();
       this.scene.launch("TutorialScene", {
         team: this._isHost ? "host" : "client",
         onComplete: () => {
+          this._localInTutorial = false;
           localStorage.setItem("floorball:tutorialDone", "true");
-          if (!this._isHost) this._peer.send({ type: "tutorial", status: "end" });
+          if (this._isHost) {
+            this._maybeStartGame();
+          } else {
+            this._peer.send({ type: "tutorial", status: "end" });
+          }
           this.scene.resume();
         }
       });
     }
+  }
+
+  private _maybeStartGame(): void {
+    if (!this._isHost || !this._connected) return;
+    if (this._localInTutorial) {
+      this._statusText?.setText("Tutorial in progress…");
+      return;
+    }
+    if (this._opponentInTutorial) {
+      this._statusText?.setText("Opponent in tutorial…");
+      return;
+    }
+
+    if (this._startedCountdown && !this._matchOverObjects.length) return;
+
+    this._statusText?.setText("Starting game…");
+
+    // Send start signal multiple times to ensure it gets through the unreliable channel
+    if (this._startSignalTimer) { this._startSignalTimer.destroy(); this._startSignalTimer = null; }
+    this._peer.send({ type: "start" });
+    this._startSignalTimer = this.time.addEvent({
+      delay: 500,
+      repeat: 5,
+      callback: () => {
+        if (this._connected) this._peer.send({ type: "start" });
+      },
+    });
+
+    this._startedCountdown = true;
+    this._startCountdown();
   }
 
   update(time: number, delta: number): void {
@@ -532,9 +564,7 @@ export class OnlineGameScene extends GameScene {
           this._rematchBtnText?.setText("ACCEPT REMATCH");
         }
         if (this._isHost && this._rematchRequested) {
-          // Host sends start signal
-          this._peer.send({ type: "start" });
-          this._startCountdown();
+          this._maybeStartGame();
         }
         break;
       }
@@ -542,15 +572,10 @@ export class OnlineGameScene extends GameScene {
         if (this._isHost) {
           if (msg.status === "start") {
             this._opponentInTutorial = true;
-            if (this._connected) {
-              this._statusText?.setText("Opponent in tutorial…");
-            }
+            this._statusText?.setText("Opponent in tutorial…");
           } else {
             this._opponentInTutorial = false;
-            if (this._connected) {
-              this._statusText?.setText("Starting game…");
-              this._startCountdown();
-            }
+            this._maybeStartGame();
           }
         }
         break;
@@ -567,16 +592,27 @@ export class OnlineGameScene extends GameScene {
     this._waitingBallGfx = this.add.graphics().setDepth(19).setScrollFactor(0);
 
     if (!this._isHost) {
-      const overlay = this.add.rectangle(cx, cy, isPortrait ? this.scale.width * 0.9 : 520, 260, 0x000000, 0.8).setDepth(18).setScrollFactor(0);
-      const title = this.add.text(cx, cy - 70, "Connecting…", {
+      const overlay = this.add.rectangle(cx, cy, 520, 320, 0x000000, 0.8).setDepth(18);
+      const title = this.add.text(cx, cy - 100, "Connecting…", {
         fontSize: "28px", color: "#ffffff", fontStyle: "bold",
-      }).setOrigin(0.5).setDepth(19).setScrollFactor(0);
-      const sub = this.add.text(cx, cy + 60, "Getting you into the game", {
+      }).setOrigin(0.5).setDepth(19);
+      const sub = this.add.text(cx, cy + 100, "Getting you into the game", {
         fontSize: "16px", color: "#556688", align: "center",
-      }).setOrigin(0.5).setDepth(19).setScrollFactor(0);
+      }).setOrigin(0.5).setDepth(19);
+
+      const fsBtn = this._makeButton(cx, cy + 20, 300, 60, "⛶  FULLSCREEN", "", 0x36b346, 0x1e7a29, () => {
+        const el = document.documentElement;
+        if (el.requestFullscreen) {
+          void el.requestFullscreen().catch(() => { });
+        }
+        if (screen.orientation?.lock) {
+          void screen.orientation.lock("landscape").catch(() => { });
+        }
+      }, 0.8, 19);
+
       this._waitingTitleText = title;
       this._waitingSubText = sub;
-      this._sharePanelObjects = [overlay, title, sub, this._waitingBallGfx];
+      this._sharePanelObjects = [overlay, title, sub, this._waitingBallGfx, ...fsBtn];
       this._addUI(this._sharePanelObjects);
       return;
     }
@@ -651,7 +687,6 @@ export class OnlineGameScene extends GameScene {
   }
 
   private _startCountdown(): void {
-    if (this._isHost && this._opponentInTutorial) return;
     this._snapshotBuffer = [];
     this._resetRound();
     this._countdownMs = 4000; // 3…2…1… then GO! for 1s
