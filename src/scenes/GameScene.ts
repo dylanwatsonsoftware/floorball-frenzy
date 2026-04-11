@@ -280,7 +280,7 @@ export class GameScene extends Phaser.Scene {
     this._ballGraphics = this.add.graphics().setDepth(6);
     this._indicatorGraphics = this.add.graphics().setDepth(10); // Above players and ball
     this._underPlayerGraphics = this.add.graphics().setDepth(4.4); // Below players (5)
-    this._hudOverlayGfx = this.add.graphics().setDepth(15);
+    this._hudOverlayGfx = this.add.graphics().setDepth(15).setScrollFactor(0); // Fixed UI layer
 
     // Players (depth 5 — above stick, below ball)
     // Origin y=0.56 puts the rotation pivot at the character body center (slightly below frame mid)
@@ -375,7 +375,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Back button — top-left, inside HUD bar
-    this._makeButton(64, 47, 100, 38, "‹  BACK", "", 0x555566, 0x222233, () => this._confirmLeave(), 0.6, 16);
+    const backBtnObjs = this._makeButton(64, 47, 100, 38, "‹  BACK", "", 0x555566, 0x222233, () => this._confirmLeave(), 0.6, 16);
 
     // Help button - top-right, inside HUD bar
     const helpBtnX = SW - 64;
@@ -394,7 +394,7 @@ export class GameScene extends Phaser.Scene {
     this._uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height).setName("UI");
 
     // UI elements should be ignored by the world camera and world elements by the UI camera.
-    const uiElements = [hudGfx, this._scoreText, this._messageText, hBtn, hText];
+    const uiElements = [hudGfx, this._scoreText, this._messageText, hBtn, hText, this._hudOverlayGfx, ...backBtnObjs];
     this._addUI(uiElements);
 
     // Touch UI — buttons are always present
