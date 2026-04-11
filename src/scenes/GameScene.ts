@@ -159,6 +159,7 @@ export class GameScene extends Phaser.Scene {
   private _backBtnObjs: Phaser.GameObjects.GameObject[] = [];
   private _helpBtn!: Phaser.GameObjects.Arc;
   private _helpText!: Phaser.GameObjects.Text;
+  private _portraitWarningText!: Phaser.GameObjects.Text;
 
   protected _addUI(objs: Phaser.GameObjects.GameObject | Phaser.GameObjects.GameObject[]): void {
     const arr = Array.isArray(objs) ? objs : [objs];
@@ -375,8 +376,19 @@ export class GameScene extends Phaser.Scene {
 
     this._uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height).setName("UI");
 
+    this._portraitWarningText = this.add.text(0, 0, "Best viewed in landscape mode.\nPlease rotate your screen.", {
+      fontSize: "24px",
+      color: "#ffffff",
+      fontStyle: "bold",
+      align: "center",
+      stroke: "#000000",
+      strokeThickness: 4,
+      backgroundColor: "#000000aa",
+      padding: { x: 20, y: 10 }
+    }).setOrigin(0.5, 1).setDepth(40).setScrollFactor(0).setVisible(false);
+
     // UI elements should be ignored by the world camera and world elements by the UI camera.
-    const uiElements = [this._hudGfx, this._scoreText, this._messageText, this._helpBtn, this._helpText, this._hudOverlayGfx, ...this._backBtnObjs, this._teamLabelRed, this._teamLabelBlue, this._scoreEyebrow];
+    const uiElements = [this._hudGfx, this._scoreText, this._messageText, this._helpBtn, this._helpText, this._hudOverlayGfx, ...this._backBtnObjs, this._teamLabelRed, this._teamLabelBlue, this._scoreEyebrow, this._portraitWarningText];
     this._addUI(uiElements);
 
     // Touch UI — buttons are always present
@@ -1817,6 +1829,16 @@ export class GameScene extends Phaser.Scene {
 
     if (this._helpBtn) this._helpBtn.setPosition(sw - 64, 47);
     if (this._helpText) this._helpText.setPosition(sw - 64, 47);
+
+    const isPortrait = sh > sw;
+    if (this._portraitWarningText) {
+      this._portraitWarningText.setVisible(isPortrait);
+      if (isPortrait) {
+        // Positioned higher to avoid iOS home indicator and browser toolbars
+        this._portraitWarningText.setPosition(midX, sh - 100);
+        this._portraitWarningText.setFontSize(Math.max(16, Math.floor(sw * 0.04)));
+      }
+    }
 
     // If match over is visible, reposition those too
     if (this._matchOverObjects.length > 0 && (this._matchOverObjects[0] as unknown as Phaser.GameObjects.Components.Visible).visible) {
