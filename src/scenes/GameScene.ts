@@ -188,6 +188,7 @@ export class GameScene extends Phaser.Scene {
   protected _camZoom = 1;
   protected _camX = 640;
   protected _camY = 360;
+  protected _hasReceivedInput = false;
   protected _uiCam!: Phaser.Cameras.Scene2D.Camera;
 
   protected get _isAuthoritative(): boolean {
@@ -570,12 +571,22 @@ export class GameScene extends Phaser.Scene {
       targetZoom = Math.min(targetZoom, baseZoom * 1.2); // Zoom out a bit relative to current required zoom
     }
 
-    // Clamp zoom: [baseZoom, baseZoom * 1.5]
-    targetZoom = Phaser.Math.Clamp(targetZoom, baseZoom, baseZoom * 1.5);
+    // Start fully zoomed out until first input
+    if (!this._hasReceivedInput) {
+      targetZoom = baseZoom;
+    } else {
+      // Clamp zoom: [baseZoom, baseZoom * 1.5]
+      targetZoom = Phaser.Math.Clamp(targetZoom, baseZoom, baseZoom * 1.5);
+    }
 
     // Smooth lerp for zoom and position
     const lerpPos = 1 - Math.pow(0.001, deltaMs / 1000); // Responsive smoothing
-    const lerpZoom = 1 - Math.pow(0.005, deltaMs / 1000);
+    
+    // Different lerp speeds for zoom in vs out: zoom in slower, zoom out faster
+    const isZoomingIn = targetZoom > this._camZoom;
+    const lerpZoom = isZoomingIn 
+      ? 1 - Math.pow(0.30, deltaMs / 1000)   // Slower zoom in
+      : 1 - Math.pow(0.002, deltaMs / 1000); // Faster zoom out
 
     this._camX += (targetX - this._camX) * lerpPos;
     this._camY += (targetY - this._camY) * lerpPos;
@@ -948,12 +959,19 @@ export class GameScene extends Phaser.Scene {
 
     const touch = this._hostButtons.read();
 
-    return {
+    const input = {
       moveX: mx,
       moveY: my,
       slap: k.slap.isDown || touch.slapHeld,
       dash: k.dash.isDown || touch.dash,
     };
+
+    // Mark that input has been received
+    if (input.moveX !== 0 || input.moveY !== 0 || input.slap || input.dash) {
+      this._hasReceivedInput = true;
+    }
+
+    return input;
   }
 
   protected _readClientInput(): InputState {
@@ -1479,6 +1497,7 @@ export class GameScene extends Phaser.Scene {
     this.host.dashCooldownMs = 0;
     this.client.dashCharges = MAX_DASH_CHARGES;
     this.client.dashCooldownMs = 0;
+    this._hasReceivedInput = false;
   }
 
   protected _drawSticks(): void {
