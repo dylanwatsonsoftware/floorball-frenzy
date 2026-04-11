@@ -247,6 +247,7 @@ export class MenuScene extends Phaser.Scene {
 
     this._makeButton(W / 2, startY, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       this._isLobbyVisible = true;
+      this._lobbyRefreshDelay = 5000;
       this._render();
     });
 
@@ -285,6 +286,7 @@ export class MenuScene extends Phaser.Scene {
 
     this._makeButton(sw / 2, startY, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       this._isLobbyVisible = true;
+      this._lobbyRefreshDelay = 5000;
       this._render();
     }, 2.3);
 
@@ -396,7 +398,6 @@ export class MenuScene extends Phaser.Scene {
 
     // ── Game rows (rebuilt on every refresh) ──────────────────────────────────
     let knownRoomIds: Set<string> | null = null; // null = first load, no ding
-    this._lobbyRefreshDelay = 5000;
 
     const loadGames = async (): Promise<void> => {
       // Async safety: check if the scene or lobby is still active
