@@ -6,6 +6,9 @@
     <!-- Viewport managed by 'scream' in src/main.ts -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#1a1a2e" />
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="assets/floorball-frenzy.png">
     <title>Floorball Frenzy</title>
 
     <!-- Open Graph -->
@@ -173,6 +176,13 @@
       });
     </script>
 
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registered', reg))
+          .catch(err => console.error('SW registration failed', err));
+      }
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
