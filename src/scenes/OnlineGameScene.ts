@@ -93,6 +93,10 @@ export class OnlineGameScene extends GameScene {
       this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
       this._statusText?.setText("");
 
+      // Show controls now that we're connected
+      this._hostJoy.setVisible(true);
+      this._hostButtons.setVisible(true);
+
       if (!this._isHost && this._localInTutorial) {
         this._peer.send({ type: "tutorial", status: "start" });
       }
@@ -147,6 +151,10 @@ export class OnlineGameScene extends GameScene {
   create(): void {
     super.create();
     this.events.once("shutdown", this.shutdown, this);
+
+    // Hide game controls while waiting/connecting
+    this._hostJoy.setVisible(false);
+    this._hostButtons.setVisible(false);
 
     if (this._isHost) {
       const gameName = localStorage.getItem("floorball:gameName") || this._roomId;
@@ -506,6 +514,8 @@ export class OnlineGameScene extends GameScene {
         this._connected = true;
         this._snapshotBuffer = [];
         this._sharePanelObjects.forEach(o => (o as unknown as Phaser.GameObjects.Components.Visible).setVisible(false));
+        this._hostJoy.setVisible(true);
+        this._hostButtons.setVisible(true);
         this._statusText?.setText("");
         this._clearMatchOver();
         this._resetMatch();
@@ -593,45 +603,60 @@ export class OnlineGameScene extends GameScene {
     if (!this._statusText) return; // Not initialized yet
 
     const sw = this.scale.width;
+    const sh = this.scale.height;
     const midX = sw / 2;
+    const cy = sh / 2;
 
     this._statusText.setPosition(midX, 30);
     this._pingText.setPosition(sw - 10, 10);
-    this._roomText.setPosition(midX, this.scale.height - 12);
-    this._countdownText.setPosition(midX, 360);
+    this._roomText.setPosition(midX, sh - 12);
+    this._countdownText.setPosition(midX, cy);
 
     if (this._sharePanelObjects.length > 0 && (this._sharePanelObjects[0] as unknown as Phaser.GameObjects.Components.Visible).visible) {
       // Re-center share panel
-      const isPortrait = this.scale.height > this.scale.width;
-      const cy = 360;
+      const isPortrait = sh > sw;
 
       // Iterate through all share panel objects and update their positions relative to midX/cy
       this._sharePanelObjects.forEach(obj => {
         if (obj instanceof Phaser.GameObjects.Rectangle) {
-          obj.setPosition(midX, cy);
-          if (obj.width > 500 || isPortrait) { // Main overlay
+          if (obj.width > 350) { // Main overlay
+            obj.setPosition(midX, cy);
             obj.width = isPortrait ? sw * 0.95 : 560;
+            obj.height = isPortrait ? 400 : 340;
+          } else {
+            // Fullscreen button bg
+            obj.setPosition(midX, cy + 20);
           }
         } else if (obj instanceof Phaser.GameObjects.Text) {
           // Adjust labels relative to center
           const label = obj as Phaser.GameObjects.Text;
-          if (label.text === "Waiting for opponent" || label.text === "Connecting…") {
-            label.setPosition(midX + (label.text === "Connecting…" ? 0 : -30), cy - 120 + (label.text === "Connecting…" ? 20 : 0));
+          if (label.text === "Waiting for opponent") {
+            label.setPosition(midX, cy - 120);
+          } else if (label.text === "Connecting…") {
+            label.setPosition(midX, cy - 100);
           } else if (label.text === "Getting you into the game") {
-            label.setPosition(midX, cy + 100);
+            label.setPosition(midX, cy + 120);
           } else if (label.text === this._roomId || label.style.color === "#aaaaff") { // Room name label
             label.setPosition(midX, cy - 72);
           } else if (label.text.includes("FULLSCREEN")) {
-             label.setPosition(midX, cy + 20);
+            label.setPosition(midX, cy + 20);
           }
         } else if (obj instanceof Phaser.GameObjects.Sprite) {
           // QR Code
           obj.setPosition(midX, cy + 45);
+        } else if (obj instanceof Phaser.GameObjects.Graphics) {
+          // Fullscreen button components (except the text)
+          // Since _makeButton returns a mix, and we don't have easy IDs,
+          // we check for button-related graphics if they're near the button Y
+          if (obj !== this._waitingBallGfx) {
+            // This is a bit brittle, but we know the FS button is at cy + 20
+            obj.setPosition(midX, cy + 20);
+          }
         }
       });
 
       if (this._waitingBallGfx) {
-        const ballX = midX + (this._isHost ? 155 : 0);
+        const ballX = midX + (this._isHost ? 125 : 0);
         const ballY = this._isHost ? cy - 120 : cy;
         this._waitingBallGfx.setPosition(ballX, ballY);
       }
@@ -640,20 +665,22 @@ export class OnlineGameScene extends GameScene {
 
   /** Big centered panel shown while waiting to connect. Host sees share UI; client sees connecting UI. */
   private _buildSharePanel(): void {
-    const cx = this.scale.width / 2, cy = 360;
-    const isPortrait = this.scale.height > this.scale.width;
+    const sw = this.scale.width;
+    const sh = this.scale.height;
+    const cx = sw / 2, cy = sh / 2;
+    const isPortrait = sh > sw;
 
     this._waitingBallQuat = [1, 0, 0, 0];
     this._waitingBallGfx = this.add.graphics().setDepth(19).setScrollFactor(0);
 
     if (!this._isHost) {
-      const overlay = this.add.rectangle(cx, cy, 520, 320, 0x000000, 0.8).setDepth(18);
+      const overlay = this.add.rectangle(cx, cy, 520, 320, 0x000000, 0.8).setDepth(18).setScrollFactor(0);
       const title = this.add.text(cx, cy - 100, "Connecting…", {
         fontSize: "28px", color: "#ffffff", fontStyle: "bold",
-      }).setOrigin(0.5).setDepth(19);
-      const sub = this.add.text(cx, cy + 100, "Getting you into the game", {
+      }).setOrigin(0.5).setDepth(19).setScrollFactor(0);
+      const sub = this.add.text(cx, cy + 120, "Getting you into the game", {
         fontSize: "16px", color: "#556688", align: "center",
-      }).setOrigin(0.5).setDepth(19);
+      }).setOrigin(0.5).setDepth(19).setScrollFactor(0);
 
       const fsBtn = this._makeButton(cx, cy + 20, 300, 60, "⛶  FULLSCREEN", "", 0x36b346, 0x1e7a29, () => {
         const el = document.documentElement;
@@ -674,9 +701,9 @@ export class OnlineGameScene extends GameScene {
 
     const shareUrl = `${window.location.origin}${window.location.pathname}#${this._roomId}`;
 
-    const overlay = this.add.rectangle(cx, cy, isPortrait ? this.scale.width * 0.95 : 560, 340, 0x000000, 0.8).setDepth(18).setScrollFactor(0);
+    const overlay = this.add.rectangle(cx, cy, isPortrait ? sw * 0.95 : 560, 340, 0x000000, 0.8).setDepth(18).setScrollFactor(0);
 
-    const title = this.add.text(cx - 30, cy - 120, "Waiting for opponent", {
+    const title = this.add.text(cx, cy - 120, "Waiting for opponent", {
       fontSize: "24px", color: "#ffffff", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(19).setScrollFactor(0);
     this._waitingTitleText = title;

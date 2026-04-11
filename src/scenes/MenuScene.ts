@@ -579,13 +579,20 @@ export class MenuScene extends Phaser.Scene {
       }
       const roomId = randomRoomId();
       window.location.hash = roomId;
-      void fetch("/api/lobby", {
+      this._attemptVisuals();
+
+      // Wait for registration to finish before starting the scene
+      // This ensures that when the client joins via lobby, the host is actually in the lobby.
+      fetch("/api/lobby", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "register", roomId, hostName }),
-      }).catch(() => undefined);
-      this._attemptVisuals();
-      this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
+      }).then(() => {
+        this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
+      }).catch(() => {
+        // Fallback if lobby fails
+        this.scene.start("OnlineGameScene", { mode: "online", roomId, role: "host" });
+      });
     };
 
     okBg.on("pointerover", () => okBg.setFillStyle(0x55dd77));

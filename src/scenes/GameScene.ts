@@ -1983,18 +1983,18 @@ export class GameScene extends Phaser.Scene {
     const colorHex = `#${color.toString(16).padStart(6, "0")}`;
 
     const glow = this.add.rectangle(x, y, W_BTN + 8 * scale, H_BTN + 8 * scale, color, 0).setStrokeStyle(3 * scale, color, 0.25).setDepth(depth).setScrollFactor(0);
-    const gradGfx = this.add.graphics().setDepth(depth).setScrollFactor(0);
+    const gradGfx = this.add.graphics().setDepth(depth).setScrollFactor(0).setPosition(x, y);
     const drawGrad = (alpha: number) => {
       gradGfx.clear();
       gradGfx.fillGradientStyle(color, color, colorDark, colorDark, alpha);
-      gradGfx.fillRoundedRect(x - W_BTN / 2, y - H_BTN / 2, W_BTN, H_BTN, 10 * scale);
+      gradGfx.fillRoundedRect(-W_BTN / 2, -H_BTN / 2, W_BTN, H_BTN, 10 * scale);
     };
     drawGrad(0.18);
     const border = this.add.rectangle(x, y, W_BTN, H_BTN, 0x000000, 0)
       .setStrokeStyle(1.5 * scale, color, 0.7).setInteractive({ useHandCursor: true }).setDepth(depth).setScrollFactor(0);
-    const accentGfx = this.add.graphics().setDepth(depth).setScrollFactor(0);
+    const accentGfx = this.add.graphics().setDepth(depth).setScrollFactor(0).setPosition(x, y);
     accentGfx.lineStyle(2 * scale, color, 0.6);
-    accentGfx.lineBetween(x - W_BTN / 2 + 12 * scale, y - H_BTN / 2 + 1, x + W_BTN / 2 - 12 * scale, y - H_BTN / 2 + 1);
+    accentGfx.lineBetween(-W_BTN / 2 + 12 * scale, -H_BTN / 2 + 1, W_BTN / 2 - 12 * scale, -H_BTN / 2 + 1);
 
     const hasSub = sublabel !== "";
     const titleOffsetY = hasSub ? -12 * scale : 0;
