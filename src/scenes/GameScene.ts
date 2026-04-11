@@ -1834,7 +1834,8 @@ export class GameScene extends Phaser.Scene {
     if (this._portraitWarningText) {
       this._portraitWarningText.setVisible(isPortrait);
       if (isPortrait) {
-        this._portraitWarningText.setPosition(midX, sh - 20);
+        // Positioned higher to avoid iOS home indicator and browser toolbars
+        this._portraitWarningText.setPosition(midX, sh - 60);
         this._portraitWarningText.setFontSize(Math.max(16, Math.floor(sw * 0.04)));
       }
     }
