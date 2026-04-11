@@ -61,8 +61,16 @@ export class MenuScene extends Phaser.Scene {
 
     this._render();
     this.scale.on("resize", this._renderBound);
+
+    // Listen for the install prompt event to re-render the menu
+    const onInstallPrompt = () => this._render();
+    window.addEventListener("beforeinstallprompt", onInstallPrompt);
+    window.addEventListener("appinstalled", onInstallPrompt);
+
     this.events.once("shutdown", () => {
       this.scale.off("resize", this._renderBound);
+      window.removeEventListener("beforeinstallprompt", onInstallPrompt);
+      window.removeEventListener("appinstalled", onInstallPrompt);
       this._cleanupAll();
     });
   }
@@ -208,15 +216,29 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtonsLandscape(): void {
     const btnW = 520;
     const btnH = 76;
-    this._makeButton(W / 2, H / 2 - 20, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
+    const hasInstall = (window as any).deferredPrompt;
+
+    const startY = hasInstall ? H / 2 + 10 : H / 2 - 20;
+
+    this._makeButton(W / 2, startY, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       this._isLobbyVisible = true;
       this._render();
     });
 
-    this._makeButton(W / 2, H / 2 + 75, btnW, btnH, "⚡  Solo Match", "VS AI  ·  SOLO MATCH", 0x2255aa, 0x112244, () => {
+    this._makeButton(W / 2, startY + 95, btnW, btnH, "⚡  Solo Match", "VS AI  ·  SOLO MATCH", 0x2255aa, 0x112244, () => {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
     });
+
+    if (hasInstall) {
+      this._makeButton(W / 2, startY + 190, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
+        void (window as any).deferredPrompt.prompt();
+        void (window as any).deferredPrompt.userChoice.then(() => {
+          (window as any).deferredPrompt = null;
+          this._render();
+        });
+      });
+    }
 
     this._drawCommitInfoLandscape();
   }
@@ -224,7 +246,9 @@ export class MenuScene extends Phaser.Scene {
   private _drawButtonsPortrait(sw: number, sh: number): void {
     const btnW = sw * 0.96;
     const btnH = 200;
-    const startY = sh * 0.45;
+    const hasInstall = (window as any).deferredPrompt;
+    // Push buttons lower to avoid overlap with title/logo on shorter screens
+    const startY = hasInstall ? sh * 0.58 : sh * 0.62;
 
     this._makeButton(sw / 2, startY, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       this._isLobbyVisible = true;
@@ -235,6 +259,16 @@ export class MenuScene extends Phaser.Scene {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
     }, 2.3);
+
+    if (hasInstall) {
+      this._makeButton(sw / 2, startY + 460, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
+        void (window as any).deferredPrompt.prompt();
+        void (window as any).deferredPrompt.userChoice.then(() => {
+          (window as any).deferredPrompt = null;
+          this._render();
+        });
+      }, 2.3);
+    }
 
     this._drawCommitInfoPortrait(sw, sh);
   }
