@@ -18,6 +18,17 @@ function timeAgo(ms: number): string {
   return `${Math.floor(s / 60)}m ago`;
 }
 
+function formatGitAge(gitDateVal: number | string | undefined): string {
+  const gitDate = Number(gitDateVal);
+  if (isNaN(gitDate) || gitDate === 0) return "unknown";
+  const diffMs = Date.now() - gitDate * 1000;
+  const m = Math.floor(diffMs / 60000);
+  if (m === 0) return "just now";
+  if (m < 60) return `${m}m ago`;
+  if (m < 1440) return `${Math.floor(m / 60)}h ago`;
+  return `${Math.floor(m / 1440)}d ago`;
+}
+
 function checkIsPortrait(sw: number, sh: number): boolean {
   let isPortrait = sh > sw;
   if (typeof navigator !== "undefined" && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
@@ -300,20 +311,14 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private _drawCommitInfoLandscape(): void {
-    const gitDate = Number(__GIT_DATE__);
-    const diffMs = isNaN(gitDate) ? 0 : Date.now() - gitDate * 1000;
-    const m = Math.floor(diffMs / 60000);
-    const ago = isNaN(gitDate) ? "unknown" : m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`;
+    const ago = formatGitAge(__GIT_DATE__);
     this.add.text(W / 2, H - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
       fontSize: "15px", color: "#ffffff",
     }).setOrigin(0.5, 1);
   }
 
   private _drawCommitInfoPortrait(sw: number, sh: number): void {
-    const gitDate = Number(__GIT_DATE__);
-    const diffMs = isNaN(gitDate) ? 0 : Date.now() - gitDate * 1000;
-    const m = Math.floor(diffMs / 60000);
-    const ago = isNaN(gitDate) ? "unknown" : m === 0 ? "just now" : m < 60 ? `${m}m ago` : m < 1440 ? `${Math.floor(m / 60)}h ago` : `${Math.floor(m / 1440)}d ago`;
+    const ago = formatGitAge(__GIT_DATE__);
     this.add.text(sw / 2, sh - 10, `${__GIT_HASH__}\n${ago}  ·  ${__GIT_MSG__}`, {
       fontSize: "14px", color: "#ffffff", align: "center"
     }).setOrigin(0.5, 1);

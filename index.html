@@ -254,8 +254,29 @@
     <script>
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('SW registered', reg))
+          .then(reg => {
+            console.log('SW registered', reg);
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // New version available!
+                  if (confirm('New version available! Refresh now?')) {
+                    newWorker.postMessage('SKIP_WAITING');
+                  }
+                }
+              });
+            });
+          })
           .catch(err => console.error('SW registration failed', err));
+
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
       }
       window.addEventListener('beforeinstallprompt', (e) => {
         // Prevent the mini-infobar from appearing on mobile
