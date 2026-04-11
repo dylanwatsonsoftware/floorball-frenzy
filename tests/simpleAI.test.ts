@@ -15,6 +15,7 @@ function createDummyPlayer(id: string, x: number, y: number): Player {
   return {
     id, x, y, vx: 0, vy: 0, aimX: 0, aimY: 0,
     dashCooldownMs: 0, dashCharges: MAX_DASH_CHARGES, chargeMs: 0,
+    heat: 0, enFuegoTimerMs: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false }
   };
 }
