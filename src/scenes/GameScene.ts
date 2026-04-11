@@ -1612,7 +1612,7 @@ export class GameScene extends Phaser.Scene {
         frame: this._hostSprite.frame.name as unknown as number,
         alpha: 0.5,
         life: GameScene.GHOST_LIFETIME,
-        color: hostFuego ? 0xffaa00 : 0x00cc66,
+        color: hostFuego ? 0xffaa00 : COLOR_RED,
       });
     }
     const clientFuego = this.client.enFuegoTimerMs > 0;
@@ -1624,7 +1624,7 @@ export class GameScene extends Phaser.Scene {
         frame: this._clientSprite.frame.name as unknown as number,
         alpha: 0.5,
         life: GameScene.GHOST_LIFETIME,
-        color: clientFuego ? 0xffaa00 : 0xdd2244,
+        color: clientFuego ? 0xffaa00 : COLOR_BLUE,
       });
     }
 
@@ -1652,7 +1652,8 @@ export class GameScene extends Phaser.Scene {
       const r = PLAYER_RADIUS + 7;
       const start = -Math.PI / 2;
       const end = start + progress * Math.PI * 2;
-      gfx.lineStyle(3, 0x00ff66, 0.85);
+      const color = player.id === "host" ? COLOR_RED : COLOR_BLUE;
+      gfx.lineStyle(3, color, 0.85);
       gfx.beginPath();
       gfx.arc(player.x, player.y, r, start, end, false);
       gfx.strokePath();
