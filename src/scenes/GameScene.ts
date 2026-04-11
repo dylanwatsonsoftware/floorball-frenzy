@@ -526,9 +526,20 @@ export class GameScene extends Phaser.Scene {
     const localP = isHostLocal ? this.host : this.client;
     const otherP = isHostLocal ? this.client : this.host;
 
-    // Weights: Local(0.45), Ball(0.35), Other(0.20)
-    let targetX = localP.x * 0.45 + this.ball.x * 0.35 + otherP.x * 0.20;
-    let targetY = localP.y * 0.45 + this.ball.y * 0.35 + otherP.y * 0.20;
+    // Check if ball is possessed by local player (no weight) or close to local player (reduced weight)
+    const distToBall = Math.hypot(this.ball.x - localP.x, this.ball.y - localP.y);
+    const DRIBBLE_BUFFER = 60; // px — ball within this distance reduces shake during dribbling
+    let ballInfluence = 0.35;
+    if (this.ball.possessedBy === localP.id) {
+      ballInfluence = 0; // No weight when local player has possession
+    } else if (distToBall < DRIBBLE_BUFFER) {
+      ballInfluence = 0.1; // Reduced weight when ball is nearby but not possessed
+    }
+
+    // Weights: Local(0.45), Ball(ballInfluence), Other(adjusted)
+    const otherWeight = 1.0 - 0.45 - ballInfluence;
+    let targetX = localP.x * 0.45 + this.ball.x * ballInfluence + otherP.x * otherWeight;
+    let targetY = localP.y * 0.45 + this.ball.y * ballInfluence + otherP.y * otherWeight;
 
     // "Direction of Travel" Lead for local player (up to 30% of screen width)
     const speed = Math.hypot(localP.vx, localP.vy);
