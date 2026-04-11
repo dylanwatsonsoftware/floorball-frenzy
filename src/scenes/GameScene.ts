@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { Ball, GameMode, InputState } from "../types/game";
+import { NEUTRAL_INPUT } from "../types/game";
 import type { PlayerExtended } from "../physics/playerPhysics";
 import { createPlayer, stepPlayer } from "../physics/playerPhysics";
 import { stepBall, resetBall, applyPossessionAssist } from "../physics/ballPhysics";
@@ -16,6 +17,7 @@ import {
   releaseShot,
 } from "../physics/shooting";
 import type { ShootState } from "../physics/shooting";
+import { getNextAIInput } from "../physics/simpleAI";
 import { VirtualJoystick } from "../ui/VirtualJoystick";
 import { ActionButtons } from "../ui/ActionButtons";
 import {
@@ -184,6 +186,9 @@ export class GameScene extends Phaser.Scene {
   protected _rematchBtn: Phaser.GameObjects.Rectangle | null = null;
   protected _rematchBtnText: Phaser.GameObjects.Text | null = null;
 
+  // AI start delay for local matches
+  protected _aiDelayMs = 2000;
+  protected _playerTouched = false;
   // Camera targets
   protected _camZoom = 1;
   protected _camX = 640;
@@ -227,6 +232,8 @@ export class GameScene extends Phaser.Scene {
     this._elapsedMs = 0;
     this._hostSlapWasDown = false;
     this._clientSlapWasDown = false;
+    this._aiDelayMs = 2000;
+    this._playerTouched = false;
   }
 
   create(): void {
@@ -343,14 +350,16 @@ export class GameScene extends Phaser.Scene {
       dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
       slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.E),
     };
-    this._arrows = {
-      up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-      down: kb.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
-      left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-      right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-      dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.PERIOD),
-    };
+    if (this._mode === "online") {
+      this._arrows = {
+        up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+        down: kb.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
+        left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+        right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+        dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+        slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.PERIOD),
+      };
+    }
 
     kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC).on("down", () => {
       this._confirmLeave();
@@ -511,7 +520,21 @@ export class GameScene extends Phaser.Scene {
   protected _fixedUpdate(dt: number): void {
     const elapsedMs = dt * 1000;
     this._elapsedMs += elapsedMs;
-    this._runPhysics(this._readHostInput(), this._readClientInput(), dt, elapsedMs);
+
+    const hostInput = this._readHostInput();
+
+    if (this._mode === "local") {
+      const isNeutral = hostInput.moveX === 0 && hostInput.moveY === 0 && !hostInput.slap && !hostInput.dash;
+      if (!this._playerTouched && !isNeutral) {
+        this._playerTouched = true;
+        this._aiDelayMs = Math.min(this._aiDelayMs, 500);
+      }
+      if (this._aiDelayMs > 0) {
+        this._aiDelayMs -= elapsedMs;
+      }
+    }
+
+    this._runPhysics(hostInput, this._readClientInput(), dt, elapsedMs);
   }
 
   protected _updateCamera(deltaMs: number): void {
@@ -957,14 +980,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   protected _readClientInput(): InputState {
-    const k = this._arrows;
-    let mx = 0;
-    let my = 0;
-    if (k.left.isDown) mx -= 1;
-    if (k.right.isDown) mx += 1;
-    if (k.up.isDown) my -= 1;
-    if (k.down.isDown) my += 1;
-    return { moveX: mx, moveY: my, slap: k.slap.isDown, dash: k.dash.isDown };
+    if (this._mode === "local") {
+      if (this._aiDelayMs > 0) return NEUTRAL_INPUT;
+      return getNextAIInput(this.client, this.ball, this.host);
+    }
+
+    return NEUTRAL_INPUT;
   }
 
   protected _onPlayerPlayerContact(p1: PlayerExtended, p2: PlayerExtended): void {
@@ -1479,6 +1500,8 @@ export class GameScene extends Phaser.Scene {
     this.host.dashCooldownMs = 0;
     this.client.dashCharges = MAX_DASH_CHARGES;
     this.client.dashCooldownMs = 0;
+    this._aiDelayMs = 2000;
+    this._playerTouched = false;
   }
 
   protected _drawSticks(): void {
