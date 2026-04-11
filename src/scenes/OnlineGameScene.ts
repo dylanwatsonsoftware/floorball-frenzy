@@ -47,6 +47,7 @@ export class OnlineGameScene extends GameScene {
   private _startedCountdown = false;
   private _countdownText!: Phaser.GameObjects.Text;
   private _lastCountdownLabel = "";
+  private _roomText!: Phaser.GameObjects.Text;
 
   private _rematchRequested = false;
   private _opponentRequestedRematch = false;
@@ -157,20 +158,18 @@ export class OnlineGameScene extends GameScene {
     }
 
     this._pingText = this.add
-      .text(this.scale.width - 10, 10, "", { fontSize: "13px", color: "#888888" })
+      .text(0, 10, "", { fontSize: "13px", color: "#888888" })
       .setOrigin(1, 0)
       .setDepth(15)
       .setScrollFactor(0);
 
-    const midX = this.scale.width / 2;
-
     this._statusText = this.add
-      .text(midX, 30, "", { fontSize: "18px", color: "#ff8800", stroke: "#000", strokeThickness: 2 })
+      .text(0, 30, "", { fontSize: "18px", color: "#ff8800", stroke: "#000", strokeThickness: 2 })
       .setOrigin(0.5, 0)
       .setDepth(35)
       .setScrollFactor(0); // Above match-over overlay (30)
 
-    const roomText = this.add.text(midX, 708,
+    this._roomText = this.add.text(0, 708,
       `Room: ${this._roomId} · ${this._isHost ? "Host (Red)" : "Client (Blue)"}`, {
       fontSize: "13px", color: "#888888",
     })
@@ -179,7 +178,7 @@ export class OnlineGameScene extends GameScene {
       .setScrollFactor(0);
 
     this._countdownText = this.add
-      .text(midX, 360, "", {
+      .text(0, 360, "", {
         fontSize: "120px",
         color: "#ffffff",
         fontStyle: "bold",
@@ -191,8 +190,9 @@ export class OnlineGameScene extends GameScene {
       .setScrollFactor(0)
       .setVisible(false);
 
-    this._addUI([this._pingText, this._statusText, roomText, this._countdownText]);
+    this._addUI([this._pingText, this._statusText, this._roomText, this._countdownText]);
     this._buildSharePanel();
+    this._repositionUI();
 
     if (!localStorage.getItem("floorball:tutorialDone")) {
       this._localInTutorial = true;
@@ -584,6 +584,56 @@ export class OnlineGameScene extends GameScene {
           }
         }
         break;
+      }
+    }
+  }
+
+  protected override _repositionUI(): void {
+    super._repositionUI();
+    if (!this._statusText) return; // Not initialized yet
+
+    const sw = this.scale.width;
+    const midX = sw / 2;
+
+    this._statusText.setPosition(midX, 30);
+    this._pingText.setPosition(sw - 10, 10);
+    this._roomText.setPosition(midX, this.scale.height - 12);
+    this._countdownText.setPosition(midX, 360);
+
+    if (this._sharePanelObjects.length > 0 && (this._sharePanelObjects[0] as unknown as Phaser.GameObjects.Components.Visible).visible) {
+      // Re-center share panel
+      const isPortrait = this.scale.height > this.scale.width;
+      const cy = 360;
+
+      // Iterate through all share panel objects and update their positions relative to midX/cy
+      this._sharePanelObjects.forEach(obj => {
+        if (obj instanceof Phaser.GameObjects.Rectangle) {
+          obj.setPosition(midX, cy);
+          if (obj.width > 500 || isPortrait) { // Main overlay
+            obj.width = isPortrait ? sw * 0.95 : 560;
+          }
+        } else if (obj instanceof Phaser.GameObjects.Text) {
+          // Adjust labels relative to center
+          const label = obj as Phaser.GameObjects.Text;
+          if (label.text === "Waiting for opponent" || label.text === "Connecting…") {
+            label.setPosition(midX + (label.text === "Connecting…" ? 0 : -30), cy - 120 + (label.text === "Connecting…" ? 20 : 0));
+          } else if (label.text === "Getting you into the game") {
+            label.setPosition(midX, cy + 100);
+          } else if (label.text === this._roomId || label.style.color === "#aaaaff") { // Room name label
+            label.setPosition(midX, cy - 72);
+          } else if (label.text.includes("FULLSCREEN")) {
+             label.setPosition(midX, cy + 20);
+          }
+        } else if (obj instanceof Phaser.GameObjects.Sprite) {
+          // QR Code
+          obj.setPosition(midX, cy + 45);
+        }
+      });
+
+      if (this._waitingBallGfx) {
+        const ballX = midX + (this._isHost ? 155 : 0);
+        const ballY = this._isHost ? cy - 120 : cy;
+        this._waitingBallGfx.setPosition(ballX, ballY);
       }
     }
   }

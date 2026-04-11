@@ -139,4 +139,18 @@ export class VirtualJoystick {
   isActive(): boolean {
     return this._pointer !== null;
   }
+
+  reposition(zoneX: number, zoneY: number, zoneW: number, zoneH: number): void {
+    this._zone.setTo(zoneX, zoneY, zoneW, zoneH);
+    if (this._hintBase && this._hintKnob && this._hintText) {
+      const visibleLeft = Math.max(0, zoneX);
+      const visibleRight = zoneX + zoneW;
+      const cx = (visibleLeft + visibleRight) / 2;
+      const cy = zoneY + zoneH / 2;
+
+      this._hintBase.setPosition(cx, cy);
+      this._hintKnob.setPosition(cx, cy);
+      this._hintText.setPosition(cx, cy + this._radius + 25);
+    }
+  }
 }
