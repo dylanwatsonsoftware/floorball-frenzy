@@ -61,26 +61,26 @@ export class ActionButtons {
     this._dashCY = dashY;
     this._dashR = SM_R;
 
-    this._slapBaseGfx = scene.add.graphics().setDepth(20);
-    this._dashBaseGfx = scene.add.graphics().setDepth(20);
-    this._slapLabel = scene.add.text(0, 0, "SLAP\nHIT", { fontSize: "24px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21);
-    this._dashLabel = scene.add.text(0, 0, "QUICK\nDASH", { fontSize: "16px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21);
+    this._slapBaseGfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
+    this._dashBaseGfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
+    this._slapLabel = scene.add.text(0, 0, "SLAP\nHIT", { fontSize: "24px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21).setScrollFactor(0);
+    this._dashLabel = scene.add.text(0, 0, "QUICK\nDASH", { fontSize: "16px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5).setDepth(21).setScrollFactor(0);
 
-    this._dashRingGfx = scene.add.graphics().setDepth(20);
-    this._slapRingGfx = scene.add.graphics().setDepth(20);
+    this._dashRingGfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
+    this._slapRingGfx = scene.add.graphics().setDepth(20).setScrollFactor(0);
     this._slapBounds = new Phaser.Geom.Circle(slapX, slapY, BIG_R);
     this._dashBounds = new Phaser.Geom.Circle(dashX, dashY, SM_R);
 
     this.reposition(panelCX, panelCY);
 
     scene.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
-      if (this._slapPtr === null && this._slapBounds.contains(p.worldX, p.worldY)) {
+      if (this._slapPtr === null && this._slapBounds.contains(p.x, p.y)) {
         this._slapPtr = p.id;
         this._slapDown = true;
         this._slapPressed = true;
         this._drawSlapBase();
       }
-      if (this._dashPtr === null && this._dashBounds.contains(p.worldX, p.worldY) && this._dashCharges > 0) {
+      if (this._dashPtr === null && this._dashBounds.contains(p.x, p.y) && this._dashCharges > 0) {
         this._dashPtr = p.id;
         this._dashTapped = true;
         this._dashPressed = true;
@@ -107,7 +107,7 @@ export class ActionButtons {
     });
   }
 
-  /** Checks if a point is within any of the buttons. */
+  /** Checks if a point is within any of the buttons. (Assumes screen coordinates) */
   contains(x: number, y: number): boolean {
     return this._slapBounds.contains(x, y) || this._dashBounds.contains(x, y);
   }
@@ -217,6 +217,15 @@ export class ActionButtons {
       g.arc(cx, cy, r + 5, -Math.PI / 2, -Math.PI / 2 + totalProgress * Math.PI * 2, false);
       g.strokePath();
     }
+  }
+
+  /** Returns all internal game objects for camera filtering. */
+  getGameObjects(): Phaser.GameObjects.GameObject[] {
+    return [
+      this._slapBaseGfx, this._dashBaseGfx,
+      this._slapLabel, this._dashLabel,
+      this._dashRingGfx, this._slapRingGfx
+    ];
   }
 
   read(): ActionState {

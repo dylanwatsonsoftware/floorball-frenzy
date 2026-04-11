@@ -195,8 +195,8 @@ export function applyPossessionAssist(
   playerVx: number,
   playerVy: number
 ): void {
-  ball.vx += (playerVx - ball.vx) * 0.1;
-  ball.vy += (playerVy - ball.vy) * 0.1;
+  ball.vx += (playerVx - ball.vx) * 0.15;
+  ball.vy += (playerVy - ball.vy) * 0.15;
 }
 
 /**

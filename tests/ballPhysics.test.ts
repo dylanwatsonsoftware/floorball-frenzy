@@ -184,8 +184,8 @@ describe("applyPossessionAssist", () => {
   it("pulls ball velocity toward player velocity", () => {
     const ball = makeBall({ vx: 0, vy: 0 });
     applyPossessionAssist(ball, 100, 200);
-    expect(ball.vx).toBeCloseTo(10, 5);
-    expect(ball.vy).toBeCloseTo(20, 5);
+    expect(ball.vx).toBeCloseTo(15, 5);
+    expect(ball.vy).toBeCloseTo(30, 5);
   });
 });
 

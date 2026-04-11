@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import type { Ball, GameMode, InputState } from "../types/game";
+import { NEUTRAL_INPUT } from "../types/game";
 import type { PlayerExtended } from "../physics/playerPhysics";
 import { createPlayer, stepPlayer } from "../physics/playerPhysics";
 import { stepBall, resetBall, applyPossessionAssist } from "../physics/ballPhysics";
@@ -16,6 +17,7 @@ import {
   releaseShot,
 } from "../physics/shooting";
 import type { ShootState } from "../physics/shooting";
+import { getNextAIInput } from "../physics/simpleAI";
 import { VirtualJoystick } from "../ui/VirtualJoystick";
 import { ActionButtons } from "../ui/ActionButtons";
 import {
@@ -28,6 +30,7 @@ import {
   GOAL_LINE_LEFT,
   GOAL_LINE_RIGHT,
   PLAYER_RADIUS,
+  PLAYER_MAX_SPEED,
   BALL_RADIUS,
   FIXED_DT,
   ONE_TOUCH_WINDOW,
@@ -150,6 +153,11 @@ export class GameScene extends Phaser.Scene {
   private _scoreText!: Phaser.GameObjects.Text;
   protected _messageText!: Phaser.GameObjects.Text;
 
+  protected _addUI(objs: Phaser.GameObjects.GameObject | Phaser.GameObjects.GameObject[]): void {
+    const arr = Array.isArray(objs) ? objs : [objs];
+    this.cameras.main.ignore(arr);
+  }
+
   // Fixed timestep accumulator
   private _accumulator = 0;
 
@@ -184,6 +192,16 @@ export class GameScene extends Phaser.Scene {
   protected _matchOverObjects: Phaser.GameObjects.GameObject[] = [];
   protected _rematchBtn: Phaser.GameObjects.Rectangle | null = null;
   protected _rematchBtnText: Phaser.GameObjects.Text | null = null;
+
+  // AI start delay for local matches
+  protected _aiDelayMs = 2000;
+  protected _playerTouched = false;
+  // Camera targets
+  protected _camZoom = 1;
+  protected _camX = 640;
+  protected _camY = 360;
+  protected _hasReceivedInput = false;
+  protected _uiCam!: Phaser.Cameras.Scene2D.Camera;
 
   protected get _isAuthoritative(): boolean {
     return this._mode === "local";
@@ -222,6 +240,8 @@ export class GameScene extends Phaser.Scene {
     this._elapsedMs = 0;
     this._hostSlapWasDown = false;
     this._clientSlapWasDown = false;
+    this._aiDelayMs = 2000;
+    this._playerTouched = false;
   }
 
   create(): void {
@@ -269,51 +289,55 @@ export class GameScene extends Phaser.Scene {
 
     // ── Top HUD bar ────────────────────────────────────────────────────────────
     const HUD_H = 95;
-    const hudGfx = this.add.graphics().setDepth(14);
+    const SW = this.scale.width;
+    const uiMidX = SW / 2;
+    const hudGfx = this.add.graphics().setDepth(14).setScrollFactor(0);
 
     // Left team panel (Red tint)
     hudGfx.fillGradientStyle(0x2a0a10, 0x2a0a10, 0x06060e, 0x06060e, 1);
-    hudGfx.fillRect(0, 0, 640, HUD_H);
+    hudGfx.fillRect(0, 0, uiMidX, HUD_H);
     // Right team panel (Blue tint)
     hudGfx.fillGradientStyle(0x06060e, 0x06060e, 0x0a182a, 0x0a182a, 1);
-    hudGfx.fillRect(640, 0, 640, HUD_H);
+    hudGfx.fillRect(uiMidX, 0, SW - uiMidX, HUD_H);
     // Bottom separator
     hudGfx.lineStyle(1, 0xffffff, 0.12);
-    hudGfx.lineBetween(0, HUD_H, 1280, HUD_H);
+    hudGfx.lineBetween(0, HUD_H, SW, HUD_H);
     // Team color accent lines along the top
     hudGfx.lineStyle(3, COLOR_RED, 1);
-    hudGfx.lineBetween(0, 0, 560, 0);
+    hudGfx.lineBetween(0, 0, uiMidX - 80, 0);
     hudGfx.lineStyle(3, COLOR_BLUE, 1);
-    hudGfx.lineBetween(720, 0, 1280, 0);
+    hudGfx.lineBetween(uiMidX + 80, 0, SW, 0);
     // Center score zone pill
     hudGfx.fillStyle(0x08080f, 0.9);
-    hudGfx.fillRoundedRect(480, 8, 320, HUD_H - 16, 12);
+    hudGfx.fillRoundedRect(uiMidX - 160, 8, 320, HUD_H - 16, 12);
     hudGfx.lineStyle(1, 0xffffff, 0.12);
-    hudGfx.strokeRoundedRect(480, 8, 320, HUD_H - 16, 12);
+    hudGfx.strokeRoundedRect(uiMidX - 160, 8, 320, HUD_H - 16, 12);
 
     // Team labels with color
-    this.add.text(200, HUD_H / 2, "RED", { fontSize: "14px", color: COLOR_RED_STR, fontStyle: "bold", letterSpacing: 3 })
-      .setOrigin(0.5).setDepth(15);
-    this.add.text(1080, HUD_H / 2, "BLUE", { fontSize: "14px", color: COLOR_BLUE_STR, fontStyle: "bold", letterSpacing: 3 })
-      .setOrigin(0.5).setDepth(15);
+    this.add.text(uiMidX - 440, HUD_H / 2, "RED", { fontSize: "14px", color: COLOR_RED_STR, fontStyle: "bold", letterSpacing: 3 })
+      .setOrigin(0.5).setDepth(15).setScrollFactor(0);
+    this.add.text(uiMidX + 440, HUD_H / 2, "BLUE", { fontSize: "14px", color: COLOR_BLUE_STR, fontStyle: "bold", letterSpacing: 3 })
+      .setOrigin(0.5).setDepth(15).setScrollFactor(0);
 
     // "SCORE" eyebrow inside pill
     this.add
-      .text(640, 14, "SCORE", {
+      .text(uiMidX, 14, "SCORE", {
         fontSize: "9px", color: "#555577", fontStyle: "bold", letterSpacing: 2,
       })
       .setOrigin(0.5, 0)
-      .setDepth(15);
+      .setDepth(15)
+      .setScrollFactor(0);
 
     // Score — updated every frame
     this._scoreText = this.add
-      .text(640, 55, "0  —  0", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" })
+      .text(uiMidX, 55, "0  —  0", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" })
       .setOrigin(0.5)
-      .setDepth(15);
+      .setDepth(15)
+      .setScrollFactor(0);
 
     // Goal / win message
     this._messageText = this.add
-      .text(640, 360, "", {
+      .text(uiMidX, 360, "", {
         fontSize: "48px",
         color: "#ffff00",
         fontStyle: "bold",
@@ -321,7 +345,8 @@ export class GameScene extends Phaser.Scene {
         strokeThickness: 4,
       })
       .setOrigin(0.5)
-      .setDepth(16);
+      .setDepth(16)
+      .setScrollFactor(0);
 
 
     // Keyboard bindings
@@ -334,14 +359,16 @@ export class GameScene extends Phaser.Scene {
       dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
       slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.E),
     };
-    this._arrows = {
-      up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
-      down: kb.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
-      left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-      right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-      dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.PERIOD),
-    };
+    if (this._mode === "online") {
+      this._arrows = {
+        up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+        down: kb.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
+        left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+        right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+        dash: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+        slap: kb.addKey(Phaser.Input.Keyboard.KeyCodes.PERIOD),
+      };
+    }
 
     kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC).on("down", () => {
       this._confirmLeave();
@@ -351,10 +378,10 @@ export class GameScene extends Phaser.Scene {
     this._makeButton(64, 47, 100, 38, "‹  BACK", "", 0x555566, 0x222233, () => this._confirmLeave(), 0.6, 16);
 
     // Help button - top-right, inside HUD bar
-    const helpBtnX = 1216;
+    const helpBtnX = SW - 64;
     const helpBtnY = 47;
-    const hBtn = this.add.circle(helpBtnX, helpBtnY, 20, 0x555566, 1).setDepth(16).setInteractive({ useHandCursor: true });
-    this.add.text(helpBtnX, helpBtnY, "?", { fontSize: "20px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5).setDepth(17);
+    const hBtn = this.add.circle(helpBtnX, helpBtnY, 20, 0x555566, 1).setDepth(16).setInteractive({ useHandCursor: true }).setScrollFactor(0);
+    const hText = this.add.text(helpBtnX, helpBtnY, "?", { fontSize: "20px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5).setDepth(17).setScrollFactor(0);
     hBtn.on("pointerup", () => {
       this.scene.pause();
       this.scene.launch("TutorialScene", {
@@ -364,20 +391,34 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
+    this._uiCam = this.cameras.add(0, 0, this.scale.width, this.scale.height).setName("UI");
+
+    // UI elements should be ignored by the world camera and world elements by the UI camera.
+    const uiElements = [hudGfx, this._scoreText, this._messageText, hBtn, hText];
+    this._addUI(uiElements);
+
     // Touch UI — buttons are always present
     const initOffsetX = Math.floor(Math.max(0, this.scale.width - 1280) / 2);
     this._hostButtons = new ActionButtons(this, 1190 + initOffsetX, 360);
+    this._addUI(this._hostButtons.getGameObjects());
 
     // Joystick only if in stick mode
     this._hostJoy = new VirtualJoystick(this, -initOffsetX, 0, 768 + initOffsetX, 720, 60);
+    this._addUI(this._hostJoy.getGameObjects());
     this._hostJoy.enabled = (this._controlMode === "stick");
+
+    // All world objects created so far should be ignored by the UI camera.
+    this._uiCam.ignore(this.children.list.filter(c => !uiElements.includes(c as any) &&
+      !this._hostButtons.getGameObjects().includes(c as any) &&
+      !this._hostJoy.getGameObjects().includes(c as any)));
 
     // Center the 1280×720 game world in the available canvas on wider screens.
     // Re-apply on every resize so mobile browser-chrome changes don't break it.
     const applyScroll = () => {
       const extra = Math.max(0, this.scale.width - 1280);
       const newInitOffsetX = Math.floor(extra / 2);
-      this.cameras.main.scrollX = -newInitOffsetX;
+      // We no longer set scrollX directly here as _updateCamera will handle it
+      this._uiCam.setViewport(0, 0, this.scale.width, this.scale.height);
       this._hostButtons.reposition(1190 + newInitOffsetX, 360);
     };
     applyScroll();
@@ -446,6 +487,8 @@ export class GameScene extends Phaser.Scene {
       this._accumulator -= FIXED_DT;
     }
 
+    this._updateCamera(delta);
+
     // Decay shot animation timers
     this._hostShotAnimMs = Math.max(0, this._hostShotAnimMs - delta);
     this._clientShotAnimMs = Math.max(0, this._clientShotAnimMs - delta);
@@ -494,7 +537,141 @@ export class GameScene extends Phaser.Scene {
   protected _fixedUpdate(dt: number): void {
     const elapsedMs = dt * 1000;
     this._elapsedMs += elapsedMs;
-    this._runPhysics(this._readHostInput(), this._readClientInput(), dt, elapsedMs);
+
+    const hostInput = this._readHostInput();
+
+    if (this._mode === "local") {
+      const isNeutral = hostInput.moveX === 0 && hostInput.moveY === 0 && !hostInput.slap && !hostInput.dash;
+      if (!this._playerTouched && !isNeutral) {
+        this._playerTouched = true;
+        this._aiDelayMs = Math.min(this._aiDelayMs, 500);
+      }
+      if (this._aiDelayMs > 0) {
+        this._aiDelayMs -= elapsedMs;
+      }
+    }
+
+    this._runPhysics(hostInput, this._readClientInput(), dt, elapsedMs);
+  }
+
+  protected _updateCamera(deltaMs: number): void {
+    const cam = this.cameras.main;
+    const worldW = 1280;
+    const worldH = 720;
+
+    // Center of action: weighted average of players and ball
+    // Local player has more weight
+    const isHostLocal = (this._mode === "local" || this._isAuthoritative);
+    const localP = isHostLocal ? this.host : this.client;
+    const otherP = isHostLocal ? this.client : this.host;
+
+    // Check if ball is possessed by local player (no weight) or close to local player (reduced weight)
+    const distToBall = Math.hypot(this.ball.x - localP.x, this.ball.y - localP.y);
+    const DRIBBLE_BUFFER = 60; // px — ball within this distance reduces shake during dribbling
+    let ballInfluence = 0.35;
+    if (this.ball.possessedBy === localP.id) {
+      ballInfluence = 0; // No weight when local player has possession
+    } else if (distToBall < DRIBBLE_BUFFER) {
+      ballInfluence = 0.1; // Reduced weight when ball is nearby but not possessed
+    }
+
+    // Weights: Local(0.45), Ball(ballInfluence), Other(adjusted)
+    const otherWeight = 1.0 - 0.45 - ballInfluence;
+    let targetX = localP.x * 0.45 + this.ball.x * ballInfluence + otherP.x * otherWeight;
+    let targetY = localP.y * 0.45 + this.ball.y * ballInfluence + otherP.y * otherWeight;
+
+    // "Direction of Travel" Lead for local player (up to 30% of screen width)
+    const speed = Math.hypot(localP.vx, localP.vy);
+    if (speed > 100) {
+      const leadFactor = Math.min(speed / PLAYER_MAX_SPEED, 1) * 0.30 * (worldW / 2);
+      const nx = localP.vx / speed;
+      const ny = localP.vy / speed;
+      targetX += nx * leadFactor;
+      targetY += ny * leadFactor;
+    }
+
+    // Fit players and ball with padding
+    const entities = [
+      { x: this.host.x, y: this.host.y },
+      { x: this.client.x, y: this.client.y },
+      { x: this.ball.x, y: this.ball.y }
+    ];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const e of entities) {
+      minX = Math.min(minX, e.x);
+      maxX = Math.max(maxX, e.x);
+      minY = Math.min(minY, e.y);
+      maxY = Math.max(maxY, e.y);
+    }
+
+    const padding = 120;
+    const requiredW = (maxX - minX) + padding * 2;
+    const requiredH = (maxY - minY) + padding * 2;
+
+    // Target zoom: fit entities, but don't go below full-field zoom
+    const baseZoom = Math.min(cam.width / worldW, cam.height / worldH);
+    let targetZoom = Math.min(cam.width / requiredW, cam.height / requiredH);
+
+    // Zoom out if charging a shot or if the ball is moving fast (e.g. just after a hit)
+    const localShoot = isHostLocal ? this._hostShoot : this._clientShoot;
+    const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
+    const FAST_BALL_THRESHOLD = 800; // px/s
+
+    if (localShoot.charging || ballSpeed > FAST_BALL_THRESHOLD) {
+      targetZoom = Math.min(targetZoom, baseZoom * 1.2); // Zoom out a bit relative to current required zoom
+    }
+
+    // Start fully zoomed out until first input
+    if (!this._hasReceivedInput) {
+      targetZoom = baseZoom;
+    } else {
+      // Clamp zoom: [baseZoom, baseZoom * 1.5]
+      targetZoom = Phaser.Math.Clamp(targetZoom, baseZoom, baseZoom * 1.5);
+    }
+
+    // Smooth lerp for zoom and position
+    const lerpPos = 1 - Math.pow(0.001, deltaMs / 1000); // Responsive smoothing
+    
+    // Different lerp speeds for zoom in vs out: zoom in slower, zoom out faster
+    const isZoomingIn = targetZoom > this._camZoom;
+    const lerpZoom = isZoomingIn 
+      ? 1 - Math.pow(0.30, deltaMs / 1000)   // Slower zoom in
+      : 1 - Math.pow(0.002, deltaMs / 1000); // Faster zoom out
+
+    this._camX += (targetX - this._camX) * lerpPos;
+    this._camY += (targetY - this._camY) * lerpPos;
+    this._camZoom += (targetZoom - this._camZoom) * lerpZoom;
+
+    cam.setZoom(this._camZoom);
+
+    // Keep camera bounds within the world, taking zoom into account
+    const viewW = cam.width / this._camZoom;
+    const viewH = cam.height / this._camZoom;
+
+    let minCamX, maxCamX, minCamY, maxCamY;
+
+    if (viewW >= worldW) {
+      // Zoomed out further than the world width: lock to center
+      minCamX = maxCamX = worldW / 2;
+    } else {
+      // Zoomed in: allow movement within world bounds
+      minCamX = viewW / 2;
+      maxCamX = worldW - viewW / 2;
+    }
+
+    if (viewH >= worldH) {
+      // Zoomed out further than the world height: lock to center
+      minCamY = maxCamY = worldH / 2;
+    } else {
+      // Zoomed in: allow movement within world bounds
+      minCamY = viewH / 2;
+      maxCamY = worldH - viewH / 2;
+    }
+
+    const centerX = Phaser.Math.Clamp(this._camX, minCamX, maxCamX);
+    const centerY = Phaser.Math.Clamp(this._camY, minCamY, maxCamY);
+
+    cam.centerOn(centerX, centerY);
   }
 
   /**
@@ -687,7 +864,7 @@ export class GameScene extends Phaser.Scene {
       if (distToBlade > 75) return false;
       if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-      // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+      // Velocity coupling: 0.40 total (0.15 from assist + 0.25 here)
       applyPossessionAssist(this.ball, player.vx, player.vy);
       this.ball.vx += (player.vx - this.ball.vx) * 0.25;
       this.ball.vy += (player.vy - this.ball.vy) * 0.25;
@@ -717,7 +894,7 @@ export class GameScene extends Phaser.Scene {
 
     if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
 
-    // Velocity coupling: 0.35 total (0.1 from assist + 0.25 here)
+    // Velocity coupling: 0.40 total (0.15 from assist + 0.25 here)
     applyPossessionAssist(this.ball, player.vx, player.vy);
     this.ball.vx += (player.vx - this.ball.vx) * 0.25;
     this.ball.vy += (player.vy - this.ball.vy) * 0.25;
@@ -844,23 +1021,28 @@ export class GameScene extends Phaser.Scene {
 
     const touch = this._hostButtons.read();
 
-    return {
+    const input = {
       moveX: mx,
       moveY: my,
       slap: k.slap.isDown || touch.slapHeld,
       dash: k.dash.isDown || touch.dash,
     };
+
+    // Mark that input has been received
+    if (input.moveX !== 0 || input.moveY !== 0 || input.slap || input.dash) {
+      this._hasReceivedInput = true;
+    }
+
+    return input;
   }
 
   protected _readClientInput(): InputState {
-    const k = this._arrows;
-    let mx = 0;
-    let my = 0;
-    if (k.left.isDown) mx -= 1;
-    if (k.right.isDown) mx += 1;
-    if (k.up.isDown) my -= 1;
-    if (k.down.isDown) my += 1;
-    return { moveX: mx, moveY: my, slap: k.slap.isDown, dash: k.dash.isDown };
+    if (this._mode === "local") {
+      if (this._aiDelayMs > 0) return NEUTRAL_INPUT;
+      return getNextAIInput(this.client, this.ball, this.host);
+    }
+
+    return NEUTRAL_INPUT;
   }
 
   protected _onPlayerPlayerContact(p1: PlayerExtended, p2: PlayerExtended): void {
@@ -952,20 +1134,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   protected _showMatchOver(winner: "host" | "client"): void {
-    const cx = 640, cy = 360;
+    const cx = this.scale.width / 2, cy = 360;
     const data = JSON.parse(localStorage.getItem("floorball:streak") || '{"winner":"","count":0}');
     const streakText = data.count > 1 ? `WIN STREAK: ${data.count}` : "FIRST WIN!";
 
     // Overlay background
-    const bg = this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30);
+    const bg = this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30).setScrollFactor(0);
 
-    const title = this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
-    const winLabel = this.add.text(cx, cy - 40, `${winner === "host" ? "RED" : "BLUE"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
-    const streakLabel = this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const title = this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const winLabel = this.add.text(cx, cy - 40, `${winner === "host" ? "RED" : "BLUE"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const streakLabel = this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
 
     // Rematch button
-    const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, winner === "host" ? COLOR_RED : COLOR_BLUE, 1).setDepth(31).setInteractive({ useHandCursor: true });
-    const rematchText = this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, winner === "host" ? COLOR_RED : COLOR_BLUE, 1).setDepth(31).setInteractive({ useHandCursor: true }).setScrollFactor(0);
+    const rematchText = this.add.text(cx, cy + 100, "REMATCH", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
     this._rematchBtn = rematchBtn;
     this._rematchBtnText = rematchText;
 
@@ -984,8 +1166,8 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Menu button
-    const menuBtn = this.add.rectangle(cx, cy + 170, 250, 60, 0x444466, 1).setDepth(31).setInteractive({ useHandCursor: true });
-    const menuText = this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31);
+    const menuBtn = this.add.rectangle(cx, cy + 170, 250, 60, 0x444466, 1).setDepth(31).setInteractive({ useHandCursor: true }).setScrollFactor(0);
+    const menuText = this.add.text(cx, cy + 170, "MENU", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
 
     menuBtn.on("pointerover", () => { menuBtn.setScale(1.05); menuBtn.setFillStyle(0x555577); });
     menuBtn.on("pointerout", () => { menuBtn.setScale(1.0); menuBtn.setFillStyle(0x444466); });
@@ -993,6 +1175,7 @@ export class GameScene extends Phaser.Scene {
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
 
     this._matchOverObjects = [bg, title, winLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
+    this._addUI(this._matchOverObjects);
   }
 
   protected _clearMatchOver(): void {
@@ -1498,6 +1681,9 @@ export class GameScene extends Phaser.Scene {
     this.host.dashCooldownMs = 0;
     this.client.dashCharges = MAX_DASH_CHARGES;
     this.client.dashCooldownMs = 0;
+    this._aiDelayMs = 2000;
+    this._playerTouched = false;
+    this._hasReceivedInput = false;
   }
 
   protected _drawSticks(): void {
@@ -1725,7 +1911,7 @@ export class GameScene extends Phaser.Scene {
     g.strokeRoundedRect(FIELD_LEFT, FIELD_TOP, W, H, r);
   }
 
-  private _makeButton(
+  protected _makeButton(
     x: number, y: number,
     w: number, h: number,
     label: string, sublabel: string,
@@ -1737,8 +1923,8 @@ export class GameScene extends Phaser.Scene {
     const W_BTN = w, H_BTN = h;
     const colorHex = `#${color.toString(16).padStart(6, "0")}`;
 
-    const glow = this.add.rectangle(x, y, W_BTN + 8 * scale, H_BTN + 8 * scale, color, 0).setStrokeStyle(3 * scale, color, 0.25).setDepth(depth);
-    const gradGfx = this.add.graphics().setDepth(depth);
+    const glow = this.add.rectangle(x, y, W_BTN + 8 * scale, H_BTN + 8 * scale, color, 0).setStrokeStyle(3 * scale, color, 0.25).setDepth(depth).setScrollFactor(0);
+    const gradGfx = this.add.graphics().setDepth(depth).setScrollFactor(0);
     const drawGrad = (alpha: number) => {
       gradGfx.clear();
       gradGfx.fillGradientStyle(color, color, colorDark, colorDark, alpha);
@@ -1746,8 +1932,8 @@ export class GameScene extends Phaser.Scene {
     };
     drawGrad(0.18);
     const border = this.add.rectangle(x, y, W_BTN, H_BTN, 0x000000, 0)
-      .setStrokeStyle(1.5 * scale, color, 0.7).setInteractive({ useHandCursor: true }).setDepth(depth);
-    const accentGfx = this.add.graphics().setDepth(depth);
+      .setStrokeStyle(1.5 * scale, color, 0.7).setInteractive({ useHandCursor: true }).setDepth(depth).setScrollFactor(0);
+    const accentGfx = this.add.graphics().setDepth(depth).setScrollFactor(0);
     accentGfx.lineStyle(2 * scale, color, 0.6);
     accentGfx.lineBetween(x - W_BTN / 2 + 12 * scale, y - H_BTN / 2 + 1, x + W_BTN / 2 - 12 * scale, y - H_BTN / 2 + 1);
 
@@ -1756,7 +1942,7 @@ export class GameScene extends Phaser.Scene {
     const title = this.add.text(x, y + titleOffsetY, label, {
       fontSize: `${26 * scale}px`, fontStyle: "bold", color: "#ffffff",
       shadow: { offsetX: 0, offsetY: 1 * scale, color: colorHex, blur: 8 * scale, stroke: false, fill: true },
-    }).setOrigin(0.5).setDepth(depth + 1);
+    }).setOrigin(0.5).setDepth(depth + 1).setScrollFactor(0);
     title.disableInteractive();
 
     const objs: Phaser.GameObjects.GameObject[] = [glow, gradGfx, border, accentGfx, title];
@@ -1764,7 +1950,7 @@ export class GameScene extends Phaser.Scene {
     if (hasSub) {
       const sub = this.add.text(x, y + 18 * scale, sublabel, {
         fontSize: `${12 * scale}px`, color: "#ffffff", letterSpacing: 3 * scale,
-      }).setOrigin(0.5).setDepth(depth + 1);
+      }).setOrigin(0.5).setDepth(depth + 1).setScrollFactor(0);
       sub.disableInteractive();
       objs.push(sub);
     }
@@ -1772,6 +1958,8 @@ export class GameScene extends Phaser.Scene {
     border.on("pointerover", () => { drawGrad(0.35); glow.setStrokeStyle(3 * scale, color, 0.55); title.setShadow(0, 0, colorHex, 16 * scale, false, true); });
     border.on("pointerout", () => { drawGrad(0.18); glow.setStrokeStyle(3 * scale, color, 0.25); title.setShadow(0, 1 * scale, colorHex, 8 * scale, false, true); });
     border.on("pointerup", onClick);
+
+    this._addUI(objs);
 
     return objs;
   }
