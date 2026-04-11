@@ -1819,7 +1819,7 @@ export class GameScene extends Phaser.Scene {
     if (this._helpText) this._helpText.setPosition(sw - 64, 47);
 
     // If match over is visible, reposition those too
-    if (this._matchOverObjects.length > 0) {
+    if (this._matchOverObjects.length > 0 && (this._matchOverObjects[0] as unknown as Phaser.GameObjects.Components.Visible).visible) {
       this._matchOverObjects.forEach(obj => {
         if (obj instanceof Phaser.GameObjects.Rectangle || obj instanceof Phaser.GameObjects.Text) {
            // Most match over elements are at cx = scale.width / 2

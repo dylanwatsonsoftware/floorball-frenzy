@@ -600,7 +600,7 @@ export class OnlineGameScene extends GameScene {
     this._roomText.setPosition(midX, this.scale.height - 12);
     this._countdownText.setPosition(midX, 360);
 
-    if (this._sharePanelObjects.length > 0 && this._sharePanelObjects[0].visible) {
+    if (this._sharePanelObjects.length > 0 && (this._sharePanelObjects[0] as unknown as Phaser.GameObjects.Components.Visible).visible) {
       // Re-center share panel
       const isPortrait = this.scale.height > this.scale.width;
       const cy = 360;
