@@ -140,6 +140,15 @@ export class VirtualJoystick {
     return this._pointer !== null;
   }
 
+  setVisible(visible: boolean): void {
+    this.enabled = visible;
+    this._base.setVisible(false); // Only show base/knob when active
+    this._knob.setVisible(false);
+    if (this._hintBase) this._hintBase.setVisible(visible);
+    if (this._hintKnob) this._hintKnob.setVisible(visible);
+    if (this._hintText) this._hintText.setVisible(visible);
+  }
+
   reposition(zoneX: number, zoneY: number, zoneW: number, zoneH: number): void {
     this._zone.setTo(zoneX, zoneY, zoneW, zoneH);
     if (this._hintBase && this._hintKnob && this._hintText) {

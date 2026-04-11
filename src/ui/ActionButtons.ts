@@ -219,6 +219,15 @@ export class ActionButtons {
     }
   }
 
+  setVisible(visible: boolean): void {
+    this._slapBaseGfx.setVisible(visible);
+    this._dashBaseGfx.setVisible(visible);
+    this._slapLabel.setVisible(visible);
+    this._dashLabel.setVisible(visible);
+    this._dashRingGfx.setVisible(visible);
+    this._slapRingGfx.setVisible(visible);
+  }
+
   /** Returns all internal game objects for camera filtering. */
   getGameObjects(): Phaser.GameObjects.GameObject[] {
     return [
