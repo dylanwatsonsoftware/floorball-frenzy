@@ -13,6 +13,8 @@ import {
   GOAL_TOP,
   GOAL_BOTTOM,
   GOAL_CAGE_DEPTH,
+  PARRY_WINDOW_MS,
+  PARRY_VELOCITY_MULTIPLIER,
   HOUSE_TOP,
   HOUSE_BOTTOM,
   HOUSE_DEPTH,
@@ -94,13 +96,33 @@ export function resolvePlayerPlayerCollision(
  */
 export function resolvePlayerBallCollision(
   player: PlayerExtended,
-  ball: Ball
-): void {
+  ball: Ball,
+  totalTimeMs = 0
+): boolean {
   const dx = ball.x - player.x;
   const dy = ball.y - player.y;
   const dist = Math.hypot(dx, dy);
 
-  if (dist >= CONTACT_DIST) return; // no overlap
+  if (dist >= CONTACT_DIST) return false; // no overlap
+
+  // Perfect Parry detection
+  const ballSpeed = Math.hypot(ball.vx, ball.vy);
+  if (totalTimeMs - player.lastDashTimeMs < PARRY_WINDOW_MS && ballSpeed > 500) {
+    // Check if ball is moving towards the player (dot < 0)
+    const bnx = ball.vx / ballSpeed;
+    const bny = ball.vy / ballSpeed;
+    const pnx = (ball.x - player.x) / dist;
+    const pny = (ball.y - player.y) / dist;
+    const dotBall = bnx * pnx + bny * pny;
+
+    if (dotBall < -0.5) {
+      // Parry! Invert and multiply
+      ball.vx = -ball.vx * PARRY_VELOCITY_MULTIPLIER;
+      ball.vy = -ball.vy * PARRY_VELOCITY_MULTIPLIER;
+      ball.isPerfect = true; // Give it perfect status
+      return true;
+    }
+  }
 
   // Avoid division by zero when perfectly overlapping
   const nx = dist > 0 ? dx / dist : 1;
@@ -121,6 +143,7 @@ export function resolvePlayerBallCollision(
     ball.vx += nx * dot * TRANSFER;
     ball.vy += ny * dot * TRANSFER;
   }
+  return false;
 }
 
 /**

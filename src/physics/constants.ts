@@ -87,6 +87,12 @@ export const BOLT_SHOT_BOOST = 1.2;
 export const BOLT_SHOT_DURATION_MS = 600;
 export const BOLT_FRICTION_POWER = 0.5;
 
+export const TRAILBLAZER_WINDOW_MS = 200;
+export const TRAILBLAZER_BOOST = 1.2;
+
+export const PARRY_WINDOW_MS = 150;
+export const PARRY_VELOCITY_MULTIPLIER = 1.5;
+
 // ─── Heat & En Fuego ──────────────────────────────────────────────────────────
 export const MAX_HEAT = 100;
 export const HEAT_GAIN_PERFECT = 30;

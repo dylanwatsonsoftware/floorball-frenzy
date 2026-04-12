@@ -164,8 +164,8 @@ export class MenuScene extends Phaser.Scene {
       this._drawButtonsPortrait(sw, sh);
     } else {
       this._drawBackgroundLandscape(sw, sh);
-      this._drawTitleLandscape(sw, sh);
-      this._drawButtonsLandscape(sw, sh);
+      const headerBottom = this._drawTitleLandscape(sw, sh);
+      this._drawButtonsLandscape(sw, sh, headerBottom);
     }
 
     this._mainMenuObjs = (this.children.list as Phaser.GameObjects.GameObject[]).slice(menuStart);
@@ -200,21 +200,31 @@ export class MenuScene extends Phaser.Scene {
     gfx.strokeCircle(sw / 2, sh / 2, sw * 0.2);
   }
 
-  private _drawTitleLandscape(sw: number, sh: number): void {
+  private _drawTitleLandscape(sw: number, sh: number): number {
     const hasLogo = this.textures.exists("logo");
     const logoSize = Math.min(sh * 0.25, 168);
-    if (hasLogo) this.add.image(sw / 2, sh * 0.15, "logo").setOrigin(0.5).setDisplaySize(logoSize, logoSize);
-    const titleY = hasLogo ? sh * 0.15 + logoSize / 2 + 30 : sh * 0.15;
+    const logoY = sh * 0.15;
+    if (hasLogo) {
+      this.add.image(sw / 2, logoY, "logo").setOrigin(0.5).setDisplaySize(logoSize, logoSize);
+    }
+
+    const titleY = hasLogo ? logoY + logoSize / 2 + 45 : sh * 0.15;
+    const fontSize = Math.min(sw * 0.05, 60);
+
     this.add.text(sw / 2 + 3, titleY + 3, "FLOORBALL FRENZY", {
-      fontSize: "60px", fontStyle: "bold", color: "#000000",
+      fontSize: `${fontSize}px`, fontStyle: "bold", color: "#000000",
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5).setAlpha(0.4);
+
     this.add.text(sw / 2, titleY, "FLOORBALL FRENZY", {
-      fontSize: "60px", fontStyle: "bold", color: "#ffffff",
+      fontSize: `${fontSize}px`, fontStyle: "bold", color: "#ffffff",
       stroke: "#1e7a29", strokeThickness: 6,
     }).setOrigin(0.5);
-    this.add.text(sw / 2, titleY + 54, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
+
+    const subTxt = this.add.text(sw / 2, titleY + fontSize * 0.9, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
       fontSize: "16px", color: "#ffffff", letterSpacing: 2,
     }).setOrigin(0.5);
+
+    return subTxt.y + 20;
   }
 
   private _drawTitlePortrait(sw: number, sh: number): void {
@@ -239,28 +249,49 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
   }
 
-  private _drawButtonsLandscape(sw: number, sh: number): void {
-    const btnW = 520;
-    const btnH = 76;
+  private _drawButtonsLandscape(sw: number, sh: number, headerBottom: number): void {
+    const footerHeight = this._drawCommitInfoLandscape(sw, sh);
+
     const hasPrompt = !!(window as any).deferredPrompt;
     const showIOSInstall = isIOS() && !isStandalone();
     const hasInstall = hasPrompt || showIOSInstall;
 
-    const startY = hasInstall ? sh / 2 + 10 : sh / 2 - 20;
+    const btnCount = hasInstall ? 3 : 2;
+    const baseBtnH = 95;
+    const baseSpacing = 20;
+    const baseScale = 1.3;
+
+    const availableH = sh - headerBottom - footerHeight;
+    const totalNeeded = btnCount * baseBtnH + (btnCount - 1) * baseSpacing;
+
+    let btnH = baseBtnH;
+    let spacing = baseSpacing;
+    let scale = baseScale;
+
+    if (totalNeeded > availableH && availableH > 0) {
+      const ratio = availableH / totalNeeded;
+      btnH = Math.floor(baseBtnH * ratio);
+      spacing = Math.floor(baseSpacing * ratio);
+      scale = baseScale * ratio;
+    }
+
+    const stackH = btnCount * btnH + (btnCount - 1) * spacing;
+    const startY = headerBottom + (availableH - stackH) / 2 + btnH / 2;
+    const btnW = Math.min(sw * 0.8, 650);
 
     this._makeButton(sw / 2, startY, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       this._isLobbyVisible = true;
       this._lobbyRefreshDelay = 5000;
       this._render();
-    });
+    }, scale);
 
-    this._makeButton(sw / 2, startY + 95, btnW, btnH, "⚡  Solo Match", "VS AI  ·  SOLO MATCH", 0x2255aa, 0x112244, () => {
+    this._makeButton(sw / 2, startY + btnH + spacing, btnW, btnH, "⚡  Solo Match", "VS AI  ·  SOLO MATCH", 0x2255aa, 0x112244, () => {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
-    });
+    }, scale);
 
     if (hasInstall) {
-      this._makeButton(sw / 2, startY + 190, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
+      this._makeButton(sw / 2, startY + (btnH + spacing) * 2, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
         if (hasPrompt) {
           void (window as any).deferredPrompt.prompt();
           void (window as any).deferredPrompt.userChoice.then(() => {
@@ -271,10 +302,8 @@ export class MenuScene extends Phaser.Scene {
           const el = document.getElementById("ios-install-overlay");
           if (el) el.style.display = "flex";
         }
-      });
+      }, scale);
     }
-
-    this._drawCommitInfoLandscape(sw, sh);
   }
 
   private _drawButtonsPortrait(sw: number, sh: number): void {
@@ -316,11 +345,15 @@ export class MenuScene extends Phaser.Scene {
     this._drawCommitInfoPortrait(sw, sh);
   }
 
-  private _drawCommitInfoLandscape(sw: number, sh: number): void {
+  private _drawCommitInfoLandscape(sw: number, sh: number): number {
     const ago = formatGitAge(__GIT_DATE__);
-    this.add.text(sw / 2, sh - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
+    const maxWidth = sw - 60;
+    const txt = this.add.text(sw / 2, sh - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
       fontSize: "15px", color: "#ffffff",
+      align: "center",
+      wordWrap: { width: maxWidth }
     }).setOrigin(0.5, 1);
+    return txt.displayHeight + 20;
   }
 
   private _drawCommitInfoPortrait(sw: number, sh: number): void {
@@ -377,10 +410,8 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10);
 
     // ── Bottom action bar ──────────────────────────────────────────────────────
-    // Adjust BAR_Y for short landscape viewports to ensure we have room for at least one row
-    const barOffset = isPortrait ? 400 : Math.min(190, viewH * 0.28);
-    const BAR_Y = viewH - barOffset;
-    const BTN_SCALE = isPortrait ? 2.5 : 2.0;
+    const BAR_Y = viewH - (isPortrait ? 400 : Math.min(190, viewH * 0.35));
+    const BTN_SCALE = isPortrait ? 2.5 : (viewH < 500 ? 1.4 : 2.0);
 
     const bgH = isPortrait ? 116 : 48 * BTN_SCALE;
     const backWidth = isPortrait ? sw * 0.46 : 180 * BTN_SCALE;
@@ -394,7 +425,7 @@ export class MenuScene extends Phaser.Scene {
     const refreshX = isPortrait ? cx + sw * 0.25 : cx + (180 * BTN_SCALE / 2) + 15;
     const b2 = this._makeButton(refreshX, smallBtnY, backWidth, bgH, "↻  REFRESH", "", 0x1a44bb, 0x051144, () => {
       this._lobbyRefreshDelay = 5000;
-      void this._loadGames(sw, sh, cx, viewW, viewH, BAR_Y);
+      void this._loadGames();
     }, ts, 10);
 
     const newGameY = BAR_Y;
@@ -408,13 +439,13 @@ export class MenuScene extends Phaser.Scene {
     this._lobbyObjs = [bg, titleTxt, divGfx, this._lobbyStatusTxt, ...b1, ...b2, ...b3];
 
     if (!this._lobbyAutoRefresh) {
-      await this._loadGames(sw, sh, cx, viewW, viewH, BAR_Y);
+      await this._loadGames();
     } else {
-      this._renderLobbyRows(sw, sh, cx, viewW, viewH, BAR_Y, false);
+      this._renderLobbyRows(false);
     }
   }
 
-  private async _loadGames(sw: number, sh: number, cx: number, viewW: number, viewH: number, BAR_Y: number): Promise<void> {
+  private async _loadGames(): Promise<void> {
     if (!this.scene.isActive() || !this._isLobbyVisible || !this._lobbyStatusTxt) return;
 
     if (this._lobbyGames.length === 0) {
@@ -428,17 +459,25 @@ export class MenuScene extends Phaser.Scene {
     } catch {
       if (!this.scene.isActive() || !this._isLobbyVisible || !this._lobbyStatusTxt) return;
       this._lobbyStatusTxt.setText("Could not load games.\nCheck your connection.");
-      this._scheduleNext(sw, sh, cx, viewW, viewH, BAR_Y);
+      this._scheduleNext();
       return;
     }
 
     if (!this.scene.isActive() || !this._isLobbyVisible || !this._lobbyStatusTxt) return;
-    this._renderLobbyRows(sw, sh, cx, viewW, viewH, BAR_Y);
+    this._renderLobbyRows();
   }
 
-  private _renderLobbyRows(sw: number, sh: number, cx: number, viewW: number, viewH: number, BAR_Y: number, schedule = true): void {
+  private _renderLobbyRows(schedule = true): void {
+    if (!this.scene.isActive() || !this._isLobbyVisible || !this._lobbyStatusTxt) return;
+
+    const sw = this.scale.width;
+    const sh = this.scale.height;
     const isPortrait = checkIsPortrait(sw, sh);
-    if (!this._lobbyStatusTxt) return;
+    const cx = sw / 2;
+    const viewW = sw;
+    const viewH = sh;
+    const barOffset = isPortrait ? 400 : Math.min(190, viewH * 0.35);
+    const BAR_Y = viewH - barOffset;
 
     this._lobbyRowObjs.forEach(o => o.destroy());
     this._lobbyRowObjs = [];
@@ -453,7 +492,7 @@ export class MenuScene extends Phaser.Scene {
 
     if (games.length === 0) {
       this._lobbyStatusTxt.setText("No open games right now.\nPress CREATE NEW GAME to start one!").setVisible(true);
-      if (schedule) this._scheduleNext(sw, sh, cx, viewW, viewH, BAR_Y);
+      if (schedule) this._scheduleNext();
       return;
     }
 
@@ -467,7 +506,7 @@ export class MenuScene extends Phaser.Scene {
 
     if (games.length > 0 && max <= 0) {
       this._lobbyStatusTxt.setText("No room to display games.\nPlease rotate your device.").setVisible(true);
-      if (schedule) this._scheduleNext(sw, sh, cx, viewW, viewH, BAR_Y);
+      if (schedule) this._scheduleNext();
       return;
     }
     this._lobbyStatusTxt.setVisible(false);
@@ -508,11 +547,12 @@ export class MenuScene extends Phaser.Scene {
       this._lobbyRowObjs.push(rowBg, dot, nameTxt, ageTxt, joinBg, joinTxt);
     }
 
-    if (schedule) this._scheduleNext(sw, sh, cx, viewW, viewH, BAR_Y);
+    if (schedule) this._scheduleNext();
   }
 
-  private _scheduleNext(sw: number, sh: number, cx: number, viewW: number, viewH: number, BAR_Y: number): void {
+  private _scheduleNext(): void {
     if (this._lobbyAutoRefresh) this._lobbyAutoRefresh.destroy();
+    // Stop if we already executed the capped interval
     if (this._lobbyRefreshDelay > 180000) {
       this._lobbyAutoRefresh = null;
       return;
@@ -521,7 +561,7 @@ export class MenuScene extends Phaser.Scene {
       delay: this._lobbyRefreshDelay,
       callback: () => {
         const current = this._lobbyRefreshDelay;
-        void this._loadGames(sw, sh, cx, viewW, viewH, BAR_Y);
+        void this._loadGames();
         this._lobbyRefreshDelay = current < 180000 ? Math.min(current * 1.5, 180000) : 180001;
       }
     });
@@ -541,7 +581,8 @@ export class MenuScene extends Phaser.Scene {
     const cy = sh / 2;
 
     const saved = this._savedGameName;
-    const MW = isPortrait ? sw * 0.95 : 600, MH = isPortrait ? 500 : Math.min(500, sh * 0.9);
+    const MW = isPortrait ? sw * 0.95 : Math.min(sw * 0.9, 600);
+    const MH = Math.min(sh * 0.8, 500);
 
     const overlay = this.add.rectangle(cx, cy, sw, sh, 0x000000, 0.75).setDepth(20).setInteractive();
 
@@ -552,7 +593,7 @@ export class MenuScene extends Phaser.Scene {
     modalGfx.strokeRoundedRect(cx - MW / 2, cy - MH / 2, MW, MH, 16);
 
     const titleTxt = this.add.text(cx, cy - MH / 2 + MH * 0.15, "Enter Game Name", {
-      fontSize: "42px", color: "#00cc66", fontStyle: "bold", letterSpacing: 5,
+      fontSize: Math.min(MW * 0.08, MH * 0.1, 42) + "px", color: "#00cc66", fontStyle: "bold", letterSpacing: 5,
     }).setOrigin(0.5).setDepth(22);
 
     let el = this._hostingInput;
@@ -575,12 +616,12 @@ export class MenuScene extends Phaser.Scene {
     }
 
     const inputH = Math.floor(MH * 0.15);
-    const inputW = isPortrait ? Math.floor(sw * 0.9) : Math.floor(MW * 0.83);
-    const inputFontSize = Math.max(16, Math.floor(inputH * 0.4));
+    const inputFontSize = Math.floor(inputH * 0.45);
+
     if (el) Object.assign(el.style, {
       position: "fixed", left: "50%", top: "50%",
       transform: "translate(-50%, -50%)",
-      width: `${inputW}px`, height: `${inputH}px`, background: "#0a0f0a",
+      width: `${Math.max(Math.floor(MW - 40), 200)}px`, height: `${inputH}px`, background: "#0a0f0a",
       border: "1px solid #36b346", borderRadius: "8px",
       color: "#ffffff", fontSize: `${inputFontSize}px`, padding: "0 16px",
       outline: "none", fontFamily: "monospace", textAlign: "center",
@@ -588,16 +629,17 @@ export class MenuScene extends Phaser.Scene {
     });
 
     const btnH = Math.floor(MH * 0.16);
-    const btnW = isPortrait ? MW * 0.45 : MW * 0.37;
-    const btnFontSize = Math.max(14, Math.floor(btnH * 0.4));
-    const btnY = cy + MH / 2 - MH * 0.16;
-    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : MW * 0.22), btnY, btnW, btnH, GREEN, 1)
+    const btnY = cy + MH / 2 - MH * 0.14;
+    const btnW = isPortrait ? MW * 0.45 : Math.min(MW * 0.4, 220);
+    const btnFontSize = Math.floor(btnH * 0.4);
+
+    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : btnW * 0.6), btnY, btnW, btnH, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(22);
     const okTxt = this.add.text(okBg.x, okBg.y, "Ok", {
       fontSize: `${btnFontSize}px`, color: "#000000", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
 
-    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : MW * 0.22), btnY, btnW, btnH, 0x111111, 1)
+    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : btnW * 0.6), btnY, btnW, btnH, 0x111111, 1)
       .setStrokeStyle(1, 0x555555, 1).setInteractive({ useHandCursor: true }).setDepth(22);
     const cancelTxt = this.add.text(cancelBg.x, cancelBg.y, "Cancel", {
       fontSize: `${btnFontSize}px`, color: "#888888", fontStyle: "bold",

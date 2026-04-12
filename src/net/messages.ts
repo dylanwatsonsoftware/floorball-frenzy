@@ -66,7 +66,7 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
     const type = view[0];
     const dv = new DataView(view.buffer, view.byteOffset, view.byteLength);
 
-    if (type === TYPE_STATE && view.byteLength === 143) {
+    if (type === TYPE_STATE && view.byteLength === 151) {
       return { type: "state", snapshot: decodeSnapshot(dv) };
     }
     if (type === TYPE_INPUT && view.byteLength === 14) {
@@ -83,10 +83,10 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
   }
 }
 
-// ─── Binary Snapshot (123 bytes) ──────────────────────────────────────────────
+// ─── Binary Snapshot (151 bytes) ──────────────────────────────────────────────
 
 function encodeSnapshot(s: GameState): Uint8Array {
-  const buf = new ArrayBuffer(143);
+  const buf = new ArrayBuffer(151);
   const v = new DataView(buf);
   v.setUint8(0, TYPE_STATE);
   v.setFloat32(1, s.t, true);
@@ -126,13 +126,14 @@ function encodeSnapshot(s: GameState): Uint8Array {
     v.setUint8(offset + 41, pFlags);
     v.setFloat32(offset + 42, p.heat, true);
     v.setFloat32(offset + 46, p.enFuegoTimerMs, true);
+    v.setFloat32(offset + 50, p.lastDashTimeMs, true);
   };
 
   writePlayer(s.players.host, 39);
-  writePlayer(s.players.client, 89);
+  writePlayer(s.players.client, 93);
 
-  v.setUint16(139, s.score.host, true);
-  v.setUint16(141, s.score.client, true);
+  v.setUint16(147, s.score.host, true);
+  v.setUint16(149, s.score.client, true);
 
   return new Uint8Array(buf);
 }
@@ -172,6 +173,7 @@ function decodeSnapshot(v: DataView): GameState {
       chargeMs: v.getFloat32(offset + 29, true),
       heat: v.getFloat32(offset + 42, true),
       enFuegoTimerMs: v.getFloat32(offset + 46, true),
+      lastDashTimeMs: v.getFloat32(offset + 50, true),
       input: {
         moveX: v.getFloat32(offset + 33, true),
         moveY: v.getFloat32(offset + 37, true),
@@ -186,11 +188,11 @@ function decodeSnapshot(v: DataView): GameState {
     ball,
     players: {
       host: readPlayer(39, "host"),
-      client: readPlayer(89, "client"),
+      client: readPlayer(93, "client"),
     },
     score: {
-      host: v.getUint16(139, true),
-      client: v.getUint16(141, true),
+      host: v.getUint16(147, true),
+      client: v.getUint16(149, true),
     },
   };
 }

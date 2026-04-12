@@ -37,6 +37,7 @@ describe("Binary Serialization", () => {
         aimY: 0.707,
         dashCooldownMs: 1500.5,
         dashCharges: 1,
+        lastDashTimeMs: 1000.5,
         chargeMs: 200.1,
         heat: 45.5,
         enFuegoTimerMs: 0,
@@ -52,6 +53,7 @@ describe("Binary Serialization", () => {
         aimY: -0.707,
         dashCooldownMs: 0,
         dashCharges: 3,
+        lastDashTimeMs: -1000,
         chargeMs: 0,
         heat: 0,
         enFuegoTimerMs: 5000,
@@ -64,7 +66,7 @@ describe("Binary Serialization", () => {
   it("encodes and decodes a GameState snapshot accurately", () => {
     const encoded = encodeMessage({ type: "state", snapshot: mockState });
     expect(encoded).toBeInstanceOf(Uint8Array);
-    expect((encoded as Uint8Array).length).toBe(143);
+    expect((encoded as Uint8Array).length).toBe(151);
 
     const decoded = decodeMessage(encoded);
     expect(decoded?.type).toBe("state");
@@ -78,6 +80,7 @@ describe("Binary Serialization", () => {
       expect(s.ball.scoopTimerMs).toBeCloseTo(800, 2);
       expect(s.ball.possessedBy).toBe("host");
       expect(s.players.host.x).toBeCloseTo(mockState.players.host.x, 2);
+      expect(s.players.host.lastDashTimeMs).toBeCloseTo(1000.5, 2);
       expect(s.players.host.dashCharges).toBe(1);
       expect(s.players.client.dashCharges).toBe(3);
       expect(s.players.host.heat).toBeCloseTo(45.5, 2);
@@ -144,7 +147,7 @@ describe("Binary Serialization", () => {
 
   it("returns null for truncated binary payloads", () => {
     const encoded = encodeMessage({ type: "state", snapshot: mockState }) as Uint8Array;
-    const truncated = encoded.subarray(0, 100); // 100 < 143
+    const truncated = encoded.subarray(0, 100); // 100 < 151
     expect(decodeMessage(truncated)).toBeNull();
   });
 
