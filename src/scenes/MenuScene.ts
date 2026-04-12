@@ -368,7 +368,9 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10);
 
     // ── Bottom action bar ──────────────────────────────────────────────────────
-    const BAR_Y = viewH - (isPortrait ? 400 : 190);
+    // Adjust BAR_Y for short landscape viewports to ensure we have room for at least one row
+    const barOffset = isPortrait ? 400 : Math.min(190, viewH * 0.28);
+    const BAR_Y = viewH - barOffset;
     const BTN_SCALE = isPortrait ? 2.5 : 2.0;
 
     const bgH = isPortrait ? 116 : 48 * BTN_SCALE;
@@ -433,12 +435,21 @@ export class MenuScene extends Phaser.Scene {
         scheduleNext();
         return;
       }
-      statusTxt.setVisible(false);
 
       const ROW_H = isPortrait ? 120 : 70;
       const ROW_W = viewW - (isPortrait ? 40 : 160);
       const rowsTop = isPortrait ? 100 : 130;
-      const max = Math.min(games.length, isPortrait ? 5 : 7);
+
+      const availH = BAR_Y - rowsTop - 20;
+      const maxRows = Math.floor(availH / ROW_H);
+      const max = Math.min(games.length, isPortrait ? 5 : Math.max(0, maxRows));
+
+      if (games.length > 0 && max <= 0) {
+        // Fallback: keep status text if we really can't fit any rows
+        statusTxt.setText("No room to display games.\nPlease rotate your device.").setVisible(true);
+        return;
+      }
+      statusTxt.setVisible(false);
 
       for (let i = 0; i < max; i++) {
         const game = games[i];
@@ -517,7 +528,7 @@ export class MenuScene extends Phaser.Scene {
     const cy = isPortrait ? sh / 2 : H / 2;
 
     const saved = this._savedGameName;
-    const MW = isPortrait ? sw * 0.95 : 600, MH = 500;
+    const MW = isPortrait ? sw * 0.95 : 600, MH = isPortrait ? 500 : Math.min(500, sh * 0.9);
 
     const overlay = this.add.rectangle(cx, cy, isPortrait ? sw : W, isPortrait ? sh : H, 0x000000, 0.75).setDepth(20).setInteractive();
 
@@ -527,7 +538,7 @@ export class MenuScene extends Phaser.Scene {
     modalGfx.lineStyle(1, 0x36b346, 0.7);
     modalGfx.strokeRoundedRect(cx - MW / 2, cy - MH / 2, MW, MH, 16);
 
-    const titleTxt = this.add.text(cx, cy - MH / 2 + 76, "Enter Game Name", {
+    const titleTxt = this.add.text(cx, cy - MH / 2 + MH * 0.15, "Enter Game Name", {
       fontSize: "42px", color: "#00cc66", fontStyle: "bold", letterSpacing: 5,
     }).setOrigin(0.5).setDepth(22);
 
@@ -550,26 +561,33 @@ export class MenuScene extends Phaser.Scene {
       setTimeout(() => { if (el) { el.focus(); el.select(); } }, 50);
     }
 
+    const inputH = Math.floor(MH * 0.15);
+    const inputW = isPortrait ? Math.floor(sw * 0.9) : Math.floor(MW * 0.83);
+    const inputFontSize = Math.max(16, Math.floor(inputH * 0.4));
     if (el) Object.assign(el.style, {
       position: "fixed", left: "50%", top: "50%",
       transform: "translate(-50%, -50%)",
-      width: isPortrait ? "90%" : "500px", height: "76px", background: "#0a0f0a",
+      width: `${inputW}px`, height: `${inputH}px`, background: "#0a0f0a",
       border: "1px solid #36b346", borderRadius: "8px",
-      color: "#ffffff", fontSize: "32px", padding: "0 16px",
+      color: "#ffffff", fontSize: `${inputFontSize}px`, padding: "0 16px",
       outline: "none", fontFamily: "monospace", textAlign: "center",
       zIndex: "9999", boxSizing: "border-box",
     });
 
-    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : 130), cy + MH / 2 - 80, isPortrait ? MW * 0.45 : 220, 80, GREEN, 1)
+    const btnH = Math.floor(MH * 0.16);
+    const btnW = isPortrait ? MW * 0.45 : MW * 0.37;
+    const btnFontSize = Math.max(14, Math.floor(btnH * 0.4));
+    const btnY = cy + MH / 2 - MH * 0.16;
+    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : MW * 0.22), btnY, btnW, btnH, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(22);
     const okTxt = this.add.text(okBg.x, okBg.y, "Ok", {
-      fontSize: "32px", color: "#000000", fontStyle: "bold",
+      fontSize: `${btnFontSize}px`, color: "#000000", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
 
-    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : 130), cy + MH / 2 - 80, isPortrait ? MW * 0.45 : 220, 80, 0x111111, 1)
+    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : MW * 0.22), btnY, btnW, btnH, 0x111111, 1)
       .setStrokeStyle(1, 0x555555, 1).setInteractive({ useHandCursor: true }).setDepth(22);
     const cancelTxt = this.add.text(cancelBg.x, cancelBg.y, "Cancel", {
-      fontSize: "32px", color: "#888888", fontStyle: "bold",
+      fontSize: `${btnFontSize}px`, color: "#888888", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
     okTxt.disableInteractive();
     cancelTxt.disableInteractive();
