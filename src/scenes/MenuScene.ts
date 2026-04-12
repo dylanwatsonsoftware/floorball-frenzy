@@ -46,8 +46,6 @@ function checkIsPortrait(sw: number, sh: number): boolean {
   return isPortrait;
 }
 
-const W = 1280;
-const H = 720;
 const GREEN = 0x36b346;
 
 export class MenuScene extends Phaser.Scene {
@@ -126,15 +124,9 @@ export class MenuScene extends Phaser.Scene {
     const sh = this.scale.height;
     const isPortrait = checkIsPortrait(sw, sh);
 
-    // Center camera
-    if (!isPortrait) {
-      const extraW = Math.max(0, sw - W);
-      this.cameras.main.scrollX = -Math.floor(extraW / 2);
-      this.cameras.main.scrollY = 0;
-    } else {
-      this.cameras.main.scrollX = 0;
-      this.cameras.main.scrollY = 0;
-    }
+    // Ensure camera is centered
+    this.cameras.main.scrollX = 0;
+    this.cameras.main.scrollY = 0;
 
     if (this._isLobbyVisible) {
       void this._showLobby();
@@ -161,28 +153,28 @@ export class MenuScene extends Phaser.Scene {
       this._drawTitlePortrait(sw, sh);
       this._drawButtonsPortrait(sw, sh);
     } else {
-      this._drawBackgroundLandscape();
-      this._drawTitleLandscape();
-      this._drawButtonsLandscape();
+      this._drawBackgroundLandscape(sw, sh);
+      const headerBottom = this._drawTitleLandscape(sw, sh);
+      this._drawButtonsLandscape(sw, sh, headerBottom);
     }
 
     this._mainMenuObjs = (this.children.list as Phaser.GameObjects.GameObject[]).slice(menuStart);
   }
 
-  private _drawBackgroundLandscape(): void {
+  private _drawBackgroundLandscape(sw: number, sh: number): void {
     const gfx = this.add.graphics();
     gfx.fillGradientStyle(0x0a0f0a, 0x0a0f0a, 0x061208, 0x061208, 1);
-    gfx.fillRect(0, 0, W, H);
+    gfx.fillRect(0, 0, sw, sh);
     gfx.lineStyle(2, 0x36b346, 0.18);
-    gfx.strokeRoundedRect(50, 50, W - 100, H - 100, 55);
+    gfx.strokeRoundedRect(50, 50, sw - 100, sh - 100, 55);
     gfx.lineStyle(1, 0x36b346, 0.12);
-    gfx.lineBetween(W / 2, 50, W / 2, H - 50);
-    gfx.strokeCircle(W / 2, H / 2, 80);
+    gfx.lineBetween(sw / 2, 50, sw / 2, sh - 50);
+    gfx.strokeCircle(sw / 2, sh / 2, 80);
     gfx.lineStyle(1, 0x36b346, 0.15);
-    gfx.strokeRect(50, H / 2 - 44, 50, 88);
-    gfx.strokeRect(W - 100, H / 2 - 44, 50, 88);
+    gfx.strokeRect(50, sh / 2 - 44, 50, 88);
+    gfx.strokeRect(sw - 100, sh / 2 - 44, 50, 88);
     gfx.fillStyle(0x36b346, 0.04);
-    gfx.fillCircle(W / 2, H / 2, 260);
+    gfx.fillCircle(sw / 2, sh / 2, 260);
   }
 
   private _drawBackgroundPortrait(sw: number, sh: number): void {
@@ -198,20 +190,31 @@ export class MenuScene extends Phaser.Scene {
     gfx.strokeCircle(sw / 2, sh / 2, sw * 0.2);
   }
 
-  private _drawTitleLandscape(): void {
+  private _drawTitleLandscape(sw: number, sh: number): number {
     const hasLogo = this.textures.exists("logo");
-    if (hasLogo) this.add.image(W / 2, 105, "logo").setOrigin(0.5).setDisplaySize(168, 168);
-    const titleY = hasLogo ? 218 : 108;
-    this.add.text(W / 2 + 3, titleY + 3, "FLOORBALL FRENZY", {
-      fontSize: "60px", fontStyle: "bold", color: "#000000",
+    const logoSize = Math.min(sh * 0.25, 168);
+    const logoY = sh * 0.15;
+    if (hasLogo) {
+      this.add.image(sw / 2, logoY, "logo").setOrigin(0.5).setDisplaySize(logoSize, logoSize);
+    }
+
+    const titleY = hasLogo ? logoY + logoSize / 2 + 45 : sh * 0.15;
+    const fontSize = Math.min(sw * 0.05, 60);
+
+    this.add.text(sw / 2 + 3, titleY + 3, "FLOORBALL FRENZY", {
+      fontSize: `${fontSize}px`, fontStyle: "bold", color: "#000000",
     } as Phaser.Types.GameObjects.Text.TextStyle).setOrigin(0.5).setAlpha(0.4);
-    this.add.text(W / 2, titleY, "FLOORBALL FRENZY", {
-      fontSize: "60px", fontStyle: "bold", color: "#ffffff",
+
+    this.add.text(sw / 2, titleY, "FLOORBALL FRENZY", {
+      fontSize: `${fontSize}px`, fontStyle: "bold", color: "#ffffff",
       stroke: "#1e7a29", strokeThickness: 6,
     }).setOrigin(0.5);
-    this.add.text(W / 2, titleY + 54, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
+
+    const subTxt = this.add.text(sw / 2, titleY + fontSize * 0.9, "LAMBS FLOORBALL CLUB  ·  First to 5 goals wins", {
       fontSize: "16px", color: "#ffffff", letterSpacing: 2,
     }).setOrigin(0.5);
+
+    return subTxt.y + 20;
   }
 
   private _drawTitlePortrait(sw: number, sh: number): void {
@@ -236,28 +239,49 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
   }
 
-  private _drawButtonsLandscape(): void {
-    const btnW = 520;
-    const btnH = 76;
+  private _drawButtonsLandscape(sw: number, sh: number, headerBottom: number): void {
+    const footerHeight = this._drawCommitInfoLandscape(sw, sh);
+
     const hasPrompt = !!(window as any).deferredPrompt;
     const showIOSInstall = isIOS() && !isStandalone();
     const hasInstall = hasPrompt || showIOSInstall;
 
-    const startY = hasInstall ? H / 2 + 10 : H / 2 - 20;
+    const btnCount = hasInstall ? 3 : 2;
+    const baseBtnH = 95;
+    const baseSpacing = 20;
+    const baseScale = 1.3;
 
-    this._makeButton(W / 2, startY, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
+    const availableH = sh - headerBottom - footerHeight;
+    const totalNeeded = btnCount * baseBtnH + (btnCount - 1) * baseSpacing;
+
+    let btnH = baseBtnH;
+    let spacing = baseSpacing;
+    let scale = baseScale;
+
+    if (totalNeeded > availableH && availableH > 0) {
+      const ratio = availableH / totalNeeded;
+      btnH = Math.floor(baseBtnH * ratio);
+      spacing = Math.floor(baseSpacing * ratio);
+      scale = baseScale * ratio;
+    }
+
+    const stackH = btnCount * btnH + (btnCount - 1) * spacing;
+    const startY = headerBottom + (availableH - stackH) / 2 + btnH / 2;
+    const btnW = Math.min(sw * 0.8, 650);
+
+    this._makeButton(sw / 2, startY, btnW, btnH, "🌐  Play Online", "BROWSE & CREATE ONLINE GAMES", GREEN, 0x1e7a29, () => {
       this._isLobbyVisible = true;
       this._lobbyRefreshDelay = 5000;
       this._render();
-    });
+    }, scale);
 
-    this._makeButton(W / 2, startY + 95, btnW, btnH, "⚡  Solo Match", "VS AI  ·  SOLO MATCH", 0x2255aa, 0x112244, () => {
+    this._makeButton(sw / 2, startY + btnH + spacing, btnW, btnH, "⚡  Solo Match", "VS AI  ·  SOLO MATCH", 0x2255aa, 0x112244, () => {
       this._attemptVisuals();
       this.scene.start("GameScene", { mode: "local" });
-    });
+    }, scale);
 
     if (hasInstall) {
-      this._makeButton(W / 2, startY + 190, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
+      this._makeButton(sw / 2, startY + (btnH + spacing) * 2, btnW, btnH, "📲  Install App", "PLAY FULLSCREEN & OFFLINE", 0xaa22aa, 0x441144, () => {
         if (hasPrompt) {
           void (window as any).deferredPrompt.prompt();
           void (window as any).deferredPrompt.userChoice.then(() => {
@@ -268,10 +292,8 @@ export class MenuScene extends Phaser.Scene {
           const el = document.getElementById("ios-install-overlay");
           if (el) el.style.display = "flex";
         }
-      });
+      }, scale);
     }
-
-    this._drawCommitInfoLandscape();
   }
 
   private _drawButtonsPortrait(sw: number, sh: number): void {
@@ -313,11 +335,15 @@ export class MenuScene extends Phaser.Scene {
     this._drawCommitInfoPortrait(sw, sh);
   }
 
-  private _drawCommitInfoLandscape(): void {
+  private _drawCommitInfoLandscape(sw: number, sh: number): number {
     const ago = formatGitAge(__GIT_DATE__);
-    this.add.text(W / 2, H - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
+    const maxWidth = sw - 60;
+    const txt = this.add.text(sw / 2, sh - 10, `${__GIT_HASH__}  ·  ${ago}  ·  ${__GIT_MSG__}`, {
       fontSize: "15px", color: "#ffffff",
+      align: "center",
+      wordWrap: { width: maxWidth }
     }).setOrigin(0.5, 1);
+    return txt.displayHeight + 20;
   }
 
   private _drawCommitInfoPortrait(sw: number, sh: number): void {
@@ -343,9 +369,9 @@ export class MenuScene extends Phaser.Scene {
     const sw = this.scale.width;
     const sh = this.scale.height;
     const isPortrait = checkIsPortrait(sw, sh);
-    const cx = isPortrait ? sw / 2 : W / 2;
-    const viewW = isPortrait ? sw : W;
-    const viewH = isPortrait ? sh : H;
+    const cx = sw / 2;
+    const viewW = sw;
+    const viewH = sh;
 
     // Full-screen background
     const bg = this.add.graphics().setDepth(9);
@@ -368,8 +394,8 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10);
 
     // ── Bottom action bar ──────────────────────────────────────────────────────
-    const BAR_Y = viewH - (isPortrait ? 400 : 190);
-    const BTN_SCALE = isPortrait ? 2.5 : 2.0;
+    const BAR_Y = viewH - (isPortrait ? 400 : Math.min(190, viewH * 0.35));
+    const BTN_SCALE = isPortrait ? 2.5 : (viewH < 500 ? 1.4 : 2.0);
 
     const bgH = isPortrait ? 116 : 48 * BTN_SCALE;
     const backWidth = isPortrait ? sw * 0.46 : 180 * BTN_SCALE;
@@ -438,7 +464,15 @@ export class MenuScene extends Phaser.Scene {
       const ROW_H = isPortrait ? 120 : 70;
       const ROW_W = viewW - (isPortrait ? 40 : 160);
       const rowsTop = isPortrait ? 100 : 130;
-      const max = Math.min(games.length, isPortrait ? 5 : 7);
+
+      const availableHeight = BAR_Y - rowsTop - 20;
+      const maxRows = Math.max(1, Math.floor(availableHeight / ROW_H));
+      const max = Math.min(games.length, isPortrait ? 5 : 7, maxRows);
+
+      if (max === 0 && games.length > 0) {
+        statusTxt.setText("Screen too small to list games.\nTry landscape or a larger window.").setVisible(true);
+        return;
+      }
 
       for (let i = 0; i < max; i++) {
         const game = games[i];
@@ -513,13 +547,14 @@ export class MenuScene extends Phaser.Scene {
     const sw = this.scale.width;
     const sh = this.scale.height;
     const isPortrait = checkIsPortrait(sw, sh);
-    const cx = isPortrait ? sw / 2 : W / 2;
-    const cy = isPortrait ? sh / 2 : H / 2;
+    const cx = sw / 2;
+    const cy = sh / 2;
 
     const saved = this._savedGameName;
-    const MW = isPortrait ? sw * 0.95 : 600, MH = 500;
+    const MW = isPortrait ? sw * 0.95 : Math.min(sw * 0.9, 600);
+    const MH = Math.min(sh * 0.8, 500);
 
-    const overlay = this.add.rectangle(cx, cy, isPortrait ? sw : W, isPortrait ? sh : H, 0x000000, 0.75).setDepth(20).setInteractive();
+    const overlay = this.add.rectangle(cx, cy, sw, sh, 0x000000, 0.75).setDepth(20).setInteractive();
 
     const modalGfx = this.add.graphics().setDepth(21);
     modalGfx.fillStyle(0x0d1a12, 1);
@@ -527,8 +562,8 @@ export class MenuScene extends Phaser.Scene {
     modalGfx.lineStyle(1, 0x36b346, 0.7);
     modalGfx.strokeRoundedRect(cx - MW / 2, cy - MH / 2, MW, MH, 16);
 
-    const titleTxt = this.add.text(cx, cy - MH / 2 + 76, "Enter Game Name", {
-      fontSize: "42px", color: "#00cc66", fontStyle: "bold", letterSpacing: 5,
+    const titleTxt = this.add.text(cx, cy - MH / 2 + MH * 0.15, "Enter Game Name", {
+      fontSize: Math.min(MW * 0.08, MH * 0.1, 42) + "px", color: "#00cc66", fontStyle: "bold", letterSpacing: 5,
     }).setOrigin(0.5).setDepth(22);
 
     let el = this._hostingInput;
@@ -550,26 +585,34 @@ export class MenuScene extends Phaser.Scene {
       setTimeout(() => { if (el) { el.focus(); el.select(); } }, 50);
     }
 
+    const inputH = Math.floor(MH * 0.15);
+    const inputFontSize = Math.floor(inputH * 0.45);
+
     if (el) Object.assign(el.style, {
       position: "fixed", left: "50%", top: "50%",
       transform: "translate(-50%, -50%)",
-      width: isPortrait ? "90%" : "500px", height: "76px", background: "#0a0f0a",
+      width: `${Math.max(Math.floor(MW - 40), 200)}px`, height: `${inputH}px`, background: "#0a0f0a",
       border: "1px solid #36b346", borderRadius: "8px",
-      color: "#ffffff", fontSize: "32px", padding: "0 16px",
+      color: "#ffffff", fontSize: `${inputFontSize}px`, padding: "0 16px",
       outline: "none", fontFamily: "monospace", textAlign: "center",
       zIndex: "9999", boxSizing: "border-box",
     });
 
-    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : 130), cy + MH / 2 - 80, isPortrait ? MW * 0.45 : 220, 80, GREEN, 1)
+    const btnH = Math.floor(MH * 0.16);
+    const btnY = cy + MH / 2 - MH * 0.14;
+    const btnW = isPortrait ? MW * 0.45 : Math.min(MW * 0.4, 220);
+    const btnFontSize = Math.floor(btnH * 0.4);
+
+    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : btnW * 0.6), btnY, btnW, btnH, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(22);
     const okTxt = this.add.text(okBg.x, okBg.y, "Ok", {
-      fontSize: "32px", color: "#000000", fontStyle: "bold",
+      fontSize: `${btnFontSize}px`, color: "#000000", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
 
-    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : 130), cy + MH / 2 - 80, isPortrait ? MW * 0.45 : 220, 80, 0x111111, 1)
+    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : btnW * 0.6), btnY, btnW, btnH, 0x111111, 1)
       .setStrokeStyle(1, 0x555555, 1).setInteractive({ useHandCursor: true }).setDepth(22);
     const cancelTxt = this.add.text(cancelBg.x, cancelBg.y, "Cancel", {
-      fontSize: "32px", color: "#888888", fontStyle: "bold",
+      fontSize: `${btnFontSize}px`, color: "#888888", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
     okTxt.disableInteractive();
     cancelTxt.disableInteractive();
