@@ -45,6 +45,7 @@ import {
   HOUSE_BOTTOM,
   PX_PER_M,
   STICK_REACH,
+  DASH_FORCE,
   DASH_COOLDOWN,
   MAX_DASH_CHARGES,
   DASH_STEAL_WINDOW,
@@ -204,6 +205,7 @@ export class GameScene extends Phaser.Scene {
   // AI start delay for local matches
   protected _aiDelayMs = 2000;
   protected _playerTouched = false;
+  protected _maxBallSpeed = 0;
   // Camera targets
   protected _camZoom = 1;
   protected _camX = 640;
@@ -673,6 +675,29 @@ export class GameScene extends Phaser.Scene {
     elapsedMs: number,
     isClientPrediction = false
   ): void {
+    // Fake Shot / Snap-Back: detect joystick flip while charging slap
+    const checkFake = (input: InputState, aim: { x: number; y: number }, shoot: ShootState, p: PlayerExtended, who: "host" | "client") => {
+      if (shoot.charging && shoot.chargeMs > 100) {
+        const moveLen = Math.hypot(input.moveX, input.moveY);
+        if (moveLen > 0.5) {
+          const dot = (input.moveX / moveLen) * aim.x + (input.moveY / moveLen) * aim.y;
+          if (dot < -0.8) {
+            shoot.chargeMs = 0;
+            shoot.charging = false;
+            if (who === "host") this._hostSlapWasDown = false;
+            else this._clientSlapWasDown = false;
+            const nx = input.moveX / moveLen;
+            const ny = input.moveY / moveLen;
+            p.vx += nx * DASH_FORCE * 0.6;
+            p.vy += ny * DASH_FORCE * 0.6;
+            this._spawnFakeJuice(p.x, p.y);
+          }
+        }
+      }
+    };
+    checkFake(hostInput, this._hostAimSmooth, this._hostShoot, this.host, "host");
+    checkFake(clientInput, this._clientAimSmooth, this._clientShoot, this.client, "client");
+
     if (hostInput.moveX !== 0 || hostInput.moveY !== 0) {
       this._hostAim = { x: hostInput.moveX, y: hostInput.moveY };
     }
@@ -778,6 +803,11 @@ export class GameScene extends Phaser.Scene {
     if (!isClientPrediction) {
       const goal = stepBall(this.ball, dt);
       if (goal) this._onGoal(goal);
+
+      const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
+      if (ballSpeed > this._maxBallSpeed) {
+        this._maxBallSpeed = ballSpeed;
+      }
     }
   }
 
@@ -1167,9 +1197,12 @@ export class GameScene extends Phaser.Scene {
     // Overlay background
     const bg = this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30).setScrollFactor(0);
 
-    const title = this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
-    const winLabel = this.add.text(cx, cy - 40, `${winner === "host" ? "RED" : "BLUE"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
-    const streakLabel = this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const title = this.add.text(cx, cy - 120, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const winLabel = this.add.text(cx, cy - 65, `${winner === "host" ? "RED" : "BLUE"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const streakLabel = this.add.text(cx, cy - 10, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+
+    const speedMS = (this._maxBallSpeed / PX_PER_M).toFixed(1);
+    const statLabel = this.add.text(cx, cy + 30, `MAX BALL SPEED: ${speedMS} m/s`, { fontSize: "18px", color: "#aaaaff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
 
     if (data.count >= 3) {
       this.tweens.add({
@@ -1231,7 +1264,7 @@ export class GameScene extends Phaser.Scene {
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
 
-    this._matchOverObjects = [bg, title, winLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
+    this._matchOverObjects = [bg, title, winLabel, streakLabel, statLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
     this._addUI(this._matchOverObjects);
   }
 
@@ -1244,6 +1277,7 @@ export class GameScene extends Phaser.Scene {
 
   protected _resetMatch(): void {
     this.score = { host: 0, client: 0 };
+    this._maxBallSpeed = 0;
     this._resetRound();
     this._frozenMs = 0;
     this._isGoalPause = false;
@@ -1371,6 +1405,29 @@ export class GameScene extends Phaser.Scene {
     const FIRE_THRESHOLD = 350; // px/s — below this, no fire
     const visualY = this.ball.y - this.ball.z * 0.6;
 
+    // Spawn flame particles for En Fuego players
+    for (const p of [this.host, this.client]) {
+      if (p.enFuegoTimerMs > 0) {
+        const aim = p.id === "host" ? this._hostAimSmooth : this._clientAimSmooth;
+        const sd = this._stickDir(p, aim);
+        // Position at stick tip
+        const tx = p.x + sd.x * STICK_REACH;
+        const ty = p.y + sd.y * STICK_REACH;
+
+        for (let i = 0; i < 2; i++) {
+          this._fireParticles.push({
+            x: tx + (Math.random() - 0.5) * 10,
+            y: ty + (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * 100,
+            vy: -150 - Math.random() * 100,
+            life: 300 + Math.random() * 200,
+            maxLife: 500,
+            size: 8 + Math.random() * 8,
+          });
+        }
+      }
+    }
+
     // Spawn particles proportional to how fast the ball is going
     if (speed > FIRE_THRESHOLD || this.ball.isScoop) {
       const excess = Math.max(0, speed - FIRE_THRESHOLD);
@@ -1442,6 +1499,49 @@ export class GameScene extends Phaser.Scene {
       this._fireGraphics.fillCircle(p.x, p.y, p.size * t);
       return true;
     });
+  }
+
+  private _spawnFakeJuice(x: number, y: number): void {
+    // "Poof" of dust
+    for (let i = 0; i < 15; i++) {
+      this._fireParticles.push({
+        x: x + (Math.random() - 0.5) * 40,
+        y: y + (Math.random() - 0.5) * 40,
+        vx: (Math.random() - 0.5) * 200,
+        vy: (Math.random() - 0.5) * 200,
+        life: 200 + Math.random() * 200,
+        maxLife: 400,
+        size: 4 + Math.random() * 6,
+      });
+    }
+
+    // Brief ghost
+    this._ghosts.push({
+      x: x,
+      y: y,
+      rotation: 0,
+      frame: 1,
+      alpha: 0.6,
+      life: 200,
+      color: 0xffffff,
+    });
+
+    try {
+      const ctx = (this.game.sound as any).context;
+      if (ctx) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
+        g.gain.setValueAtTime(0.1, ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.1);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+      }
+    } catch { /**/ }
   }
 
   private _spawnPerfectJuice(x: number, y: number): void {
@@ -1579,6 +1679,15 @@ export class GameScene extends Phaser.Scene {
         const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 100);
         h.lineStyle(2, 0xffffff, pulse);
         h.strokeRoundedRect(barX - 2, barY - 2, barW + 4, barH + 4, 5);
+
+        // Vignette if local player
+        if (isLocal) {
+          const sw = this.scale.width;
+          const sh = this.scale.height;
+          const alpha = 0.1 + 0.1 * Math.sin(this.time.now / 150);
+          h.lineStyle(40, 0xff8800, alpha);
+          h.strokeRect(20, 20, sw - 40, sh - 40);
+        }
       }
 
       // 2. Ownership "YOU" indicator
