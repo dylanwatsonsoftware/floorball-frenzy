@@ -391,8 +391,8 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10);
 
     // ── Bottom action bar ──────────────────────────────────────────────────────
-    const BAR_Y = viewH - (isPortrait ? 400 : 190);
-    const BTN_SCALE = isPortrait ? 2.5 : 2.0;
+    const BAR_Y = viewH - (isPortrait ? 400 : Math.min(190, viewH * 0.35));
+    const BTN_SCALE = isPortrait ? 2.5 : (viewH < 500 ? 1.4 : 2.0);
 
     const bgH = isPortrait ? 116 : 48 * BTN_SCALE;
     const backWidth = isPortrait ? sw * 0.46 : 180 * BTN_SCALE;
@@ -457,8 +457,13 @@ export class MenuScene extends Phaser.Scene {
       const rowsTop = isPortrait ? 100 : 130;
 
       const availableHeight = BAR_Y - rowsTop - 20;
-      const maxRows = Math.max(0, Math.floor(availableHeight / ROW_H));
+      const maxRows = Math.max(1, Math.floor(availableHeight / ROW_H));
       const max = Math.min(games.length, isPortrait ? 5 : 7, maxRows);
+
+      if (max === 0 && games.length > 0) {
+        statusTxt.setText("Screen too small to list games.\nTry landscape or a larger window.").setVisible(true);
+        return;
+      }
 
       for (let i = 0; i < max; i++) {
         const game = games[i];
@@ -534,8 +539,8 @@ export class MenuScene extends Phaser.Scene {
     modalGfx.lineStyle(1, 0x36b346, 0.7);
     modalGfx.strokeRoundedRect(cx - MW / 2, cy - MH / 2, MW, MH, 16);
 
-    const titleTxt = this.add.text(cx, cy - MH / 2 + 76, "Enter Game Name", {
-      fontSize: Math.min(MW * 0.08, 42) + "px", color: "#00cc66", fontStyle: "bold", letterSpacing: 5,
+    const titleTxt = this.add.text(cx, cy - MH / 2 + MH * 0.15, "Enter Game Name", {
+      fontSize: Math.min(MW * 0.08, MH * 0.1, 42) + "px", color: "#00cc66", fontStyle: "bold", letterSpacing: 5,
     }).setOrigin(0.5).setDepth(22);
 
     let el = this._hostingInput;
@@ -557,26 +562,34 @@ export class MenuScene extends Phaser.Scene {
       setTimeout(() => { if (el) { el.focus(); el.select(); } }, 50);
     }
 
+    const inputH = Math.floor(MH * 0.15);
+    const inputFontSize = Math.floor(inputH * 0.45);
+
     if (el) Object.assign(el.style, {
       position: "fixed", left: "50%", top: "50%",
       transform: "translate(-50%, -50%)",
-      width: `${Math.max(Math.floor(MW - 40), 200)}px`, height: "76px", background: "#0a0f0a",
+      width: `${Math.max(Math.floor(MW - 40), 200)}px`, height: `${inputH}px`, background: "#0a0f0a",
       border: "1px solid #36b346", borderRadius: "8px",
-      color: "#ffffff", fontSize: "32px", padding: "0 16px",
+      color: "#ffffff", fontSize: `${inputFontSize}px`, padding: "0 16px",
       outline: "none", fontFamily: "monospace", textAlign: "center",
       zIndex: "9999", boxSizing: "border-box",
     });
 
-    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : 130), cy + MH / 2 - 80, isPortrait ? MW * 0.45 : 220, 80, GREEN, 1)
+    const btnH = Math.floor(MH * 0.16);
+    const btnY = cy + MH / 2 - MH * 0.14;
+    const btnW = isPortrait ? MW * 0.45 : Math.min(MW * 0.4, 220);
+    const btnFontSize = Math.floor(btnH * 0.4);
+
+    const okBg = this.add.rectangle(cx + (isPortrait ? MW * 0.25 : btnW * 0.6), btnY, btnW, btnH, GREEN, 1)
       .setStrokeStyle(1, 0x55ff77, 0.5).setInteractive({ useHandCursor: true }).setDepth(22);
     const okTxt = this.add.text(okBg.x, okBg.y, "Ok", {
-      fontSize: "32px", color: "#000000", fontStyle: "bold",
+      fontSize: `${btnFontSize}px`, color: "#000000", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
 
-    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : 130), cy + MH / 2 - 80, isPortrait ? MW * 0.45 : 220, 80, 0x111111, 1)
+    const cancelBg = this.add.rectangle(cx - (isPortrait ? MW * 0.25 : btnW * 0.6), btnY, btnW, btnH, 0x111111, 1)
       .setStrokeStyle(1, 0x555555, 1).setInteractive({ useHandCursor: true }).setDepth(22);
     const cancelTxt = this.add.text(cancelBg.x, cancelBg.y, "Cancel", {
-      fontSize: "32px", color: "#888888", fontStyle: "bold",
+      fontSize: `${btnFontSize}px`, color: "#888888", fontStyle: "bold",
     }).setOrigin(0.5).setDepth(23);
     okTxt.disableInteractive();
     cancelTxt.disableInteractive();
