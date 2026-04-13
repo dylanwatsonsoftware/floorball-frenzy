@@ -69,6 +69,20 @@ export function stepPlayer(
     }
   }
 
+  // Fake Shot (Deceptive Dash)
+  const speedForFake = Math.hypot(player.vx, player.vy);
+  const inputLen = Math.hypot(input.moveX, input.moveY);
+  if (player.chargeMs > 200 && speedForFake > 100 && inputLen > 0.1) {
+    const dot = (player.vx / speedForFake) * (input.moveX / inputLen) + (player.vy / speedForFake) * (input.moveY / inputLen);
+    if (dot < -0.8) {
+      player.vx += (input.moveX / inputLen) * DASH_FORCE * 0.6;
+      player.vy += (input.moveY / inputLen) * DASH_FORCE * 0.6;
+      player.lastFakeShotTimeMs = totalTimeMs;
+      player.fakes = (player.fakes || 0) + 1;
+      // We don't reset chargeMs here as it's owned by ShootState in GameScene
+    }
+  }
+
   // Acceleration from input
   if (input.moveX !== 0 || input.moveY !== 0) {
     const len = Math.hypot(input.moveX, input.moveY);
@@ -116,6 +130,8 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     chargeMs: 0,
     heat: 0,
     enFuegoTimerMs: 0,
+    lastFakeShotTimeMs: -1000,
+    fakes: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false },
   };
 }

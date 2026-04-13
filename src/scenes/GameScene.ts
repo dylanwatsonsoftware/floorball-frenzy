@@ -171,6 +171,8 @@ export class GameScene extends Phaser.Scene {
 
   // Frozen while showing goal message
   protected _frozenMs = 0;
+  protected _maxBallSpeed = 0;
+  protected _totalParries = 0;
   // If true, the current freeze is for a goal/score (which resets the round)
   protected _isGoalPause = false;
 
@@ -250,6 +252,8 @@ export class GameScene extends Phaser.Scene {
     this._clientSlapWasDown = false;
     this._aiDelayMs = 2000;
     this._playerTouched = false;
+    this._maxBallSpeed = 0;
+    this._totalParries = 0;
   }
 
   create(): void {
@@ -721,6 +725,18 @@ export class GameScene extends Phaser.Scene {
     updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
     updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
 
+    // Detect Fake Shot signal from physics
+    if (this.host.lastFakeShotTimeMs === this._elapsedMs) {
+      this._hostShoot.chargeMs = 0;
+      this._hostShoot.charging = false;
+      this._spawnFakeJuice(this.host.x, this.host.y, COLOR_RED);
+    }
+    if (this.client.lastFakeShotTimeMs === this._elapsedMs) {
+      this._clientShoot.chargeMs = 0;
+      this._clientShoot.charging = false;
+      this._spawnFakeJuice(this.client.x, this.client.y, COLOR_BLUE);
+    }
+
     this.host.chargeMs = this._hostShoot.chargeMs;
     this.client.chargeMs = this._clientShoot.chargeMs;
 
@@ -736,8 +752,14 @@ export class GameScene extends Phaser.Scene {
     resolvePlayerEnvironment(this.client);
     const hostParry = resolvePlayerBallCollision(this.host, this.ball, this._elapsedMs);
     const clientParry = resolvePlayerBallCollision(this.client, this.ball, this._elapsedMs);
-    if (hostParry) this._onParry("host");
-    if (clientParry) this._onParry("client");
+    if (hostParry) {
+      this.ball.lastHitterEnFuego = true;
+      this._onParry("host");
+    }
+    if (clientParry) {
+      this.ball.lastHitterEnFuego = true;
+      this._onParry("client");
+    }
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
 
@@ -776,6 +798,9 @@ export class GameScene extends Phaser.Scene {
     this._hostButtons.updateSlapState(localPlayer.chargeMs);
 
     if (!isClientPrediction) {
+      const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
+      if (ballSpeed > this._maxBallSpeed) this._maxBallSpeed = ballSpeed;
+
       const goal = stepBall(this.ball, dt);
       if (goal) this._onGoal(goal);
     }
@@ -785,8 +810,10 @@ export class GameScene extends Phaser.Scene {
     const CONTACT = 32; // slightly larger than PLAYER_RADIUS+BALL_RADIUS
     if (Math.hypot(this.host.x - this.ball.x, this.host.y - this.ball.y) < CONTACT) {
       this._lastTouch = { playerId: "host", timeMs: this._elapsedMs };
+      this.ball.lastHitterEnFuego = this.host.enFuegoTimerMs > 0;
     } else if (Math.hypot(this.client.x - this.ball.x, this.client.y - this.ball.y) < CONTACT) {
       this._lastTouch = { playerId: "client", timeMs: this._elapsedMs };
+      this.ball.lastHitterEnFuego = this.client.enFuegoTimerMs > 0;
     }
   }
 
@@ -947,6 +974,7 @@ export class GameScene extends Phaser.Scene {
     const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200 && player.dashCharges < MAX_DASH_CHARGES;
     const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy, player.lastDashTimeMs, this._elapsedMs);
     this.ball.isPerfect = isPerfect;
+    this.ball.lastHitterEnFuego = player.enFuegoTimerMs > 0;
     if (isPerfect) this._gainHeat(who, HEAT_GAIN_PERFECT);
 
     if (this.ball.isScoop) {
@@ -1092,6 +1120,7 @@ export class GameScene extends Phaser.Scene {
     const p = who === "host" ? this.host : this.client;
     p.heat = MAX_HEAT;
     p.enFuegoTimerMs = EN_FUEGO_DURATION_MS;
+    this._totalParries++;
     this.cameras.main.flash(100, 255, 255, 255);
     this._frozenMs = 80;
     this._playEnFuegoSound();
@@ -1116,11 +1145,15 @@ export class GameScene extends Phaser.Scene {
     const isWin = this.score[scorer] >= WINNING_SCORE;
     const label = scorer === "host" ? "Red scores!" : "Blue scores!";
 
+    const bx = this.ball.x;
+    const by = this.ball.y - this.ball.z * 0.6;
+    const teamColor = scorer === "host" ? COLOR_RED : COLOR_BLUE;
+
     // Confetti explosion
     for (let i = 0; i < 100; i++) {
       this._fireParticles.push({
-        x: this.ball.x,
-        y: this.ball.y - this.ball.z * 0.6,
+        x: bx,
+        y: by,
         vx: (Math.random() - 0.5) * 1200,
         vy: (Math.random() - 0.5) * 1200,
         life: 800 + Math.random() * 400,
@@ -1128,6 +1161,36 @@ export class GameScene extends Phaser.Scene {
         size: 6 + Math.random() * 8,
       });
     }
+
+    // "Floor chip" debris
+    for (let i = 0; i < 20; i++) {
+      this._fireParticles.push({
+        x: bx,
+        y: by,
+        vx: (Math.random() - 0.5) * 600,
+        vy: (Math.random() - 0.5) * 600,
+        life: 400 + Math.random() * 200,
+        maxLife: 600,
+        size: 4 + Math.random() * 4,
+      });
+    }
+
+    // Impact shockwave ring at goal
+    const shock = this.add.graphics().setDepth(20);
+    const sData = { r: 10, a: 1 };
+    this.tweens.add({
+      targets: sData,
+      r: 150,
+      a: 0,
+      duration: 400,
+      ease: "Quad.out",
+      onUpdate: () => {
+        shock.clear();
+        shock.lineStyle(6, 0xffffff, sData.a);
+        shock.strokeCircle(bx, by, sData.r);
+      },
+      onComplete: () => shock.destroy(),
+    });
 
     this.cameras.main.flash(150, 255, 255, 255);
 
@@ -1167,9 +1230,22 @@ export class GameScene extends Phaser.Scene {
     // Overlay background
     const bg = this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30).setScrollFactor(0);
 
-    const title = this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
-    const winLabel = this.add.text(cx, cy - 40, `${winner === "host" ? "RED" : "BLUE"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
-    const streakLabel = this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const title = this.add.text(cx, cy - 110, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const winLabel = this.add.text(cx, cy - 65, `${winner === "host" ? "RED" : "BLUE"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const streakLabel = this.add.text(cx, cy - 15, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+
+    const totalFakes = (this.host.fakes || 0) + (this.client.fakes || 0);
+    const mvpStatText = `MAX SPEED: ${Math.round(this._maxBallSpeed / 10)} m/s   PARRIES: ${this._totalParries}   FAKES: ${totalFakes}`;
+    const mvpLabel = this.add.text(cx, cy + 35, mvpStatText, { fontSize: "20px", color: "#ffaa00", fontStyle: "bold", backgroundColor: "#332200", padding: { x: 10, y: 5 } }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+
+    this.tweens.add({
+      targets: mvpLabel,
+      scale: 1.05,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut"
+    });
 
     if (data.count >= 3) {
       this.tweens.add({
@@ -1231,7 +1307,7 @@ export class GameScene extends Phaser.Scene {
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
 
-    this._matchOverObjects = [bg, title, winLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
+    this._matchOverObjects = [bg, title, winLabel, streakLabel, mvpLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
     this._addUI(this._matchOverObjects);
   }
 
@@ -1318,6 +1394,33 @@ export class GameScene extends Phaser.Scene {
       gCr.connect(ctx.destination);
       oscCr.start();
       oscCr.stop(ctx.currentTime + 0.1);
+
+      // ── Net snap ──────────────────────────────────────────────────────────
+      const oscNet = ctx.createOscillator();
+      const gNet = ctx.createGain();
+      oscNet.type = "sine";
+      oscNet.frequency.setValueAtTime(800, ctx.currentTime);
+      oscNet.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.05);
+      gNet.gain.setValueAtTime(0, ctx.currentTime);
+      gNet.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.01);
+      gNet.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.08);
+      oscNet.connect(gNet);
+      gNet.connect(ctx.destination);
+      oscNet.start();
+      oscNet.stop(ctx.currentTime + 0.1);
+
+      // ── Heavy low-end thud ───────────────────────────────────────────────
+      const oscThud = ctx.createOscillator();
+      const gThud = ctx.createGain();
+      oscThud.type = "sine";
+      oscThud.frequency.setValueAtTime(60, ctx.currentTime);
+      oscThud.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 0.2);
+      gThud.gain.setValueAtTime(0.6, ctx.currentTime);
+      gThud.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2);
+      oscThud.connect(gThud);
+      gThud.connect(ctx.destination);
+      oscThud.start();
+      oscThud.stop(ctx.currentTime + 0.2);
 
       const duration = isWin ? 3.5 : 2.0;
 
@@ -1442,6 +1545,57 @@ export class GameScene extends Phaser.Scene {
       this._fireGraphics.fillCircle(p.x, p.y, p.size * t);
       return true;
     });
+  }
+
+  private _spawnFakeJuice(x: number, y: number, color: number): void {
+    // Orange "Fake" text that floats up and fades
+    const text = this.add.text(x, y - 40, "FAKE!", {
+      fontSize: "24px",
+      fontStyle: "bold",
+      color: "#ffaa00",
+      stroke: "#000000",
+      strokeThickness: 3
+    }).setOrigin(0.5).setDepth(20);
+
+    this.tweens.add({
+      targets: text,
+      y: y - 100,
+      alpha: 0,
+      duration: 600,
+      onComplete: () => text.destroy()
+    });
+
+    // Circular burst
+    const ring = this.add.graphics().setDepth(19);
+    const data = { r: 5, a: 0.8 };
+    this.tweens.add({
+      targets: data,
+      r: 60,
+      a: 0,
+      duration: 400,
+      ease: "Cubic.out",
+      onUpdate: () => {
+        ring.clear();
+        ring.lineStyle(3, color, data.a);
+        ring.strokeCircle(x, y, data.r);
+      },
+      onComplete: () => ring.destroy(),
+    });
+
+    // Ghost juice: spawns a cluster of ghosts immediately
+    const isHost = color === COLOR_RED;
+    const sprite = isHost ? this._hostSprite : this._clientSprite;
+    for (let i = 0; i < 3; i++) {
+      this._ghosts.push({
+        x: x,
+        y: y,
+        rotation: sprite.rotation,
+        frame: sprite.frame.name as unknown as number,
+        alpha: 0.6,
+        life: GameScene.GHOST_LIFETIME * 1.5,
+        color: color,
+      });
+    }
   }
 
   private _spawnPerfectJuice(x: number, y: number): void {
