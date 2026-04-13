@@ -102,20 +102,28 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
   // Straight wall collisions — top/bottom
   if (ball.y - BALL_RADIUS < FIELD_TOP) {
     ball.y = FIELD_TOP + BALL_RADIUS;
-    ball.vy = Math.abs(ball.vy) * BALL_BOUNCE;
+    const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
+    ball.vy = Math.abs(ball.vy) * bounce;
+    if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
   } else if (ball.y + BALL_RADIUS > FIELD_BOTTOM) {
     ball.y = FIELD_BOTTOM - BALL_RADIUS;
-    ball.vy = -Math.abs(ball.vy) * BALL_BOUNCE;
+    const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
+    ball.vy = -Math.abs(ball.vy) * bounce;
+    if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
   }
 
   // Straight wall collisions — end walls (always bounce; goal mouth is open
   // in physics but score was already detected above)
   if (ball.x - BALL_RADIUS < FIELD_LEFT) {
     ball.x = FIELD_LEFT + BALL_RADIUS;
-    ball.vx = Math.abs(ball.vx) * BALL_BOUNCE;
+    const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
+    ball.vx = Math.abs(ball.vx) * bounce;
+    if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
   } else if (ball.x + BALL_RADIUS > FIELD_RIGHT) {
     ball.x = FIELD_RIGHT - BALL_RADIUS;
-    ball.vx = -Math.abs(ball.vx) * BALL_BOUNCE;
+    const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
+    ball.vx = -Math.abs(ball.vx) * bounce;
+    if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
   }
 
   // Rounded corner collision — prevents ball sticking in corners
