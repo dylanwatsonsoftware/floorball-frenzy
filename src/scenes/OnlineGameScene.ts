@@ -366,6 +366,8 @@ export class OnlineGameScene extends GameScene {
     this.host.aimY = lerp(s0.state.players.host.aimY, s1.state.players.host.aimY);
     this.host.dashCooldownMs = s1.state.players.host.dashCooldownMs;
     this.host.chargeMs = s1.state.players.host.chargeMs;
+    this.host.fakes = s1.state.players.host.fakes;
+    this.host.parries = s1.state.players.host.parries;
     this.host.input = { ...s1.state.players.host.input };
 
     this._hostAim = { x: this.host.aimX, y: this.host.aimY };
@@ -382,6 +384,7 @@ export class OnlineGameScene extends GameScene {
     this.ball.isPerfect = s1.state.ball.isPerfect;
     this.ball.isBolt = s1.state.ball.isBolt;
     this.ball.boltTimerMs = s1.state.ball.boltTimerMs;
+    this.ball.lastHitterEnFuego = s1.state.ball.lastHitterEnFuego;
     this.ball.possessedBy = s1.state.ball.possessedBy;
 
     // Correct possession flags
@@ -484,6 +487,8 @@ export class OnlineGameScene extends GameScene {
           chargeMs: this.host.chargeMs,
           heat: this.host.heat,
           enFuegoTimerMs: this.host.enFuegoTimerMs,
+          fakes: this.host.fakes,
+          parries: this.host.parries,
           input: this.host.input,
         },
         client: {
@@ -496,6 +501,8 @@ export class OnlineGameScene extends GameScene {
           chargeMs: this.client.chargeMs,
           heat: this.client.heat,
           enFuegoTimerMs: this.client.enFuegoTimerMs,
+          fakes: this.client.fakes,
+          parries: this.client.parries,
           input: this.client.input,
         },
       },

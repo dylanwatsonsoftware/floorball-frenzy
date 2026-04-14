@@ -97,6 +97,8 @@ export class GameScene extends Phaser.Scene {
   protected _hostAimSmooth = { x: 1, y: 0 };
   protected _clientAimSmooth = { x: -1, y: 0 };
 
+  protected _maxBallSpeed = 0;
+
   // One-touch tracking
   private _lastTouch: LastTouch = { playerId: "", timeMs: 0 };
   protected _elapsedMs = 0; // total game time in ms
@@ -473,6 +475,11 @@ export class GameScene extends Phaser.Scene {
       this._accumulator -= FIXED_DT;
     }
 
+    const currentBallSpeed = Math.hypot(this.ball.vx, this.ball.vy);
+    if (currentBallSpeed > this._maxBallSpeed) {
+      this._maxBallSpeed = currentBallSpeed;
+    }
+
     this._updateCamera(delta);
 
     // Decay shot animation timers
@@ -721,6 +728,33 @@ export class GameScene extends Phaser.Scene {
     updateShootCharge(this._hostShoot, hostInput.slap, elapsedMs);
     updateShootCharge(this._clientShoot, clientInput.slap, elapsedMs);
 
+    // Detect Fake Shots: sudden reversal while charging
+    const checkFake = (player: PlayerExtended, input: InputState, shoot: ShootState) => {
+      if (shoot.chargeMs > 200) {
+        const dot = input.moveX * player.aimX + input.moveY * player.aimY;
+        if (dot < -0.8) {
+          // Cancel charge
+          shoot.chargeMs = 0;
+          shoot.charging = false;
+          player.fakes++;
+
+          // Speed burst
+          const len = Math.hypot(input.moveX, input.moveY);
+          if (len > 0) {
+            player.vx += (input.moveX / len) * 950 * 0.6; // 950 is DASH_FORCE
+            player.vy += (input.moveY / len) * 950 * 0.6;
+          }
+
+          // Visual feedback
+          this._spawnFakeText(player.x, player.y - 60);
+          this._gainHeat(player.id as "host" | "client", 10);
+        }
+      }
+    };
+
+    checkFake(this.host, hostInputActual, this._hostShoot);
+    checkFake(this.client, clientInputActual, this._clientShoot);
+
     this.host.chargeMs = this._hostShoot.chargeMs;
     this.client.chargeMs = this._clientShoot.chargeMs;
 
@@ -736,8 +770,14 @@ export class GameScene extends Phaser.Scene {
     resolvePlayerEnvironment(this.client);
     const hostParry = resolvePlayerBallCollision(this.host, this.ball, this._elapsedMs);
     const clientParry = resolvePlayerBallCollision(this.client, this.ball, this._elapsedMs);
-    if (hostParry) this._onParry("host");
-    if (clientParry) this._onParry("client");
+    if (hostParry) {
+      this.host.parries++;
+      this._onParry("host");
+    }
+    if (clientParry) {
+      this.client.parries++;
+      this._onParry("client");
+    }
     resolveStickTipCollision(this.host, this.ball, hostStick.x, hostStick.y);
     resolveStickTipCollision(this.client, this.ball, clientStick.x, clientStick.y);
 
@@ -947,6 +987,7 @@ export class GameScene extends Phaser.Scene {
     const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200 && player.dashCharges < MAX_DASH_CHARGES;
     const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy, player.lastDashTimeMs, this._elapsedMs);
     this.ball.isPerfect = isPerfect;
+    this.ball.lastHitterEnFuego = player.enFuegoTimerMs > 0;
     if (isPerfect) this._gainHeat(who, HEAT_GAIN_PERFECT);
 
     if (this.ball.isScoop) {
@@ -1131,6 +1172,19 @@ export class GameScene extends Phaser.Scene {
 
     this.cameras.main.flash(150, 255, 255, 255);
 
+    // Floor chips / goal sparks
+    for (let i = 0; i < 20; i++) {
+      this._fireParticles.push({
+        x: this.ball.x,
+        y: this.ball.y - this.ball.z * 0.6,
+        vx: (Math.random() - 0.5) * 600,
+        vy: (Math.random() - 0.5) * 600,
+        life: 500,
+        maxLife: 500,
+        size: 4 + Math.random() * 4,
+      });
+    }
+
     if (isWin) {
       this._messageText.setText(`${scorer === "host" ? "Red" : "Blue"} wins!`);
       this._frozenMs = 5100; // Give time for the overlay
@@ -1140,7 +1194,7 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.shake(600, 0.03);
     } else {
       this._messageText.setText(`${label}  ${this.score.host} — ${this.score.client}`);
-      this._frozenMs = 1600;
+      this._frozenMs = 1500; // Standardized hit-stop for goals
       this._isGoalPause = true;
       this.cameras.main.shake(400, 0.02);
     }
@@ -1167,9 +1221,24 @@ export class GameScene extends Phaser.Scene {
     // Overlay background
     const bg = this.add.rectangle(cx, cy, 600, 350, 0x000000, 0.9).setDepth(30).setScrollFactor(0);
 
-    const title = this.add.text(cx, cy - 100, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
-    const winLabel = this.add.text(cx, cy - 40, `${winner === "host" ? "RED" : "BLUE"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
-    const streakLabel = this.add.text(cx, cy + 20, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const title = this.add.text(cx, cy - 120, "MATCH OVER", { fontSize: "32px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    const winLabel = this.add.text(cx, cy - 70, `${winner === "host" ? "RED" : "BLUE"} TEAM WINS!`, { fontSize: "40px", color: "#ffff00", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+
+    // Stats
+    const p = winner === "host" ? this.host : this.client;
+    const statsText = `MAX SPEED: ${Math.round(this._maxBallSpeed)}  ·  PARRIES: ${p.parries}  ·  FAKES: ${p.fakes}`;
+    const statsLabel = this.add.text(cx, cy - 20, statsText, { fontSize: "18px", color: "#aaaaff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+
+    this.tweens.add({
+      targets: statsLabel,
+      scale: 1.1,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut"
+    });
+
+    const streakLabel = this.add.text(cx, cy + 25, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
 
     if (data.count >= 3) {
       this.tweens.add({
@@ -1231,7 +1300,7 @@ export class GameScene extends Phaser.Scene {
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
 
-    this._matchOverObjects = [bg, title, winLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
+    this._matchOverObjects = [bg, title, winLabel, statsLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
     this._addUI(this._matchOverObjects);
   }
 
@@ -1244,6 +1313,7 @@ export class GameScene extends Phaser.Scene {
 
   protected _resetMatch(): void {
     this.score = { host: 0, client: 0 };
+    this._maxBallSpeed = 0;
     this._resetRound();
     this._frozenMs = 0;
     this._isGoalPause = false;
@@ -1318,6 +1388,20 @@ export class GameScene extends Phaser.Scene {
       gCr.connect(ctx.destination);
       oscCr.start();
       oscCr.stop(ctx.currentTime + 0.1);
+
+      // ── Net snap: high-frequency noise burst ──────────────────────────────
+      const snLen = Math.ceil(ctx.sampleRate * 0.1);
+      const snBuf = ctx.createBuffer(1, snLen, ctx.sampleRate);
+      const snData = snBuf.getChannelData(0);
+      for (let i = 0; i < snLen; i++) snData[i] = (Math.random() * 2 - 1) * Math.exp(-i / 1000);
+      const snap = ctx.createBufferSource();
+      snap.buffer = snBuf;
+      const snGain = ctx.createGain();
+      snGain.gain.setValueAtTime(0.3, ctx.currentTime);
+      snGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      snap.connect(snGain);
+      snGain.connect(ctx.destination);
+      snap.start();
 
       const duration = isWin ? 3.5 : 2.0;
 
@@ -1441,6 +1525,26 @@ export class GameScene extends Phaser.Scene {
       this._fireGraphics.fillStyle(color, Math.min(1, t * 1.1));
       this._fireGraphics.fillCircle(p.x, p.y, p.size * t);
       return true;
+    });
+  }
+
+  private _spawnFakeText(x: number, y: number): void {
+    const txt = this.add.text(x, y, "FAKE!", {
+      fontSize: "24px",
+      color: "#ffffff",
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(20);
+
+    this.tweens.add({
+      targets: txt,
+      y: y - 40,
+      alpha: 0,
+      scale: 1.5,
+      duration: 600,
+      ease: "Cubic.out",
+      onComplete: () => txt.destroy(),
     });
   }
 
