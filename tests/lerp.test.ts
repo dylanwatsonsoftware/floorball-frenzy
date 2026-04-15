@@ -6,7 +6,7 @@ function makeInput(): InputState {
   return { moveX: 0, moveY: 0, slap: false, dash: false };
 }
 function makePlayer(x: number, y: number): Player {
-  return { id: "p", x, y, vx: 0, vy: 0, aimX: 1, aimY: 0, dashCooldownMs: 0, dashCharges: 3, lastDashTimeMs: -1000, chargeMs: 0, heat: 0, enFuegoTimerMs: 0, input: makeInput() };
+  return { id: "p", x, y, vx: 0, vy: 0, aimX: 1, aimY: 0, dashCooldownMs: 0, dashCharges: 3, lastDashTimeMs: -1000, chargeMs: 0, heat: 0, enFuegoTimerMs: 0, fakes: 0, parries: 0, input: makeInput() };
 }
 function makeState(ballX: number, score = { host: 0, client: 0 }): GameState {
   return {
