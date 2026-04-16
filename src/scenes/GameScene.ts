@@ -213,6 +213,8 @@ export class GameScene extends Phaser.Scene {
   protected _hasReceivedInput = false;
   protected _uiCam!: Phaser.Cameras.Scene2D.Camera;
 
+  private _timeScale = 1.0;
+
   protected get _isAuthoritative(): boolean {
     return this._mode === "local";
   }
@@ -469,7 +471,7 @@ export class GameScene extends Phaser.Scene {
     // Cap delta so returning from a background tab doesn't cause a
     // multi-second catch-up spiral through hundreds of fixed steps.
     const clampedDelta = Math.min(delta, 200);
-    this._accumulator += clampedDelta / 1000;
+    this._accumulator += (clampedDelta * this._timeScale) / 1000;
     while (this._accumulator >= FIXED_DT) {
       this._fixedUpdate(FIXED_DT);
       this._accumulator -= FIXED_DT;
@@ -816,7 +818,10 @@ export class GameScene extends Phaser.Scene {
     this._hostButtons.updateSlapState(localPlayer.chargeMs);
 
     if (!isClientPrediction) {
-      const goal = stepBall(this.ball, dt);
+      const { goal, wallHit } = stepBall(this.ball, dt);
+      if (wallHit) {
+        this._spawnWallHitJuice(this.ball.x, this.ball.y);
+      }
       if (goal) this._onGoal(goal);
     }
   }
@@ -992,6 +997,11 @@ export class GameScene extends Phaser.Scene {
 
     if (this.ball.isScoop) {
       this._playScoopSound();
+    }
+
+    if (this.ball.isSpike) {
+      this._spawnSpikeJuice(this.ball.x, this.ball.y - this.ball.z * 0.6);
+      this._playSpikeSound();
     }
 
     if (isBolt) {
@@ -1190,6 +1200,10 @@ export class GameScene extends Phaser.Scene {
       this._frozenMs = 5100; // Give time for the overlay
       this._isGoalPause = true;
       this._updateWinStreak(scorer);
+      this._timeScale = 0.25;
+      this.time.delayedCall(1500, () => {
+        this._timeScale = 1.0;
+      });
       this.time.delayedCall(1000, () => this._showMatchOver(scorer));
       this.cameras.main.shake(600, 0.03);
     } else {
@@ -1237,6 +1251,59 @@ export class GameScene extends Phaser.Scene {
       repeat: -1,
       ease: "Sine.easeInOut"
     });
+
+    // Rating
+    let grade = "C";
+    const totalSkill = p.parries + p.fakes;
+    const isWinnerLocal = (this._mode === "local" && winner === "host") ||
+                          (this._mode === "online" && ((this._isAuthoritative && winner === "host") || (!this._isAuthoritative && winner === "client")));
+
+    if (isWinnerLocal) {
+      grade = "B";
+      if (totalSkill >= 1) grade = "A";
+      if (totalSkill >= 3) grade = "S";
+    }
+
+    const ratingColor = grade === "S" ? "#ff00ff" : grade === "A" ? "#ffff00" : "#ffffff";
+    const ratingLabel = this.add.text(cx - 240, cy - 70, grade, {
+      fontSize: "80px",
+      color: ratingColor,
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 6
+    }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+
+    const ratingSub = this.add.text(cx - 240, cy + 10, "RATING", {
+      fontSize: "14px",
+      color: "#888888",
+      fontStyle: "bold"
+    }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+
+    if (grade === "S") {
+      const flameGfx = this.add.graphics().setDepth(31).setScrollFactor(0);
+      this.tweens.add({
+        targets: ratingLabel,
+        scale: 1.2,
+        duration: 300,
+        yoyo: true,
+        repeat: -1
+      });
+      // Draw a simple flame icon next to the S
+      const fx = cx - 240, fy = cy - 70;
+      this.time.addEvent({
+        delay: 50,
+        callback: () => {
+          flameGfx.clear();
+          flameGfx.fillStyle(0xffaa00, 0.6);
+          for(let i=0; i<3; i++) {
+            const ox = (Math.random()-0.5)*40;
+            const oy = (Math.random()-0.5)*40;
+            flameGfx.fillCircle(fx + ox, fy + oy, 10 + Math.random()*10);
+          }
+        },
+        repeat: -1
+      });
+    }
 
     const streakLabel = this.add.text(cx, cy + 25, streakText, { fontSize: "24px", color: "#00cc66", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
 
@@ -1300,7 +1367,7 @@ export class GameScene extends Phaser.Scene {
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
 
-    this._matchOverObjects = [bg, title, winLabel, statsLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
+    this._matchOverObjects = [bg, title, winLabel, statsLabel, streakLabel, ratingLabel, ratingSub, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
     this._addUI(this._matchOverObjects);
   }
 
@@ -1548,25 +1615,84 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private _spawnPerfectJuice(x: number, y: number): void {
-    this.cameras.main.shake(150, 0.005);
+  private _spawnSpikeJuice(x: number, y: number): void {
+    this.cameras.main.shake(200, 0.012);
+    const txt = this.add.text(x, y - 60, "SPIKE!", {
+      fontSize: "32px",
+      color: "#ff00ff",
+      fontStyle: "bold",
+      stroke: "#ffffff",
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(20);
 
-    // Expanding shockwave ring
+    this.tweens.add({
+      targets: txt,
+      y: y - 100,
+      alpha: 0,
+      scale: 2,
+      duration: 600,
+      ease: "Cubic.out",
+      onComplete: () => txt.destroy(),
+    });
+
+    // Vertical slash particle effect
+    for (let i = 0; i < 15; i++) {
+      this._fireParticles.push({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + (Math.random() - 0.5) * 100,
+        vx: (Math.random() - 0.5) * 100,
+        vy: 400 + Math.random() * 400,
+        life: 300,
+        maxLife: 300,
+        size: 8 + Math.random() * 8,
+      });
+    }
+  }
+
+  private _playSpikeSound(): void {
+    try {
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.15);
+      g.gain.setValueAtTime(0.3, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+    } catch { /* audio not available */ }
+  }
+
+  private _spawnWallHitJuice(x: number, y: number): void {
+    this.cameras.main.shake(150, 0.01);
+    this._spawnShockwave(x, y, 0xffaa00);
+  }
+
+  private _spawnShockwave(x: number, y: number, color = 0xffffff): void {
     const ring = this.add.graphics().setDepth(20);
     const data = { r: 10, a: 1 };
     this.tweens.add({
       targets: data,
-      r: 100,
+      r: 120,
       a: 0,
-      duration: 300,
+      duration: 350,
       ease: "Cubic.out",
       onUpdate: () => {
         ring.clear();
-        ring.lineStyle(4, 0xffffff, data.a);
+        ring.lineStyle(4, color, data.a);
         ring.strokeCircle(x, y, data.r);
       },
       onComplete: () => ring.destroy(),
     });
+  }
+
+  private _spawnPerfectJuice(x: number, y: number): void {
+    this.cameras.main.shake(150, 0.005);
+    this._spawnShockwave(x, y, 0xffffff);
   }
 
   /** Draw a floorball at local coords (cx, cy) into gfx with given radius and quaternion. */

@@ -91,7 +91,7 @@ describe("stepBall — wall collisions", () => {
     // Ball is behind left goal, moving right (exiting) — should NOT score
     const ball = makeBall({ x: FIELD_LEFT + 10, y: goalMidY, z: 0, vx: 200 });
     const result = stepBall(ball, FIXED_DT);
-    expect(result).toBeNull();
+    expect(result.goal).toBeNull();
   });
 });
 
@@ -100,14 +100,14 @@ describe("stepBall — goal detection (at goal line, not end wall)", () => {
     const goalMidY = (GOAL_TOP + GOAL_BOTTOM) / 2;
     const ball = makeBall({ x: GOAL_LINE_LEFT + 1, y: goalMidY, z: 0, vx: -300 });
     const result = stepBall(ball, FIXED_DT);
-    expect(result).toBe("client");
+    expect(result.goal).toBe("client");
   });
 
   it("returns 'host' when ball crosses right goal line going right (red net, blue scores)", () => {
     const goalMidY = (GOAL_TOP + GOAL_BOTTOM) / 2;
     const ball = makeBall({ x: GOAL_LINE_RIGHT - 1, y: goalMidY, z: 0, vx: 300 });
     const result = stepBall(ball, FIXED_DT);
-    expect(result).toBe("host");
+    expect(result.goal).toBe("host");
   });
 
   it("returns null when ball is above goal z threshold", () => {
@@ -115,20 +115,20 @@ describe("stepBall — goal detection (at goal line, not end wall)", () => {
     // GOAL_Z_THRESHOLD is now 4800, so 300 is below it.
     const ball = makeBall({ x: GOAL_LINE_LEFT - 5, y: goalMidY, z: 5000, vx: -300 });
     const result = stepBall(ball, FIXED_DT);
-    expect(result).toBeNull();
+    expect(result.goal).toBeNull();
   });
 
   it("returns null when ball is outside goal mouth y range", () => {
     const ball = makeBall({ x: GOAL_LINE_LEFT - 5, y: FIELD_TOP + 5, z: 0, vx: -300 });
     const result = stepBall(ball, FIXED_DT);
-    expect(result).toBeNull();
+    expect(result.goal).toBeNull();
   });
 
   it("does NOT score when ball behind goal is moving toward field (vx > 0)", () => {
     const goalMidY = (GOAL_TOP + GOAL_BOTTOM) / 2;
     const ball = makeBall({ x: FIELD_LEFT + 10, y: goalMidY, z: 0, vx: 300 });
     const result = stepBall(ball, FIXED_DT);
-    expect(result).toBeNull();
+    expect(result.goal).toBeNull();
   });
 });
 

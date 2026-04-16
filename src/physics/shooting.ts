@@ -81,7 +81,19 @@ export function releaseShot(
 
   ball.vx = nx * power + playerVx;
   ball.vy = ny * power + playerVy;
-  ball.vz = isScoop ? SCOOP_LIFT : (chargeFrac * SHOOT_LIFT_SCALE);
+
+  const isSpike = ball.z > 40;
+  if (isSpike) {
+    // Apex Redirect (Spike): Invert and double downward velocity + 1.2x horizontal boost
+    ball.vz = -Math.abs(ball.vz) * 2;
+    ball.vx *= 1.2;
+    ball.vy *= 1.2;
+    ball.isSpike = true;
+  } else {
+    ball.vz = isScoop ? SCOOP_LIFT : (chargeFrac * SHOOT_LIFT_SCALE);
+    ball.isSpike = false;
+  }
+
   ball.isScoop = isScoop;
   ball.isTrailblazer = isTrailblazer;
   if (isScoop) {
