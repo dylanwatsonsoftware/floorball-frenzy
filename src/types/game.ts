@@ -47,6 +47,7 @@ export interface Ball {
   boltTimerMs?: number;
   isScoop?: boolean;
   scoopTimerMs?: number;
+  isSpike?: boolean;
   lastHitterEnFuego?: boolean;
   possessedBy: string | null;
 }

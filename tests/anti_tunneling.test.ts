@@ -29,6 +29,6 @@ describe("stepBall — goal anti-tunneling", () => {
     // 1114 - 10 = 1104. 1104 > 1086. Correct, it would have been missed if we only checked current position.
 
     const result = stepBall(ball, 1/60);
-    expect(result).toBe("host");
+    expect(result.goal).toBe("host");
   });
 });

@@ -21,11 +21,17 @@ import {
 
 export type GoalEvent = "host" | "client" | null;
 
+export interface StepBallResult {
+  goal: GoalEvent;
+  wallHit: boolean;
+}
+
 /**
  * Advance ball state by one timestep dt (seconds).
- * Returns which side scored ("host" | "client") or null.
+ * Returns goal event and wall impact flag.
  */
-export function stepBall(ball: Ball, dt: number): GoalEvent {
+export function stepBall(ball: Ball, dt: number): StepBallResult {
+  let wallHit = false;
   const oldX = ball.x;
   const elapsedMs = dt * 1000;
   if (ball.boltTimerMs && ball.boltTimerMs > 0) {
@@ -55,7 +61,7 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
 
   // Goal detection (at goal line — only scores if entering through the mouth)
   const goal = checkGoal(ball, oldX);
-  if (goal) return goal;
+  if (goal) return { goal, wallHit: false };
 
   // ── Goal cage physics ──────────────────────────────────────────────────────
   // The cage box is open at the front (goal mouth). Ball enters only through
@@ -104,12 +110,18 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
     ball.y = FIELD_TOP + BALL_RADIUS;
     const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
     ball.vy = Math.abs(ball.vy) * bounce;
-    if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+    if (ball.lastHitterEnFuego) {
+      ball.lastHitterEnFuego = false;
+      wallHit = true;
+    }
   } else if (ball.y + BALL_RADIUS > FIELD_BOTTOM) {
     ball.y = FIELD_BOTTOM - BALL_RADIUS;
     const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
     ball.vy = -Math.abs(ball.vy) * bounce;
-    if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+    if (ball.lastHitterEnFuego) {
+      ball.lastHitterEnFuego = false;
+      wallHit = true;
+    }
   }
 
   // Straight wall collisions — end walls (always bounce; goal mouth is open
@@ -118,18 +130,27 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
     ball.x = FIELD_LEFT + BALL_RADIUS;
     const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
     ball.vx = Math.abs(ball.vx) * bounce;
-    if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+    if (ball.lastHitterEnFuego) {
+      ball.lastHitterEnFuego = false;
+      wallHit = true;
+    }
   } else if (ball.x + BALL_RADIUS > FIELD_RIGHT) {
     ball.x = FIELD_RIGHT - BALL_RADIUS;
     const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
     ball.vx = -Math.abs(ball.vx) * bounce;
-    if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+    if (ball.lastHitterEnFuego) {
+      ball.lastHitterEnFuego = false;
+      wallHit = true;
+    }
   }
 
   // Rounded corner collision — prevents ball sticking in corners
-  resolveCorners(ball);
+  if (resolveCorners(ball) && ball.lastHitterEnFuego) {
+    ball.lastHitterEnFuego = false;
+    wallHit = true;
+  }
 
-  return null;
+  return { goal: null, wallHit };
 }
 
 function checkGoal(ball: Ball, oldX: number): GoalEvent {
@@ -156,8 +177,10 @@ function checkGoal(ball: Ball, oldX: number): GoalEvent {
  * Push the ball away from rounded corners.
  * Corner arcs have radius CORNER_RADIUS centred at the four inset corners.
  * Ball centre must stay within CORNER_RADIUS - BALL_RADIUS from each arc centre.
+ * Returns true if a collision was resolved.
  */
-function resolveCorners(ball: Ball): void {
+function resolveCorners(ball: Ball): boolean {
+  let hit = false;
   const R = CORNER_RADIUS;
   const minDist = R - BALL_RADIUS;
 
@@ -192,9 +215,10 @@ function resolveCorners(ball: Ball): void {
       const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
       ball.vx -= (1 + bounce) * outwardVel * nx;
       ball.vy -= (1 + bounce) * outwardVel * ny;
-      if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+      hit = true;
     }
   }
+  return hit;
 }
 
 /**
