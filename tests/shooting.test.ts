@@ -22,6 +22,47 @@ describe("createShootState", () => {
   });
 });
 
+describe("releaseShot — Kinetic Redirect", () => {
+  it("detects redirect on fast incoming ball with sharp angle", () => {
+    const s = createShootState();
+    s.chargeMs = 100; // low charge
+    const ball = makeBall();
+    ball.vx = 0;
+    ball.vy = 500; // fast incoming
+
+    // aim right (1, 0). incoming is (0, 500). dot product 0.
+    releaseShot(s, ball, 1, 0, false);
+
+    expect(ball.isRedirect).toBe(true);
+    expect(ball.vx).toBeGreaterThan(500); // 500 base power + boost
+  });
+
+  it("does not redirect if angle is too shallow", () => {
+    const s = createShootState();
+    s.chargeMs = 100;
+    const ball = makeBall();
+    ball.vx = 400;
+    ball.vy = 300; // speed 500, direction (0.8, 0.6)
+
+    // aim similar direction (0.8, 0.6). dot product 1.
+    releaseShot(s, ball, 0.8, 0.6, false);
+
+    expect(ball.isRedirect).toBe(false);
+  });
+
+  it("does not redirect if charge is too high", () => {
+    const s = createShootState();
+    s.chargeMs = 300; // too high
+    const ball = makeBall();
+    ball.vx = 0;
+    ball.vy = 500;
+
+    releaseShot(s, ball, 1, 0, false);
+
+    expect(ball.isRedirect).toBe(false);
+  });
+});
+
 describe("updateShootCharge", () => {
   it("accumulates charge while slap is held", () => {
     const s = createShootState();

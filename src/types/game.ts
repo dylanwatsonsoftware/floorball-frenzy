@@ -44,6 +44,7 @@ export interface Ball {
   isPerfect?: boolean;
   isBolt?: boolean;
   isTrailblazer?: boolean;
+  isRedirect?: boolean;
   boltTimerMs?: number;
   isScoop?: boolean;
   scoopTimerMs?: number;

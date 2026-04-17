@@ -210,6 +210,8 @@ export class GameScene extends Phaser.Scene {
   protected _camZoom = 1;
   protected _camX = 640;
   protected _camY = 360;
+  protected _camKickX = 0;
+  protected _camKickY = 0;
   protected _hasReceivedInput = false;
   protected _uiCam!: Phaser.Cameras.Scene2D.Camera;
 
@@ -635,6 +637,11 @@ export class GameScene extends Phaser.Scene {
     this._camY += (targetY - this._camY) * lerpPos;
     this._camZoom += (targetZoom - this._camZoom) * lerpZoom;
 
+    // Decay camera kick
+    const kickDecay = 1 - Math.pow(0.0001, deltaMs / 1000);
+    this._camKickX *= (1 - kickDecay);
+    this._camKickY *= (1 - kickDecay);
+
     cam.setZoom(this._camZoom);
 
     // Keep camera bounds within the world, taking zoom into account
@@ -661,8 +668,8 @@ export class GameScene extends Phaser.Scene {
       maxCamY = worldH - viewH / 2;
     }
 
-    const centerX = Phaser.Math.Clamp(this._camX, minCamX, maxCamX);
-    const centerY = Phaser.Math.Clamp(this._camY, minCamY, maxCamY);
+    const centerX = Phaser.Math.Clamp(this._camX + this._camKickX, minCamX, maxCamX);
+    const centerY = Phaser.Math.Clamp(this._camY + this._camKickY, minCamY, maxCamY);
 
     cam.centerOn(centerX, centerY);
   }
@@ -705,8 +712,30 @@ export class GameScene extends Phaser.Scene {
     stepPlayer(this.host, hostInputActual, dt, elapsedMs, this._elapsedMs);
     stepPlayer(this.client, clientInputActual, dt, elapsedMs, this._elapsedMs);
 
-    if (this.host.dashCharges < hostDashBefore) this._gainHeat("host", HEAT_GAIN_DASH);
-    if (this.client.dashCharges < clientDashBefore) this._gainHeat("client", HEAT_GAIN_DASH);
+    if (this.host.dashCharges < hostDashBefore) {
+      this._gainHeat("host", HEAT_GAIN_DASH);
+      if (this.host.enFuegoTimerMs > 0) this._emitShockwave(this.host);
+      if (this._mode === "local" || this._isAuthoritative) {
+        const len = Math.hypot(this.host.vx, this.host.vy);
+        if (len > 0) {
+          this._camKickX = (this.host.vx / len) * 35;
+          this._camKickY = (this.host.vy / len) * 35;
+        }
+        this._playDashSound();
+      }
+    }
+    if (this.client.dashCharges < clientDashBefore) {
+      this._gainHeat("client", HEAT_GAIN_DASH);
+      if (this.client.enFuegoTimerMs > 0) this._emitShockwave(this.client);
+      if (this._mode === "online" && !this._isAuthoritative) {
+        const len = Math.hypot(this.client.vx, this.client.vy);
+        if (len > 0) {
+          this._camKickX = (this.client.vx / len) * 35;
+          this._camKickY = (this.client.vy / len) * 35;
+        }
+        this._playDashSound();
+      }
+    }
 
     this.host.aimX = this._hostAimSmooth.x;
     this.host.aimY = this._hostAimSmooth.y;
@@ -1004,9 +1033,13 @@ export class GameScene extends Phaser.Scene {
       this.ball.boltTimerMs = 0;
     }
 
-    if (isPerfect || isBolt) {
+    if (isPerfect || isBolt || this.ball.isRedirect) {
       this._spawnPerfectJuice(this.ball.x, this.ball.y);
       this._frozenMs = isPerfect ? 50 : 30; // Hit-stop
+      if (this.ball.isRedirect) {
+        this._spawnRedirectText(this.ball.x, this.ball.y - 40);
+        this._frozenMs = 40;
+      }
     }
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
@@ -1259,6 +1292,15 @@ export class GameScene extends Phaser.Scene {
     this._rematchBtn = rematchBtn;
     this._rematchBtnText = rematchText;
 
+    const readyTxt = this.add.text(cx, cy + 60, "READY?", { fontSize: "16px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+    this.tweens.add({
+      targets: readyTxt,
+      alpha: 0.3,
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+    });
+
     rematchBtn.on("pointerover", () => { rematchBtn.setScale(1.05); rematchBtn.setFillStyle(0x00ee77); });
     rematchBtn.on("pointerout", () => { rematchBtn.setScale(1.0); rematchBtn.setFillStyle(0x00cc66); });
 
@@ -1300,7 +1342,7 @@ export class GameScene extends Phaser.Scene {
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
 
-    this._matchOverObjects = [bg, title, winLabel, statsLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
+    this._matchOverObjects = [bg, title, winLabel, statsLabel, streakLabel, this._rematchBtn, this._rematchBtnText, readyTxt, menuBtn, menuText];
     this._addUI(this._matchOverObjects);
   }
 
@@ -1350,6 +1392,24 @@ export class GameScene extends Phaser.Scene {
       g.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.5);
+    } catch { /* audio not available */ }
+  }
+
+  private _playDashSound(): void {
+    try {
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1600, ctx.currentTime + 0.1);
+      g.gain.setValueAtTime(0.15, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
     } catch { /* audio not available */ }
   }
 
@@ -1479,6 +1539,29 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // Wind Streaks for Dashing players
+    const DASH_BURST = DASH_COOLDOWN - 300;
+    const addWindStreak = (player: PlayerExtended) => {
+      if (player.dashCooldownMs > DASH_BURST && player.dashCharges < MAX_DASH_CHARGES) {
+        const pSpeed = Math.hypot(player.vx, player.vy);
+        if (pSpeed > 100) {
+          const wvx = -player.vx / pSpeed;
+          const wvy = -player.vy / pSpeed;
+          this._fireParticles.push({
+            x: player.x + (Math.random() - 0.5) * 20,
+            y: player.y + (Math.random() - 0.5) * 20,
+            vx: wvx * (400 + Math.random() * 200),
+            vy: wvy * (400 + Math.random() * 200),
+            life: 150 + Math.random() * 100,
+            maxLife: 250,
+            size: 2 + Math.random() * 2,
+          });
+        }
+      }
+    };
+    addWindStreak(this.host);
+    addWindStreak(this.client);
+
     // Update and draw
     const dt = deltaMs / 1000;
     this._fireGraphics.clear();
@@ -1508,7 +1591,7 @@ export class GameScene extends Phaser.Scene {
         const g = 200 + Math.round(t * 55);
         const b = Math.round(t * 150);
         color = (r << 16) | (g << 8) | b;
-      } else if (this.ball.isTrailblazer) {
+      } else if (this.ball.isTrailblazer || this.ball.isRedirect) {
         // Cyan to White
         const g = 255;
         const b = 255;
@@ -1546,6 +1629,70 @@ export class GameScene extends Phaser.Scene {
       ease: "Cubic.out",
       onComplete: () => txt.destroy(),
     });
+  }
+
+  private _spawnRedirectText(x: number, y: number): void {
+    const txt = this.add.text(x, y, "REDIRECT!", {
+      fontSize: "28px",
+      color: "#00ffff",
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(20);
+
+    this.tweens.add({
+      targets: txt,
+      y: y - 60,
+      alpha: 0,
+      scale: 1.8,
+      duration: 700,
+      ease: "Back.out",
+      onComplete: () => txt.destroy(),
+    });
+  }
+
+  private _emitShockwave(player: PlayerExtended): void {
+    const SHOCKWAVE_RADIUS = 150;
+    const SHOCKWAVE_FORCE = 800;
+
+    // Push Ball
+    const dxB = this.ball.x - player.x;
+    const dyB = this.ball.y - player.y;
+    const distB = Math.hypot(dxB, dyB);
+    if (distB < SHOCKWAVE_RADIUS && distB > 0) {
+      const force = (1 - distB / SHOCKWAVE_RADIUS) * SHOCKWAVE_FORCE;
+      this.ball.vx += (dxB / distB) * force;
+      this.ball.vy += (dyB / distB) * force;
+    }
+
+    // Push Opponent
+    const other = player.id === "host" ? this.client : this.host;
+    const dxO = other.x - player.x;
+    const dyO = other.y - player.y;
+    const distO = Math.hypot(dxO, dyO);
+    if (distO < SHOCKWAVE_RADIUS && distO > 0) {
+      const force = (1 - distO / SHOCKWAVE_RADIUS) * SHOCKWAVE_FORCE * 0.5;
+      other.vx += (dxO / distO) * force;
+      other.vy += (dyO / distO) * force;
+    }
+
+    // Visual effect
+    const ring = this.add.graphics().setDepth(20);
+    const data = { r: 10, a: 0.8 };
+    this.tweens.add({
+      targets: data,
+      r: SHOCKWAVE_RADIUS,
+      a: 0,
+      duration: 400,
+      ease: "Cubic.out",
+      onUpdate: () => {
+        ring.clear();
+        ring.lineStyle(6, 0xffffff, data.a);
+        ring.strokeCircle(player.x, player.y, data.r);
+      },
+      onComplete: () => ring.destroy(),
+    });
+    this.cameras.main.shake(200, 0.01);
   }
 
   private _spawnPerfectJuice(x: number, y: number): void {
@@ -1735,8 +1882,22 @@ export class GameScene extends Phaser.Scene {
     const clientHasBall = this._clientHasPossession;
     const toggleFrame = Math.floor(this.time.now / 200) % 2;
 
+    const applySquashStretch = (sprite: Phaser.GameObjects.Sprite, player: PlayerExtended) => {
+      const DASH_BURST = DASH_COOLDOWN - 200;
+      if (player.dashCooldownMs > DASH_BURST && player.dashCharges < MAX_DASH_CHARGES) {
+        // Squash and stretch during dash
+        const t = (DASH_COOLDOWN - player.dashCooldownMs) / 200; // 0 to 1
+        const scaleY = 1.26 * (1 + 0.3 * Math.sin(t * Math.PI));
+        const scaleX = 1.26 * (1 - 0.15 * Math.sin(t * Math.PI));
+        sprite.setScale(scaleX, scaleY);
+      } else {
+        sprite.setScale(1.26);
+      }
+    };
+
     this._hostSprite.setPosition(this.host.x, this.host.y);
     this._hostSprite.setRotation(Math.atan2(this._hostAimSmooth.y, this._hostAimSmooth.x) - Math.PI / 2);
+    applySquashStretch(this._hostSprite, this.host);
     if (this.host.enFuegoTimerMs > 0) {
       const p = 0.7 + 0.3 * Math.sin(this.time.now / 50);
       this._hostSprite.setTint(0xffaa00).setAlpha(p);
@@ -1756,6 +1917,7 @@ export class GameScene extends Phaser.Scene {
 
     this._clientSprite.setPosition(this.client.x, this.client.y);
     this._clientSprite.setRotation(Math.atan2(this._clientAimSmooth.y, this._clientAimSmooth.x) - Math.PI / 2);
+    applySquashStretch(this._clientSprite, this.client);
     if (this.client.enFuegoTimerMs > 0) {
       const p = 0.7 + 0.3 * Math.sin(this.time.now / 50);
       this._clientSprite.setTint(0xffaa00).setAlpha(p);

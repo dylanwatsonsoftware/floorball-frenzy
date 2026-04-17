@@ -4,8 +4,7 @@
 
 [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
-  VITE v5.4.21  ready in 351 ms
+  VITE v5.4.21  ready in 315 ms
 
   ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose
-8:50:30 PM [vite] page reload src/net/messages.ts
