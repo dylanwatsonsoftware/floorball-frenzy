@@ -63,6 +63,20 @@ export function releaseShot(
   const isPerfect = Math.abs(state.chargeMs - SHOOT_MAX_CHARGE_MS) < PERFECT_SHOT_WINDOW;
   const isTrailblazer = totalTimeMs - lastDashTimeMs < TRAILBLAZER_WINDOW_MS;
 
+  // Kinetic Redirect: high-timing wrist shot on fast incoming ball
+  const incomingSpeed = Math.hypot(ball.vx, ball.vy);
+  let isRedirect = false;
+  if (incomingSpeed > 400 && state.chargeMs < 200) {
+    const len = Math.hypot(aimX, aimY);
+    if (len > 0 && incomingSpeed > 0) {
+      const dot = (ball.vx * aimX + ball.vy * aimY) / (incomingSpeed * len);
+      // If dot < 0.34 (cos 70°), it's a sharp angle deflection
+      if (dot < 0.34) {
+        isRedirect = true;
+      }
+    }
+  }
+
   const t = Math.min(state.chargeMs / SHOOT_MAX_CHARGE_MS, 2); // 0..2
   // Triangle: ramp up 0→1, ramp down 1→2
   const chargeFrac = t <= 1 ? t : 2 - t;
@@ -70,6 +84,7 @@ export function releaseShot(
   if (oneTouch) power *= ONE_TOUCH_MULTIPLIER;
   if (isPerfect) power *= PERFECT_SHOT_BOOST;
   if (isTrailblazer) power *= TRAILBLAZER_BOOST;
+  if (isRedirect) power *= 1.2;
 
   const len = Math.hypot(aimX, aimY);
   const nx = len > 0 ? aimX / len : 1;
@@ -84,6 +99,7 @@ export function releaseShot(
   ball.vz = isScoop ? SCOOP_LIFT : (chargeFrac * SHOOT_LIFT_SCALE);
   ball.isScoop = isScoop;
   ball.isTrailblazer = isTrailblazer;
+  ball.isRedirect = isRedirect;
   if (isScoop) {
     ball.scoopTimerMs = 800;
   }
