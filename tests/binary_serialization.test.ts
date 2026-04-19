@@ -43,6 +43,7 @@ describe("Binary Serialization", () => {
         enFuegoTimerMs: 0,
         fakes: 0,
         parries: 0,
+        rebounds: 0,
         input: { ...mockInput, slap: true },
       },
       client: {
@@ -61,6 +62,7 @@ describe("Binary Serialization", () => {
         enFuegoTimerMs: 5000,
         fakes: 0,
         parries: 0,
+        rebounds: 0,
         input: mockInput,
       },
     },

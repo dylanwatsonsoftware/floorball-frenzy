@@ -368,6 +368,7 @@ export class OnlineGameScene extends GameScene {
     this.host.chargeMs = s1.state.players.host.chargeMs;
     this.host.fakes = s1.state.players.host.fakes;
     this.host.parries = s1.state.players.host.parries;
+    this.host.rebounds = s1.state.players.host.rebounds;
     this.host.input = { ...s1.state.players.host.input };
 
     this._hostAim = { x: this.host.aimX, y: this.host.aimY };
@@ -489,6 +490,7 @@ export class OnlineGameScene extends GameScene {
           enFuegoTimerMs: this.host.enFuegoTimerMs,
           fakes: this.host.fakes,
           parries: this.host.parries,
+          rebounds: this.host.rebounds,
           input: this.host.input,
         },
         client: {
@@ -503,6 +505,7 @@ export class OnlineGameScene extends GameScene {
           enFuegoTimerMs: this.client.enFuegoTimerMs,
           fakes: this.client.fakes,
           parries: this.client.parries,
+          rebounds: this.client.rebounds,
           input: this.client.input,
         },
       },
