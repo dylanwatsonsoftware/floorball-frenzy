@@ -93,6 +93,9 @@ export const TRAILBLAZER_BOOST = 1.2;
 export const PARRY_WINDOW_MS = 150;
 export const PARRY_VELOCITY_MULTIPLIER = 1.5;
 
+export const REBOUND_WINDOW_MS = 300;
+export const REBOUND_BOOST = 1.3;
+
 // ─── Heat & En Fuego ──────────────────────────────────────────────────────────
 export const MAX_HEAT = 100;
 export const HEAT_GAIN_PERFECT = 30;
@@ -102,6 +105,8 @@ export const HEAT_GAIN_GOAL = 50;
 export const HEAT_DECAY_RATE = 2; // per second
 export const EN_FUEGO_DURATION_MS = 8000;
 export const EN_FUEGO_SPEED_BOOST = 1.2;
+export const EN_FUEGO_PULL_BOOST = 2.0;
+export const EN_FUEGO_ZONE_BOOST = 1.5;
 
 // ─── Scoop Shot ──────────────────────────────────────────────────────────────
 export const SCOOP_CHARGE_WINDOW = 250;

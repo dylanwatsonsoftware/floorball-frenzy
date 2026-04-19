@@ -25,12 +25,16 @@ export type GoalEvent = "host" | "client" | null;
  * Advance ball state by one timestep dt (seconds).
  * Returns which side scored ("host" | "client") or null.
  */
-export function stepBall(ball: Ball, dt: number): GoalEvent {
+export function stepBall(ball: Ball, dt: number, totalTimeMs = 0): GoalEvent {
   const oldX = ball.x;
   const elapsedMs = dt * 1000;
   if (ball.boltTimerMs && ball.boltTimerMs > 0) {
     ball.boltTimerMs = Math.max(0, ball.boltTimerMs - elapsedMs);
     if (ball.boltTimerMs === 0) ball.isBolt = false;
+  }
+  if (ball.reboundTimerMs && ball.reboundTimerMs > 0) {
+    ball.reboundTimerMs = Math.max(0, ball.reboundTimerMs - elapsedMs);
+    if (ball.reboundTimerMs === 0) ball.isRebound = false;
   }
 
   // Vertical (z) physics
@@ -105,11 +109,13 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
     const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
     ball.vy = Math.abs(ball.vy) * bounce;
     if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+    ball.lastWallHitTimeMs = totalTimeMs;
   } else if (ball.y + BALL_RADIUS > FIELD_BOTTOM) {
     ball.y = FIELD_BOTTOM - BALL_RADIUS;
     const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
     ball.vy = -Math.abs(ball.vy) * bounce;
     if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+    ball.lastWallHitTimeMs = totalTimeMs;
   }
 
   // Straight wall collisions — end walls (always bounce; goal mouth is open
@@ -119,15 +125,17 @@ export function stepBall(ball: Ball, dt: number): GoalEvent {
     const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
     ball.vx = Math.abs(ball.vx) * bounce;
     if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+    ball.lastWallHitTimeMs = totalTimeMs;
   } else if (ball.x + BALL_RADIUS > FIELD_RIGHT) {
     ball.x = FIELD_RIGHT - BALL_RADIUS;
     const bounce = ball.lastHitterEnFuego ? 1.0 : BALL_BOUNCE;
     ball.vx = -Math.abs(ball.vx) * bounce;
     if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+    ball.lastWallHitTimeMs = totalTimeMs;
   }
 
   // Rounded corner collision — prevents ball sticking in corners
-  resolveCorners(ball);
+  resolveCorners(ball, totalTimeMs);
 
   return null;
 }
@@ -157,7 +165,7 @@ function checkGoal(ball: Ball, oldX: number): GoalEvent {
  * Corner arcs have radius CORNER_RADIUS centred at the four inset corners.
  * Ball centre must stay within CORNER_RADIUS - BALL_RADIUS from each arc centre.
  */
-function resolveCorners(ball: Ball): void {
+function resolveCorners(ball: Ball, totalTimeMs: number): void {
   const R = CORNER_RADIUS;
   const minDist = R - BALL_RADIUS;
 
@@ -193,6 +201,7 @@ function resolveCorners(ball: Ball): void {
       ball.vx -= (1 + bounce) * outwardVel * nx;
       ball.vy -= (1 + bounce) * outwardVel * ny;
       if (ball.lastHitterEnFuego) ball.lastHitterEnFuego = false;
+      ball.lastWallHitTimeMs = totalTimeMs;
     }
   }
 }

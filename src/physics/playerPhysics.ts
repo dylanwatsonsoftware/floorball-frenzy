@@ -118,6 +118,7 @@ export function createPlayer(id: string, x: number, y: number): PlayerExtended {
     enFuegoTimerMs: 0,
     fakes: 0,
     parries: 0,
+    rebounds: 0,
     input: { moveX: 0, moveY: 0, slap: false, dash: false },
   };
 }

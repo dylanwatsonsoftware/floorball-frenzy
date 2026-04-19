@@ -43,6 +43,7 @@ describe("Binary Serialization", () => {
         enFuegoTimerMs: 0,
         fakes: 0,
         parries: 0,
+        rebounds: 0,
         input: { ...mockInput, slap: true },
       },
       client: {
@@ -61,6 +62,7 @@ describe("Binary Serialization", () => {
         enFuegoTimerMs: 5000,
         fakes: 0,
         parries: 0,
+        rebounds: 0,
         input: mockInput,
       },
     },
@@ -70,7 +72,7 @@ describe("Binary Serialization", () => {
   it("encodes and decodes a GameState snapshot accurately", () => {
     const encoded = encodeMessage({ type: "state", snapshot: mockState });
     expect(encoded).toBeInstanceOf(Uint8Array);
-    expect((encoded as Uint8Array).length).toBe(155);
+    expect((encoded as Uint8Array).length).toBe(165);
 
     const decoded = decodeMessage(encoded);
     expect(decoded?.type).toBe("state");

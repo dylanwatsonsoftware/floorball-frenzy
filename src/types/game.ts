@@ -31,6 +31,7 @@ export interface Player {
   enFuegoTimerMs: number;
   fakes: number;
   parries: number;
+  rebounds: number;
   input: InputState;
 }
 
@@ -47,6 +48,9 @@ export interface Ball {
   boltTimerMs?: number;
   isScoop?: boolean;
   scoopTimerMs?: number;
+  lastWallHitTimeMs?: number;
+  isRebound?: boolean;
+  reboundTimerMs?: number;
   lastHitterEnFuego?: boolean;
   possessedBy: string | null;
 }

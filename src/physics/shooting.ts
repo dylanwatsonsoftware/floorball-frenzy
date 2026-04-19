@@ -11,6 +11,8 @@ import {
   SCOOP_LIFT,
   TRAILBLAZER_WINDOW_MS,
   TRAILBLAZER_BOOST,
+  REBOUND_WINDOW_MS,
+  REBOUND_BOOST,
 } from "./constants";
 
 export interface ShootState {
@@ -62,6 +64,7 @@ export function releaseShot(
 ): boolean {
   const isPerfect = Math.abs(state.chargeMs - SHOOT_MAX_CHARGE_MS) < PERFECT_SHOT_WINDOW;
   const isTrailblazer = totalTimeMs - lastDashTimeMs < TRAILBLAZER_WINDOW_MS;
+  const isRebound = totalTimeMs - (ball.lastWallHitTimeMs || -1000) < REBOUND_WINDOW_MS;
 
   const t = Math.min(state.chargeMs / SHOOT_MAX_CHARGE_MS, 2); // 0..2
   // Triangle: ramp up 0→1, ramp down 1→2
@@ -70,6 +73,7 @@ export function releaseShot(
   if (oneTouch) power *= ONE_TOUCH_MULTIPLIER;
   if (isPerfect) power *= PERFECT_SHOT_BOOST;
   if (isTrailblazer) power *= TRAILBLAZER_BOOST;
+  if (isRebound) power *= REBOUND_BOOST;
 
   const len = Math.hypot(aimX, aimY);
   const nx = len > 0 ? aimX / len : 1;
@@ -84,6 +88,10 @@ export function releaseShot(
   ball.vz = isScoop ? SCOOP_LIFT : (chargeFrac * SHOOT_LIFT_SCALE);
   ball.isScoop = isScoop;
   ball.isTrailblazer = isTrailblazer;
+  ball.isRebound = isRebound;
+  if (isRebound) {
+    ball.reboundTimerMs = 500;
+  }
   if (isScoop) {
     ball.scoopTimerMs = 800;
   }
