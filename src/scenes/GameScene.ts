@@ -59,6 +59,8 @@ import {
   EN_FUEGO_DURATION_MS,
   POSSESSION_PULL_FACTOR,
   POSSESSION_PULL_CAP,
+  EN_FUEGO_PULL_BOOST,
+  EN_FUEGO_ZONE_BOOST,
   COLOR_RED,
   COLOR_BLUE,
   COLOR_RED_STR,
@@ -146,6 +148,7 @@ export class GameScene extends Phaser.Scene {
   })();
   private _ballShadow!: Phaser.GameObjects.Arc;
   private _dashRingGfx!: Phaser.GameObjects.Graphics;
+  private _vortexGfx!: Phaser.GameObjects.Graphics;
   private _hudOverlayGfx!: Phaser.GameObjects.Graphics;
   private _fireGraphics!: Phaser.GameObjects.Graphics;
   private _fireParticles: Array<{
@@ -280,6 +283,8 @@ export class GameScene extends Phaser.Scene {
 
     // Ball shadow
     this._ballShadow = this.add.circle(midX, midY, BALL_RADIUS, 0x000000, 0.3).setDepth(4);
+    // Vortex / Gravity Well
+    this._vortexGfx = this.add.graphics().setDepth(4.1);
     // Dash cooldown rings (drawn below players)
     this._dashRingGfx = this.add.graphics().setDepth(4.5).setVisible(false);
     // Dash ghosts
@@ -816,7 +821,7 @@ export class GameScene extends Phaser.Scene {
     this._hostButtons.updateSlapState(localPlayer.chargeMs);
 
     if (!isClientPrediction) {
-      const goal = stepBall(this.ball, dt);
+      const goal = stepBall(this.ball, dt, this._elapsedMs);
       if (goal) this._onGoal(goal);
     }
   }
@@ -872,6 +877,11 @@ export class GameScene extends Phaser.Scene {
   ): boolean {
     if (shotCooldownActive) return false;
 
+    // Gravity Well boost
+    const isFuego = player.enFuegoTimerMs > 0;
+    const zoneBoost = isFuego ? EN_FUEGO_ZONE_BOOST : 1.0;
+    const pullBoost = isFuego ? EN_FUEGO_PULL_BOOST : 1.0;
+
     // In online mode, if someone else has possession, don't try to take it
     if (this._mode === "online" && this.ball.possessedBy && this.ball.possessedBy !== player.id) {
       return false;
@@ -889,20 +899,20 @@ export class GameScene extends Phaser.Scene {
     // During slap-shot charge, pull ball back to blade so it's ready to hit
     if (isCharging) {
       const distToBlade = Math.hypot(this.ball.x - bladeTipX, this.ball.y - bladeTipY);
-      if (distToBlade > 75) return false;
-      if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
+      if (distToBlade > 75 * zoneBoost) return false;
+      if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600 * pullBoost) return false;
 
       // Velocity coupling: 0.40 total (0.15 from assist + 0.25 here)
       applyPossessionAssist(this.ball, player.vx, player.vy);
-      this.ball.vx += (player.vx - this.ball.vx) * 0.25;
-      this.ball.vy += (player.vy - this.ball.vy) * 0.25;
+      this.ball.vx += (player.vx - this.ball.vx) * 0.25 * pullBoost;
+      this.ball.vy += (player.vy - this.ball.vy) * 0.25 * pullBoost;
 
       // Pull toward blade tip: smoother interpolation to prevent teleporting
       const dx = bladeTipX - this.ball.x;
       const dy = bladeTipY - this.ball.y;
       const dist = Math.hypot(dx, dy);
       if (dist > 0.1) {
-        const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP);
+        const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR * pullBoost, POSSESSION_PULL_CAP * pullBoost);
         this.ball.x += (dx / dist) * moveDist;
         this.ball.y += (dy / dist) * moveDist;
       }
@@ -915,24 +925,24 @@ export class GameScene extends Phaser.Scene {
     const targetY = player.y + aNy * DRIBBLE_DIST + stickDir.y * side;
 
     // Possession zone: centred in front of player, generous 75px radius for easy pickup
-    const zoneRadius = 75;
+    const zoneRadius = 75 * zoneBoost;
     const zoneCX = player.x + aNx * DRIBBLE_DIST;
     const zoneCY = player.y + aNy * DRIBBLE_DIST;
     if (Math.hypot(this.ball.x - zoneCX, this.ball.y - zoneCY) > zoneRadius) return false;
 
-    if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600) return false;
+    if (Math.hypot(this.ball.vx - player.vx, this.ball.vy - player.vy) > 600 * pullBoost) return false;
 
     // Velocity coupling: 0.40 total (0.15 from assist + 0.25 here)
     applyPossessionAssist(this.ball, player.vx, player.vy);
-    this.ball.vx += (player.vx - this.ball.vx) * 0.25;
-    this.ball.vy += (player.vy - this.ball.vy) * 0.25;
+    this.ball.vx += (player.vx - this.ball.vx) * 0.25 * pullBoost;
+    this.ball.vy += (player.vy - this.ball.vy) * 0.25 * pullBoost;
 
     // Pull toward dribble target: smoother interpolation to prevent teleporting
     const dx = targetX - this.ball.x;
     const dy = targetY - this.ball.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 0.1) {
-      const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR, POSSESSION_PULL_CAP);
+      const moveDist = Math.min(dist * POSSESSION_PULL_FACTOR * pullBoost, POSSESSION_PULL_CAP * pullBoost);
       this.ball.x += (dx / dist) * moveDist;
       this.ball.y += (dy / dist) * moveDist;
     }
@@ -987,6 +997,7 @@ export class GameScene extends Phaser.Scene {
     const isBolt = player.dashCooldownMs > DASH_COOLDOWN - 200 && player.dashCharges < MAX_DASH_CHARGES;
     const isPerfect = releaseShot(state, this.ball, aim.x, aim.y, isOT, player.vx, player.vy, player.lastDashTimeMs, this._elapsedMs);
     this.ball.isPerfect = isPerfect;
+    if (this.ball.isRebound) player.rebounds++;
     this.ball.lastHitterEnFuego = player.enFuegoTimerMs > 0;
     if (isPerfect) this._gainHeat(who, HEAT_GAIN_PERFECT);
 
@@ -1004,9 +1015,13 @@ export class GameScene extends Phaser.Scene {
       this.ball.boltTimerMs = 0;
     }
 
-    if (isPerfect || isBolt) {
-      this._spawnPerfectJuice(this.ball.x, this.ball.y);
-      this._frozenMs = isPerfect ? 50 : 30; // Hit-stop
+    if (isPerfect || isBolt || this.ball.isRebound) {
+      this._spawnPerfectJuice(this.ball.x, this.ball.y, this.ball.isRebound);
+      this._frozenMs = isPerfect ? 50 : (this.ball.isRebound ? 40 : 30); // Hit-stop
+      if (this.ball.isRebound) {
+        this._spawnReboundText(this.ball.x, this.ball.y - 60);
+        this._playReboundSound();
+      }
     }
     this._lastTouch = { playerId: who, timeMs: this._elapsedMs };
     if (who === "host") this._hostShotCooldownMs = GameScene.SHOT_COOLDOWN_MS;
@@ -1226,8 +1241,12 @@ export class GameScene extends Phaser.Scene {
 
     // Stats
     const p = winner === "host" ? this.host : this.client;
-    const statsText = `MAX SPEED: ${Math.round(this._maxBallSpeed)}  ·  PARRIES: ${p.parries}  ·  FAKES: ${p.fakes}`;
+    const statsText = `MAX SPEED: ${Math.round(this._maxBallSpeed)}  ·  PARRIES: ${p.parries}  ·  FAKES: ${p.fakes}  ·  REBOUNDS: ${p.rebounds}`;
     const statsLabel = this.add.text(cx, cy - 20, statsText, { fontSize: "18px", color: "#aaaaff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+
+    // MVP Highlight
+    const mvpStat = p.rebounds >= 2 ? "REBOUND KING" : (p.parries >= 2 ? "PARRY MASTER" : (p.fakes >= 2 ? "TRICKSTER" : "FASTEST HIT"));
+    const mvpLabel = this.add.text(cx, cy - 45, `MVP: ${mvpStat}`, { fontSize: "16px", color: "#ffffff", fontStyle: "bold", backgroundColor: "#000000" }).setOrigin(0.5).setDepth(32).setScrollFactor(0);
 
     this.tweens.add({
       targets: statsLabel,
@@ -1256,6 +1275,11 @@ export class GameScene extends Phaser.Scene {
     // Rematch button
     const rematchBtn = this.add.rectangle(cx, cy + 100, 250, 60, winner === "host" ? COLOR_RED : COLOR_BLUE, 1).setDepth(31).setInteractive({ useHandCursor: true }).setScrollFactor(0);
     const rematchText = this.add.text(cx, cy + 100, "REMATCH (10)", { fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5).setDepth(31).setScrollFactor(0);
+
+    // REVENGE?
+    if (winner === (this._isAuthoritative ? "client" : "host")) {
+      rematchText.setText("REVENGE? (10)");
+    }
     this._rematchBtn = rematchBtn;
     this._rematchBtnText = rematchText;
 
@@ -1300,7 +1324,7 @@ export class GameScene extends Phaser.Scene {
 
     menuBtn.on("pointerup", () => this.scene.start("MenuScene"));
 
-    this._matchOverObjects = [bg, title, winLabel, statsLabel, streakLabel, this._rematchBtn, this._rematchBtnText, menuBtn, menuText];
+    this._matchOverObjects = [bg, title, winLabel, statsLabel, streakLabel, mvpLabel, this._rematchBtn!, this._rematchBtnText!, menuBtn, menuText];
     this._addUI(this._matchOverObjects);
   }
 
@@ -1368,6 +1392,24 @@ export class GameScene extends Phaser.Scene {
       g.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.2);
+    } catch { /* audio not available */ }
+  }
+
+  private _playReboundSound(): void {
+    try {
+      const ctx = (this.game.sound as any).context;
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1600, ctx.currentTime + 0.1);
+      g.gain.setValueAtTime(0.3, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
     } catch { /* audio not available */ }
   }
 
@@ -1514,6 +1556,12 @@ export class GameScene extends Phaser.Scene {
         const b = 255;
         const r = Math.round(t * 255);
         color = (r << 16) | (g << 8) | b;
+    } else if (this.ball.isRebound) {
+      // Prismatic: Cyan -> Purple -> White
+      const r = Math.round(Math.max(0, 1 - t) * 255);
+      const g = Math.round(t * 255);
+      const b = 255;
+      color = (r << 16) | (g << 8) | b;
       } else {
         // Cyan (t=1) -> White (t=0.5) -> Cyan (t=0)
         const g = 255;
@@ -1548,24 +1596,45 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private _spawnPerfectJuice(x: number, y: number): void {
-    this.cameras.main.shake(150, 0.005);
+  private _spawnPerfectJuice(x: number, y: number, isRebound = false): void {
+    this.cameras.main.shake(150, isRebound ? 0.008 : 0.005);
 
     // Expanding shockwave ring
     const ring = this.add.graphics().setDepth(20);
     const data = { r: 10, a: 1 };
+    const color = isRebound ? 0x00ffff : 0xffffff;
     this.tweens.add({
       targets: data,
-      r: 100,
+      r: isRebound ? 150 : 100,
       a: 0,
       duration: 300,
       ease: "Cubic.out",
       onUpdate: () => {
         ring.clear();
-        ring.lineStyle(4, 0xffffff, data.a);
+        ring.lineStyle(isRebound ? 6 : 4, color, data.a);
         ring.strokeCircle(x, y, data.r);
       },
       onComplete: () => ring.destroy(),
+    });
+  }
+
+  private _spawnReboundText(x: number, y: number): void {
+    const txt = this.add.text(x, y, "REBOUND!", {
+      fontSize: "28px",
+      color: "#00ffff",
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(20);
+
+    this.tweens.add({
+      targets: txt,
+      y: y - 50,
+      alpha: 0,
+      scale: 1.8,
+      duration: 700,
+      ease: "Back.out",
+      onComplete: () => txt.destroy(),
     });
   }
 
@@ -1713,6 +1782,27 @@ export class GameScene extends Phaser.Scene {
   }
 
   protected _syncSprites(): void {
+    // Vortex / Gravity Well
+    this._vortexGfx.clear();
+    [this.host, this.client].forEach(p => {
+      if (p.enFuegoTimerMs > 0) {
+        const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 100);
+        const r = 75 * EN_FUEGO_ZONE_BOOST;
+        this._vortexGfx.lineStyle(2, p.id === "host" ? COLOR_RED : COLOR_BLUE, 0.4 * pulse);
+        this._vortexGfx.strokeCircle(p.x, p.y, r);
+
+        // Inner spinning ring
+        const rot = this.time.now / 200;
+        this._vortexGfx.lineStyle(4, 0xffffff, 0.2 * pulse);
+        this._vortexGfx.beginPath();
+        this._vortexGfx.arc(p.x, p.y, r - 10, rot, rot + Math.PI * 0.5);
+        this._vortexGfx.strokePath();
+        this._vortexGfx.beginPath();
+        this._vortexGfx.arc(p.x, p.y, r - 10, rot + Math.PI, rot + Math.PI * 1.5);
+        this._vortexGfx.strokePath();
+      }
+    });
+
     // Ball rises visually as z increases; scale grows noticeably with height
     const visualY = this.ball.y - this.ball.z * 0.6;
     if (this.ball.isScoop) {

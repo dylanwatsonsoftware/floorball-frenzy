@@ -66,7 +66,7 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
     const type = view[0];
     const dv = new DataView(view.buffer, view.byteOffset, view.byteLength);
 
-  if (type === TYPE_STATE && (view.byteLength === 151 || view.byteLength === 155)) {
+  if (type === TYPE_STATE && (view.byteLength === 151 || view.byteLength === 155 || view.byteLength === 165)) {
       return { type: "state", snapshot: decodeSnapshot(dv) };
     }
     if (type === TYPE_INPUT && view.byteLength === 14) {
@@ -86,7 +86,7 @@ export function decodeMessage(raw: string | ArrayBufferLike | Uint8Array): GameM
 // ─── Binary Snapshot (151 bytes) ──────────────────────────────────────────────
 
 function encodeSnapshot(s: GameState): Uint8Array {
-  const buf = new ArrayBuffer(155);
+  const buf = new ArrayBuffer(165);
   const v = new DataView(buf);
   v.setUint8(0, TYPE_STATE);
   v.setFloat32(1, s.t, true);
@@ -103,10 +103,12 @@ function encodeSnapshot(s: GameState): Uint8Array {
   if (s.ball.isBolt) bFlags |= 2;
   if (s.ball.isScoop) bFlags |= 4;
   if (s.ball.lastHitterEnFuego) bFlags |= 8;
+  if (s.ball.isRebound) bFlags |= 16;
   v.setUint8(29, bFlags);
   v.setFloat32(30, s.ball.boltTimerMs || 0, true);
   v.setUint8(34, s.ball.possessedBy === "host" ? 1 : s.ball.possessedBy === "client" ? 2 : 0);
   v.setFloat32(35, s.ball.scoopTimerMs || 0, true);
+  v.setFloat32(39, s.ball.reboundTimerMs || 0, true);
 
   // Players
   const writePlayer = (p: Player, offset: number) => {
@@ -130,19 +132,22 @@ function encodeSnapshot(s: GameState): Uint8Array {
     v.setFloat32(offset + 50, p.lastDashTimeMs, true);
     v.setUint8(offset + 54, Math.min(255, p.fakes));
     v.setUint8(offset + 55, Math.min(255, p.parries));
+    v.setUint8(offset + 56, Math.min(255, p.rebounds));
   };
 
-  writePlayer(s.players.host, 39);
-  writePlayer(s.players.client, 95);
+  writePlayer(s.players.host, 43);
+  writePlayer(s.players.client, 100);
 
-  v.setUint16(151, s.score.host, true);
-  v.setUint16(153, s.score.client, true);
+  v.setUint16(157, s.score.host, true);
+  v.setUint16(159, s.score.client, true);
 
   return new Uint8Array(buf);
 }
 
 function decodeSnapshot(v: DataView): GameState {
-  const isExtended = v.byteLength === 155;
+  const byteLen = v.byteLength;
+  const isV2 = byteLen === 155;
+  const isV3 = byteLen === 165;
   const t = v.getFloat32(1, true);
 
   const bFlags = v.getUint8(29);
@@ -158,9 +163,11 @@ function decodeSnapshot(v: DataView): GameState {
     isBolt: !!(bFlags & 2),
     isScoop: !!(bFlags & 4),
     lastHitterEnFuego: !!(bFlags & 8),
+    isRebound: !!(bFlags & 16),
     boltTimerMs: v.getFloat32(30, true),
     possessedBy: bPoss === 1 ? "host" : bPoss === 2 ? "client" : null,
     scoopTimerMs: v.getFloat32(35, true),
+    reboundTimerMs: isV3 ? v.getFloat32(39, true) : 0,
   };
 
   const readPlayer = (offset: number, id: string): Player => {
@@ -179,8 +186,9 @@ function decodeSnapshot(v: DataView): GameState {
       heat: v.getFloat32(offset + 42, true),
       enFuegoTimerMs: v.getFloat32(offset + 46, true),
       lastDashTimeMs: v.getFloat32(offset + 50, true),
-      fakes: isExtended ? v.getUint8(offset + 54) : 0,
-      parries: isExtended ? v.getUint8(offset + 55) : 0,
+      fakes: (isV2 || isV3) ? v.getUint8(offset + 54) : 0,
+      parries: (isV2 || isV3) ? v.getUint8(offset + 55) : 0,
+      rebounds: isV3 ? v.getUint8(offset + 56) : 0,
       input: {
         moveX: v.getFloat32(offset + 33, true),
         moveY: v.getFloat32(offset + 37, true),
@@ -194,12 +202,12 @@ function decodeSnapshot(v: DataView): GameState {
     t,
     ball,
     players: {
-      host: readPlayer(39, "host"),
-      client: readPlayer(isExtended ? 95 : 93, "client"),
+      host: readPlayer(isV3 ? 43 : 39, "host"),
+      client: readPlayer(isV3 ? 100 : (isV2 ? 95 : 93), "client"),
     },
     score: {
-      host: v.getUint16(isExtended ? 151 : 147, true),
-      client: v.getUint16(isExtended ? 153 : 149, true),
+      host: v.getUint16(isV3 ? 157 : (isV2 ? 151 : 147), true),
+      client: v.getUint16(isV3 ? 159 : (isV2 ? 153 : 149), true),
     },
   };
 }
